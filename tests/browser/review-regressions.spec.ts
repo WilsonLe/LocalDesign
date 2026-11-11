@@ -408,3 +408,227 @@ test("actual native exporter reopens a supported metadata scene above eight MB",
   expect(reopened.total).toBe(401);
   expect(reopened.documentId).not.toBe(d.documentId);
 });
+
+for (const operation of ["apply_edits", "validate_edits"])
+  test(`${operation} rejects retirement or caller cancellation after asynchronous image validation`, async ({
+    page,
+  }) => {
+    await harness(page);
+    await open(page);
+    const d = await inspect(page);
+    await page.evaluate(() => {
+      const original = HTMLImageElement.prototype.decode;
+      HTMLImageElement.prototype.decode = async function () {
+        await original.call(this);
+        if ((window as any).__holdDecode) {
+          (window as any).__decodeHeld = true;
+          await new Promise<void>((resolve) => {
+            (window as any).__releaseDecode = resolve;
+          });
+        }
+      };
+    });
+    const asset = {
+      id: "pending-asset",
+      name: "Pixel",
+      mime: "image/png",
+      data: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aPS0AAAAASUVORK5CYII=",
+      width: 1,
+      height: 1,
+    };
+    for (const cancel of ["retire", "caller"]) {
+      await page.evaluate(
+        ({ d, asset, operation, cancel }) => {
+          (window as any).__holdDecode = true;
+          (window as any).__decodeHeld = false;
+          (window as any).__asyncResult = undefined;
+          const controller = new AbortController();
+          (window as any).__cancel = () => controller.abort();
+          const tool = (window as any).__testSiteTools.get(
+            `localdesign_${operation}`,
+          );
+          void tool
+            .execute(
+              {
+                expectedDocumentId: d.documentId,
+                expectedRevision: d.revision,
+                requestId: `pending-${operation}-${cancel}`,
+                commands: [
+                  { op: "asset_add", asset },
+                  { op: "rename", name: "Should never commit" },
+                ],
+              },
+              { signal: controller.signal },
+            )
+            .then((r: any) => {
+              (window as any).__asyncResult = r;
+            });
+        },
+        { d, asset, operation, cancel },
+      );
+      await expect
+        .poll(() => page.evaluate(() => (window as any).__decodeHeld))
+        .toBe(true);
+      await page.evaluate((cancel) => {
+        if (cancel === "retire") {
+          window.dispatchEvent(
+            new PageTransitionEvent("pagehide", { persisted: true }),
+          );
+          window.dispatchEvent(
+            new PageTransitionEvent("pageshow", { persisted: true }),
+          );
+        } else (window as any).__cancel();
+        (window as any).__holdDecode = false;
+        (window as any).__releaseDecode();
+      }, cancel);
+      await expect
+        .poll(() => page.evaluate(() => (window as any).__asyncResult?.code))
+        .toBe("DISPOSED");
+      const current = await inspect(page);
+      expect(current.revision).toBe(d.revision);
+      expect(current.name).toBe(d.name);
+      expect(current.assets).toHaveLength(0);
+    }
+  });
+test("workspace mutations reject retirement while waiting to save", async ({
+  page,
+}) => {
+  await harness(page);
+  await open(page);
+  const d = await inspect(page);
+  // Hold a real document transaction so workspace create must await the save queue.
+  await page.evaluate(() => {
+    const original = IDBDatabase.prototype.transaction;
+    IDBDatabase.prototype.transaction = function (
+      ...args: Parameters<IDBDatabase["transaction"]>
+    ) {
+      const tx = original.apply(this, args);
+      if (
+        args[1] === "readwrite" &&
+        tx.objectStoreNames.contains("documents") &&
+        !(window as any).__writeHeld
+      ) {
+        let hold = true;
+        const store = tx.objectStore("documents");
+        const spin = () => {
+          if (hold) {
+            const request = store.get("__hold_cancel__");
+            request.onsuccess = spin;
+          }
+        };
+        spin();
+        (window as any).__writeHeld = true;
+        (window as any).__releaseWrite = () => {
+          hold = false;
+        };
+      }
+      return tx;
+    };
+  });
+  await edits(page, [{ op: "rename", name: "Saved before cancelled switch" }]);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__writeHeld))
+    .toBe(true);
+  const before = await inspect(page);
+  await page.evaluate((before) => {
+    const tool = (window as any).__testSiteTools.get("localdesign_workspace");
+    void tool
+      .execute({
+        action: "create",
+        name: "Cancelled new document",
+        guard: {
+          expectedDocumentId: before.documentId,
+          expectedRevision: before.revision,
+          requestId: "cancelled-workspace",
+        },
+      })
+      .then((r: any) => {
+        (window as any).__workspaceResult = r;
+      });
+  }, before);
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new PageTransitionEvent("pagehide", { persisted: true }),
+    );
+    window.dispatchEvent(
+      new PageTransitionEvent("pageshow", { persisted: true }),
+    );
+    (window as any).__releaseWrite();
+  });
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__workspaceResult?.code))
+    .toBe("DISPOSED");
+  const current = await inspect(page);
+  expect(current.documentId).toBe(d.documentId);
+  expect(current.name).toBe("Saved before cancelled switch");
+});
+test("declared raster MIME must match decoded byte format before accepting tool or clipboard content", async ({
+  page,
+}) => {
+  await harness(page);
+  await open(page);
+  const d = await inspect(page);
+  const jpeg = await page.evaluate(() => {
+    const c = document.createElement("canvas");
+    c.width = 2;
+    c.height = 2;
+    c.getContext("2d")!.fillRect(0, 0, 2, 2);
+    return c.toDataURL("image/jpeg").split(",")[1];
+  });
+  const asset = {
+    id: "mislabeled",
+    name: "JPEG declared PNG",
+    mime: "image/png",
+    data: `data:image/png;base64,${jpeg}`,
+    width: 2,
+    height: 2,
+  };
+  const command = {
+    expectedDocumentId: d.documentId,
+    expectedRevision: d.revision,
+    requestId: "mislabeled-image",
+    commands: [{ op: "asset_add", asset }],
+  };
+  expect((await tool(page, "apply_edits", command)).code).toBe("ASSET_MIME");
+  expect((await tool(page, "validate_edits", command)).code).toBe("ASSET_MIME");
+  expect((await inspect(page)).assets).toHaveLength(0);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.evaluate(async (asset) => {
+    await navigator.clipboard.writeText(
+      JSON.stringify({
+        format: "localdesign-clipboard-v1",
+        nodes: [],
+        assets: [asset],
+      }),
+    );
+  }, asset);
+  await page.getByTestId("canvas").focus();
+  await page.keyboard.press("ControlOrMeta+v");
+  await expect(page.getByRole("status")).toContainText("declared MIME");
+  expect((await inspect(page)).assets).toHaveLength(0);
+  // Correct MIME enters, exports and reopens through the same byte contract.
+  await edits(page, [
+    {
+      op: "asset_add",
+      asset: {
+        ...asset,
+        id: "correct-jpeg",
+        mime: "image/jpeg",
+        data: `data:image/jpeg;base64,${jpeg}`,
+      },
+    },
+  ]);
+  const exported = await tool(page, "export_design", { format: "native" });
+  expect(exported.isError, exported.message).not.toBe(true);
+  const bytes = await tool(page, "artifact", {
+    id: exported.id,
+    action: "read",
+    length: 524288,
+  });
+  const prepared = await tool(page, "import_files", {
+    action: "prepare",
+    name: "jpeg.localdesign",
+    base64: bytes.base64,
+  });
+  expect(prepared.isError, prepared.message).not.toBe(true);
+});

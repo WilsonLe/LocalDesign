@@ -1,3 +1,4 @@
+import { imageMime } from "./image-type";
 import { DesignError, requireThat, type DesignAsset } from "../core/model";
 export async function decodeRaster(
   data: string,
@@ -23,6 +24,22 @@ export async function decodeRaster(
 }
 export async function validateRasterAssets(assets: DesignAsset[]) {
   for (const asset of assets) {
+    let bytes: Uint8Array;
+    try {
+      bytes = Uint8Array.from(atob(asset.data.split(",")[1]), (c) =>
+        c.charCodeAt(0),
+      );
+    } catch {
+      throw new DesignError(
+        "INVALID_ASSET",
+        "Embedded image bytes are not valid base64.",
+      );
+    }
+    requireThat(
+      imageMime(bytes) === asset.mime,
+      "ASSET_MIME",
+      `Embedded image bytes do not match the declared MIME for ${asset.name}.`,
+    );
     const size = await decodeRaster(asset.data);
     requireThat(
       size.width === asset.width && size.height === asset.height,

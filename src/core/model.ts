@@ -268,3 +268,11 @@ export function ancestors(d: DesignDocument, n: DesignNode): DesignNode[] {
   }
   return out;
 }
+
+export function assertNotAborted(signal?: AbortSignal) {
+  requireThat(
+    !signal?.aborted,
+    "DISPOSED",
+    "The operation was cancelled or its page tools retired. Discover the current tools again.",
+  );
+}

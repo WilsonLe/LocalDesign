@@ -1,5 +1,6 @@
 import { openDB } from "idb";
 import {
+  assertNotAborted,
   blankDocument,
   DesignError,
   uid,
@@ -135,7 +136,8 @@ export class Workspace {
       "Local save failed. Export a .localdesign backup before switching documents.",
     );
   }
-  async saveCopy() {
+  async saveCopy(signal?: AbortSignal) {
+    assertNotAborted(signal);
     const copy = structuredClone(this.engine.document);
     copy.id = uid();
     copy.revision = 0;
@@ -158,7 +160,7 @@ export class Workspace {
       nodes: d.nodes.length,
     }));
   }
-  async create(name?: string) {
+  async create(name?: string, signal?: AbortSignal) {
     const expected = this.engine.document;
     await this.flush();
     requireThat(
@@ -166,11 +168,12 @@ export class Workspace {
       "STALE_REVISION",
       "Document changed while saving. Retry the workspace action.",
     );
+    assertNotAborted(signal);
     this.engine.replace(blankDocument(name));
     await this.flush();
     return this.engine.document;
   }
-  async open(id: string) {
+  async open(id: string, signal?: AbortSignal) {
     const expected = this.engine.document;
     await this.flush();
     const store = await db(),
@@ -181,12 +184,13 @@ export class Workspace {
       "Document changed while opening. Retry the workspace action.",
     );
     requireThat(d, "MISSING_DOCUMENT", "Unknown document.");
+    assertNotAborted(signal);
     this.savedBases.set(d.id, JSON.stringify(d));
     this.engine.replace(validateDocument(d));
     await this.flush();
     return this.engine.document;
   }
-  async import(d: DesignDocument) {
+  async import(d: DesignDocument, signal?: AbortSignal) {
     const next = validateDocument(d),
       expected = this.engine.document;
     await this.flush();
@@ -195,11 +199,13 @@ export class Workspace {
       "STALE_REVISION",
       "Document changed while importing. Retry the import.",
     );
+    assertNotAborted(signal);
     this.engine.replace(next);
     await this.flush();
     return next;
   }
-  async remove(id: string) {
+  async remove(id: string, signal?: AbortSignal) {
+    const expected = this.engine.document;
     requireThat(
       id !== this.engine.document.id,
       "ACTIVE_DOCUMENT",
@@ -207,6 +213,17 @@ export class Workspace {
     );
     await this.flush();
     const store = await db();
+    assertNotAborted(signal);
+    requireThat(
+      this.engine.document === expected,
+      "STALE_REVISION",
+      "Document changed while deleting. Retry the workspace action.",
+    );
+    requireThat(
+      id !== this.engine.document.id,
+      "ACTIVE_DOCUMENT",
+      "Open another document before deleting this one.",
+    );
     await store.delete("documents", id);
   }
 }
