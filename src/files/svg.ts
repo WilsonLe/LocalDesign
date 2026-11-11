@@ -261,9 +261,15 @@ export function svgImport(source: string): {
         "UNSUPPORTED_SVG",
         "Only translate and origin rotation transforms are supported.",
       );
-      node.x += Number(match[1]);
-      node.y += Number(match[2] ?? 0);
-      node.rotation = Number(match[3] ?? 0);
+      // SVG applies the element's x/y before its transform list: T · R · P.
+      // Fold that rotated local origin into our T · R scene representation.
+      const rotation = Number(match[3] ?? 0),
+        r = (rotation * Math.PI) / 180,
+        x = node.x,
+        y = node.y;
+      node.x = Number(match[1]) + x * Math.cos(r) - y * Math.sin(r);
+      node.y = Number(match[2] ?? 0) + x * Math.sin(r) + y * Math.cos(r);
+      node.rotation = rotation;
     }
     CommandSchema.parse({ op: "create", node } satisfies Command);
     doc.nodes.push(node);

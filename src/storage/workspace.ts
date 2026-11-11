@@ -21,6 +21,7 @@ export class Workspace {
   status: "loading" | "saving" | "saved" | "error" = "loading";
   error = "";
   private saveChain = Promise.resolve();
+  private pendingSaves = 0;
   private savedVersion = -1;
   private docId = "";
   private savedBases = new Map<string, string>();
@@ -106,15 +107,18 @@ export class Workspace {
     }
   }
   private queueSave(d: DesignDocument) {
+    this.pendingSaves++;
     this.status = "saving";
     this.emit();
     this.saveChain = this.saveChain.then(async () => {
       try {
         await this.persist(d);
-        this.status = "saved";
+        this.pendingSaves--;
+        this.status = this.pendingSaves ? "saving" : "saved";
         this.error = "";
         this.emit();
       } catch (e) {
+        this.pendingSaves--;
         this.fail(e);
       }
     });

@@ -1,3 +1,5 @@
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { useState } from "react";
 import {
   ChevronDown,
@@ -62,7 +64,7 @@ export function Layers({
           className={`layer-row ${selection.includes(n.id) ? "selected" : ""} ${n.hidden ? "hidden-layer" : ""}`}
           style={{ paddingLeft: 10 + depth * 14 }}
         >
-          <button
+          <Button
             className="collapse-layer"
             aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${n.name}`}
             disabled={!children.length}
@@ -84,8 +86,8 @@ export function Layers({
             ) : (
               <span />
             )}
-          </button>
-          <button
+          </Button>
+          <Button
             className="layer-select"
             aria-label={`Select ${n.name}`}
             aria-pressed={selection.includes(n.id)}
@@ -101,8 +103,8 @@ export function Layers({
           >
             <Icon size={13} />
             <span>{n.name}</span>
-          </button>
-          <button
+          </Button>
+          <Button
             className="layer-action"
             aria-label={`${n.locked ? "Unlock" : "Lock"} ${n.name}`}
             onClick={() =>
@@ -110,8 +112,8 @@ export function Layers({
             }
           >
             {n.locked ? <LockKeyhole size={12} /> : <UnlockKeyhole size={12} />}
-          </button>
-          <button
+          </Button>
+          <Button
             className="layer-action"
             aria-label={`${n.hidden ? "Show" : "Hide"} ${n.name}`}
             onClick={() =>
@@ -119,7 +121,7 @@ export function Layers({
             }
           >
             {n.hidden ? <EyeOff size={12} /> : <Eye size={12} />}
-          </button>
+          </Button>
         </div>
         {!isCollapsed && [...children].reverse().map((c) => row(c, depth + 1))}
       </div>
@@ -139,7 +141,7 @@ export function Layers({
       <section className="pages-section">
         <div className="section-heading">
           <h2>Pages</h2>
-          <button
+          <Button
             aria-label="Add page"
             title="Add page"
             onClick={() => {
@@ -150,7 +152,7 @@ export function Layers({
                   page: {
                     id,
                     name: `Page ${doc.pages.length + 1}`,
-                    background: "#202023",
+                    background: "#202020",
                   },
                 },
               ]);
@@ -158,28 +160,28 @@ export function Layers({
             }}
           >
             <Plus size={14} />
-          </button>
+          </Button>
         </div>
         {doc.pages.map((p) => (
           <div
             className={`page-row ${p.id === pageId ? "active" : ""}`}
             key={p.id}
           >
-            <button
+            <Button
               aria-pressed={p.id === pageId}
               onClick={() => engine.select([], p.id)}
             >
               <span className="page-indicator" />
               {p.name}
-            </button>
+            </Button>
             {doc.pages.length > 1 && (
-              <button
+              <Button
                 aria-label={`Delete ${p.name}`}
                 title="Delete page and its layers (undo available)"
                 onClick={() => run([{ op: "page_delete", id: p.id }])}
               >
                 <Trash2 size={12} />
-              </button>
+              </Button>
             )}
           </div>
         ))}
@@ -190,7 +192,7 @@ export function Layers({
       </div>
       <label className="layer-search">
         <Search size={13} />
-        <input
+        <Input
           aria-label="Search layers"
           placeholder="Find a layer…"
           value={query}

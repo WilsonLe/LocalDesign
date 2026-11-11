@@ -34,14 +34,28 @@ export function worldRotation(d: DesignDocument, n: DesignNode) {
 }
 export function bounds(d: DesignDocument, nodes: DesignNode[]) {
   if (!nodes.length) return { x: 0, y: 0, width: 800, height: 600 };
-  const points = nodes.flatMap((n) =>
-    [
-      { x: 0, y: 0 },
-      { x: n.width, y: 0 },
-      { x: n.width, y: n.height },
-      { x: 0, y: n.height },
-    ].map((p) => worldPoint(d, n, p)),
-  );
+  const visible: DesignNode[] = [];
+  const visited = new Set<string>();
+  const include = (n: DesignNode) => {
+    if (visited.has(n.id) || n.hidden) return;
+    visited.add(n.id);
+    if (n.type !== "group") visible.push(n);
+    if (n.type === "group" || (n.type === "frame" && !n.clip))
+      for (const child of d.nodes.filter((c) => c.parentId === n.id))
+        include(child);
+  };
+  nodes.forEach(include);
+  if (!visible.length) return { x: 0, y: 0, width: 800, height: 600 };
+  const points = visible.flatMap((n) => {
+    const stroke =
+      n.type === "frame" || n.stroke === "none" ? 0 : n.strokeWidth / 2;
+    return [
+      { x: -stroke, y: -stroke },
+      { x: n.width + stroke, y: -stroke },
+      { x: n.width + stroke, y: n.height + stroke },
+      { x: -stroke, y: n.height + stroke },
+    ].map((p) => worldPoint(d, n, p));
+  });
   const x = Math.min(...points.map((p) => p.x)),
     y = Math.min(...points.map((p) => p.y));
   return {

@@ -1,3 +1,4 @@
+import { MAX_DOCUMENT_BYTES, MAX_PORTABLE_BYTES } from "./limits";
 import { z } from "zod";
 export const uid = () => crypto.randomUUID();
 export const Id = z
@@ -75,7 +76,7 @@ export const PageSchema = z
   .object({
     id: Id,
     name: z.string().min(1).max(200),
-    background: Paint.default("#202023"),
+    background: Paint.default("#202020"),
   })
   .strict();
 export type DesignPage = z.infer<typeof PageSchema>;
@@ -112,7 +113,7 @@ export function blankDocument(name = "Untitled design"): DesignDocument {
     id: uid(),
     revision: 0,
     name,
-    pages: [{ id: uid(), name: "Page 1", background: "#202023" }],
+    pages: [{ id: uid(), name: "Page 1", background: "#202020" }],
     nodes: [],
     assets: [],
   };
@@ -134,8 +135,8 @@ export function makeNode(
           ? "#ffffff"
           : type === "line" || type === "path"
             ? "none"
-            : "#a6a0ff",
-    stroke: type === "line" || type === "path" ? "#a6a0ff" : "none",
+            : "#c4c4c4",
+    stroke: type === "line" || type === "path" ? "#c4c4c4" : "none",
     ...values,
   });
 }
@@ -208,6 +209,34 @@ export function validateDocument(input: unknown): DesignDocument {
       p = parent;
     }
   }
+  const portable = {
+    ...d,
+    assets: d.assets.map((a) => ({
+      ...a,
+      data: `assets/${a.id}.${a.mime.split("/")[1]}`,
+    })),
+  };
+  const documentBytes = new TextEncoder().encode(
+    JSON.stringify(portable),
+  ).length;
+  const assetBytes = d.assets.reduce((sum, a) => {
+    const data = a.data.split(",")[1];
+    return (
+      sum +
+      Math.floor((data.length * 3) / 4) -
+      (data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0)
+    );
+  }, 0);
+  requireThat(
+    documentBytes <= MAX_DOCUMENT_BYTES,
+    "SIZE_LIMIT",
+    "Design metadata exceeds the 24 MB editable-file limit. Split this work across local documents.",
+  );
+  requireThat(
+    documentBytes + assetBytes <= MAX_PORTABLE_BYTES,
+    "SIZE_LIMIT",
+    "Design content exceeds the 30 MB portable-file budget. Use smaller images or split pages into separate documents.",
+  );
   return d;
 }
 export function descendants(d: DesignDocument, id: string): DesignNode[] {

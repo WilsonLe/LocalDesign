@@ -1,3 +1,4 @@
+import { validateRasterAssets } from "../files/raster";
 import { z } from "zod";
 import type { DesignEngine } from "../core/engine";
 import {
@@ -90,6 +91,7 @@ export async function pasteSelection(engine: DesignEngine) {
     "STALE_REVISION",
     "Document changed while reading clipboard.",
   );
+  await validateRasterAssets(newAssets);
   engine.edit({
     ...guard,
     commands: [

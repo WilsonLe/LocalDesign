@@ -1,3 +1,8 @@
+import { BrandMark } from "../components/BrandMark";
+import { Dialog, DialogContent, DialogTitle } from "../components/ui/dialog";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { NativeSelect } from "../components/ui/native-select";
 import {
   useEffect,
   useRef,
@@ -64,32 +69,30 @@ function Modal({
   onClose: () => void;
   children: ReactNode;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const active = document.activeElement as HTMLElement | null;
-    ref.current?.showModal();
-    return () => {
-      active?.focus();
-    };
-  }, []);
+  const [returnFocus] = useState(
+    () => document.activeElement as HTMLElement | null,
+  );
   return (
-    <dialog
-      ref={ref}
-      className="modal"
-      aria-labelledby="dialog-title"
-      onCancel={onClose}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
       }}
     >
-      <div className="modal-heading">
-        <h2 id="dialog-title">{title}</h2>
-        <button aria-label="Close dialog" onClick={onClose}>
-          <X size={18} />
-        </button>
-      </div>
-      {children}
-    </dialog>
+      <DialogContent
+        className="modal"
+        aria-describedby={undefined}
+        finalFocus={() => returnFocus}
+      >
+        <div className="modal-heading">
+          <DialogTitle id="dialog-title">{title}</DialogTitle>
+          <Button aria-label="Close dialog" onClick={onClose}>
+            <X size={18} />
+          </Button>
+        </div>
+        {children}
+      </DialogContent>
+    </Dialog>
   );
 }
 const tools = [
@@ -424,21 +427,17 @@ export function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <button
+        <Button
           className="brand"
           title="Local workspace"
           onClick={() => setModal("workspace")}
         >
-          <span className="brand-mark">
-            <i />
-            <i />
-            <i />
-          </span>
+          <BrandMark />
           <span>LocalDesign</span>
-        </button>
+        </Button>
         <span className="top-divider" />
         <div className="document-title">
-          <input
+          <Input
             ref={nameRef}
             aria-label="Design name"
             disabled={!ready}
@@ -458,12 +457,12 @@ export function App() {
               if (e.key === "Enter") e.currentTarget.blur();
             }}
           />
-          <button
+          <Button
             aria-label="Open workspace"
             onClick={() => setModal("workspace")}
           >
             <ChevronDown size={13} />
-          </button>
+          </Button>
         </div>
         <span
           className={`save-state ${storage === "error" ? "failed" : ""}`}
@@ -488,7 +487,7 @@ export function App() {
         </span>
         <div className="top-spacer" />
         <div className="history-actions">
-          <button
+          <Button
             aria-label="Undo"
             title="Undo (⌘/Ctrl Z)"
             disabled={!snapshot.canUndo}
@@ -497,8 +496,8 @@ export function App() {
             }
           >
             <Undo2 size={16} />
-          </button>
-          <button
+          </Button>
+          <Button
             aria-label="Redo"
             title="Redo (⌘/Ctrl Shift Z)"
             disabled={!snapshot.canRedo}
@@ -507,10 +506,10 @@ export function App() {
             }
           >
             <Redo2 size={16} />
-          </button>
+          </Button>
         </div>
         <span className="top-divider" />
-        <button
+        <Button
           className={`agent-button ${connection === "connected" ? "connected" : ""}`}
           title="Connect an agent"
           aria-label="Connect an agent"
@@ -520,65 +519,65 @@ export function App() {
           <span>
             {connection === "connected" ? "Agent ready" : "Connect agent"}
           </span>
-        </button>
-        <button
+        </Button>
+        <Button
           className="import-button"
           onClick={() => fileInput.current?.click()}
           disabled={busy || !ready}
         >
           <ArrowUpFromLine size={14} />
           <span>Import</span>
-        </button>
-        <button
+        </Button>
+        <Button
           className="primary export-button"
           onClick={() => setModal("export")}
           disabled={busy || !ready}
         >
           <ArrowDownToLine size={14} />
           <span>Export</span>
-        </button>
+        </Button>
       </header>
       {storage === "error" && (
         <div className="storage-error" role="alert">
           <strong>Local save failed.</strong> {workspace.error} Export a
           .localdesign backup before leaving this page.{" "}
-          <button onClick={() => perform(() => workspace.retry())}>
+          <Button onClick={() => perform(() => workspace.retry())}>
             Retry save
-          </button>
-          <button onClick={() => setModal("export")}>Export backup</button>
-          <button onClick={() => perform(() => workspace.saveCopy())}>
+          </Button>
+          <Button onClick={() => setModal("export")}>Export backup</Button>
+          <Button onClick={() => perform(() => workspace.saveCopy())}>
             Save a copy
-          </button>
+          </Button>
         </div>
       )}
       <div className="mobile-controls">
-        <button
+        <Button
           aria-expanded={drawer === "layers"}
           onClick={() => setDrawer(drawer === "layers" ? null : "layers")}
         >
           <LayersIcon size={15} />
           Pages & layers
-        </button>
-        <button
+        </Button>
+        <Button
           aria-expanded={drawer === "inspector"}
           onClick={() => setDrawer(drawer === "inspector" ? null : "inspector")}
         >
           <Settings2 size={15} />
           Properties
-        </button>
+        </Button>
       </div>
       <main className="editor-body">
         <aside
           className={`left-panel ${drawer === "layers" ? "drawer-open" : ""}`}
           aria-label="Pages and layers"
         >
-          <button
+          <Button
             className="drawer-close"
             aria-label="Close layers"
             onClick={() => setDrawer(null)}
           >
             <X size={18} />
-          </button>
+          </Button>
           <Layers engine={engine} snapshot={snapshot} onError={setNotice} />
         </aside>
         <div ref={canvasWrap} className="canvas-area">
@@ -604,7 +603,7 @@ export function App() {
             aria-label="Drawing tools"
           >
             {tools.map(([id, title, key, Icon], i) => (
-              <button
+              <Button
                 key={id}
                 className={`${tool === id ? "active" : ""} ${i === 2 || i === 7 ? "tool-separated" : ""}`}
                 aria-label={title}
@@ -617,62 +616,62 @@ export function App() {
               >
                 <Icon size={18} />
                 {tool === id && <span className="tool-key">{key}</span>}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="zoom-controls">
-            <button aria-label="Zoom out" onClick={() => zoom(0.8)}>
+            <Button aria-label="Zoom out" onClick={() => zoom(0.8)}>
               <Minus size={14} />
-            </button>
-            <button
+            </Button>
+            <Button
               aria-label="Reset zoom"
               onClick={() => engine.setViewport({ zoom: 1 })}
             >
               {Math.round(viewport.zoom * 100)}%
-            </button>
-            <button aria-label="Zoom in" onClick={() => zoom(1.25)}>
+            </Button>
+            <Button aria-label="Zoom in" onClick={() => zoom(1.25)}>
               <Plus size={14} />
-            </button>
+            </Button>
             <span />
-            <button
+            <Button
               aria-label="Fit canvas"
               title="Fit canvas (1)"
               onClick={() => fit()}
             >
               <Maximize size={14} />
-            </button>
+            </Button>
           </div>
-          <button
+          <Button
             className="help-button"
             aria-label="Help and shortcuts"
             onClick={() => setModal("help")}
           >
             <HelpCircle size={17} />
-          </button>
+          </Button>
         </div>
         <aside
           className={`right-panel ${drawer === "inspector" ? "drawer-open" : ""}`}
           aria-label="Properties"
         >
-          <button
+          <Button
             className="drawer-close"
             aria-label="Close properties"
             onClick={() => setDrawer(null)}
           >
             <X size={18} />
-          </button>
+          </Button>
           <Inspector engine={engine} snapshot={snapshot} onError={setNotice} />
         </aside>
       </main>
       {notice && (
         <div className="toast" role="status">
           <span>{notice}</span>
-          <button aria-label="Dismiss message" onClick={() => setNotice("")}>
+          <Button aria-label="Dismiss message" onClick={() => setNotice("")}>
             <X size={15} />
-          </button>
+          </Button>
         </div>
       )}
-      <input
+      <Input
         type="file"
         ref={fileInput}
         className="file-input"
@@ -684,7 +683,7 @@ export function App() {
           e.target.value = "";
         }}
       />
-      <input
+      <Input
         type="file"
         ref={imageInput}
         className="file-input"
@@ -702,7 +701,7 @@ export function App() {
             Stored in this browser. Export a portable file to keep a backup or
             move between devices.
           </p>
-          <button
+          <Button
             className="primary wide"
             disabled={!ready}
             onClick={() =>
@@ -714,11 +713,11 @@ export function App() {
           >
             <FilePlus2 size={16} />
             New blank design
-          </button>
+          </Button>
           <div className="workspace-list">
             {savedDocs.map((d) => (
               <div className="workspace-item" key={d.id}>
-                <button
+                <Button
                   onClick={() =>
                     perform(async () => {
                       await workspace.open(d.id);
@@ -737,9 +736,9 @@ export function App() {
                   {d.id === doc.id && (
                     <span className="current-label">Current</span>
                   )}
-                </button>
+                </Button>
                 {d.id !== doc.id && (
-                  <button
+                  <Button
                     aria-label={`Delete ${d.name}`}
                     title="Permanently delete saved copy"
                     onClick={() =>
@@ -756,7 +755,7 @@ export function App() {
                     }
                   >
                     <X size={15} />
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
@@ -769,7 +768,7 @@ export function App() {
             Native files keep your pages, editable layers, embedded images and
             bundled fonts together.
           </p>
-          <button
+          <Button
             className="export-option"
             disabled={busy}
             onClick={() => exportFile("native")}
@@ -780,7 +779,7 @@ export function App() {
               <span>All pages · editable · .localdesign</span>
             </div>
             <ArrowDownToLine size={16} />
-          </button>
+          </Button>
           <div className="export-scope">
             <span>
               {selection.length
@@ -790,22 +789,22 @@ export function App() {
             <span>Image exports</span>
           </div>
           <div className="button-row">
-            <button
+            <Button
               className="export-format"
               disabled={busy}
               onClick={() => exportFile("svg", selection.length > 0)}
             >
               <strong>SVG</strong>
               <span>Scalable vector</span>
-            </button>
-            <button
+            </Button>
+            <Button
               className="export-format"
               disabled={busy}
               onClick={() => exportFile("png", selection.length > 0)}
             >
               <strong>PNG</strong>
               <span>Ready to share</span>
-            </button>
+            </Button>
           </div>
           <p className="muted">
             Image exports use the selected layers, or the whole current page
@@ -890,11 +889,11 @@ export function App() {
             ))}
           </div>
           <div className="button-row">
-            <button onClick={() => perform(() => copySelection(engine))}>
+            <Button onClick={() => perform(() => copySelection(engine))}>
               <Copy size={14} />
               Copy
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() =>
                 perform(async () => {
                   const guard = engine.guard(),
@@ -906,11 +905,11 @@ export function App() {
             >
               <Scissors size={14} />
               Cut
-            </button>
-            <button onClick={() => perform(() => pasteSelection(engine))}>
+            </Button>
+            <Button onClick={() => perform(() => pasteSelection(engine))}>
               <ClipboardPaste size={14} />
               Paste
-            </button>
+            </Button>
           </div>
           <p className="muted">
             Shapes snap to a 4 px grid while dragging. Hold Alt for free
@@ -921,13 +920,16 @@ export function App() {
           <div className="skill-browser">
             <label>
               Bundled design guides
-              <select value={skill} onChange={(e) => setSkill(e.target.value)}>
+              <NativeSelect
+                value={skill}
+                onChange={(e) => setSkill(e.target.value)}
+              >
                 {listSkills().map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.title}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             <pre>{getSkill(skill).instructions}</pre>
           </div>

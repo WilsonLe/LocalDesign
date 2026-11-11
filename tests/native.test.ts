@@ -18,12 +18,19 @@ it("reopens editable native files with embedded asset bytes and fresh workspace 
   doc.nodes.push(makeNode("image", doc.pages[0].id, { assetId: id }));
   const imported = nativeImport(
     archive(doc, {
-      [`assets/${id}.png`]: Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]),
+      [`assets/${id}.png`]: Uint8Array.from(
+        Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aPS0AAAAASUVORK5CYII=",
+          "base64",
+        ),
+      ),
     }),
   );
   expect(imported.id).not.toBe(doc.id);
   expect(imported.nodes[0].assetId).toBe(id);
-  expect(imported.assets[0].data).toBe("data:image/png;base64,iVBORw0KGgo=");
+  expect(imported.assets[0].data).toBe(
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aPS0AAAAASUVORK5CYII=",
+  );
 });
 it("rejects unsafe paths, future versions, missing or mismatched assets and invalid JSON", () => {
   const d = blankDocument();
@@ -65,4 +72,17 @@ it("rejects declared archive expansion before decompression", () => {
 });
 it("never treats a non-archive as a design", () => {
   expect(() => nativeImport(strToU8("Not a zip"))).toThrow(/valid/);
+});
+
+it("round-trips a supported scene above the former 8 MB document.json ceiling", () => {
+  const doc = blankDocument("Large text scene");
+  doc.nodes = Array.from({ length: 400 }, (_, i) =>
+    makeNode("text", doc.pages[0].id, {
+      id: `text-${i}`,
+      text: "a".repeat(20000),
+    }),
+  );
+  const imported = nativeImport(archive(doc));
+  expect(imported.nodes).toHaveLength(400);
+  expect(imported.nodes[399].text).toHaveLength(20000);
 });

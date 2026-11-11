@@ -53,7 +53,7 @@ describe("shared engine transactions", () => {
     engine.dispatch([
       { op: "page_update", id: engine.pageId, patch: { name: "Another name" } },
     ]);
-    expect(engine.document.pages[0].background).toBe("#202023");
+    expect(engine.document.pages[0].background).toBe("#202020");
   });
   it("rejects an entire invalid batch, including earlier valid operations, without history", () => {
     const { engine, a } = scene(),
@@ -319,4 +319,27 @@ it("locked ancestry also blocks creating/reparenting children into a destination
   expect(() =>
     engine.dispatch([{ op: "reparent", ids: [shape.id], parentId: inner.id }]),
   ).toThrow(/unlocked/);
+});
+
+it("rejects an edit before it creates a native file that cannot be reopened", () => {
+  const doc = blankDocument();
+  doc.nodes = Array.from({ length: 1100 }, (_, i) =>
+    makeNode("text", doc.pages[0].id, {
+      id: `text-${i}`,
+      text: "a".repeat(20000),
+    }),
+  );
+  const engine = new DesignEngine(doc),
+    before = engine.document;
+  expect(() =>
+    engine.dispatch([
+      {
+        op: "duplicate",
+        ids: doc.nodes.slice(0, 500).map((n) => n.id),
+        dx: 0,
+        dy: 0,
+      },
+    ]),
+  ).toThrow(/24 MB/);
+  expect(engine.document).toBe(before);
 });

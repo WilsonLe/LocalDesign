@@ -419,7 +419,7 @@ export function Canvas({
                 x={n.x}
                 y={n.y - 10 / v.zoom}
                 fontSize={11 / v.zoom}
-                fill="#aaaab3"
+                fill="#a3a3a3"
                 style={{ pointerEvents: "none" }}
               >
                 {n.name}
@@ -439,7 +439,7 @@ export function Canvas({
                     width={n.width}
                     height={n.height}
                     fill="none"
-                    stroke="#a59bff"
+                    stroke="#737373"
                     strokeWidth={1.5 / v.zoom}
                     style={{ pointerEvents: "none" }}
                   />
@@ -450,7 +450,7 @@ export function Canvas({
                         y1={0}
                         x2={n.width / 2}
                         y2={-24 / v.zoom}
-                        stroke="#a59bff"
+                        stroke="#737373"
                         strokeWidth={1 / v.zoom}
                       />
                       <circle
@@ -458,7 +458,7 @@ export function Canvas({
                         cx={n.width / 2}
                         cy={-24 / v.zoom}
                         r={5 / v.zoom}
-                        fill="#a59bff"
+                        fill="#737373"
                         style={{ cursor: "grab" }}
                       />
                       {[
@@ -475,7 +475,7 @@ export function Canvas({
                           width={8 / v.zoom}
                           height={8 / v.zoom}
                           fill="#fff"
-                          stroke="#8b7cff"
+                          stroke="#525252"
                           strokeWidth={1 / v.zoom}
                           style={{ cursor: `${h}-resize` }}
                         />
@@ -490,7 +490,7 @@ export function Canvas({
               {...marquee}
               fill="#9689ff"
               fillOpacity="0.1"
-              stroke="#a59bff"
+              stroke="#737373"
               strokeWidth={1 / v.zoom}
             />
           )}

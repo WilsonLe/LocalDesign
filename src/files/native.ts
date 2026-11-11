@@ -7,9 +7,17 @@ import {
   type DesignDocument,
 } from "../core/model";
 import { base64, fontBytes, fonts } from "../render/fonts";
-export const MAX_FILE_BYTES = 32_000_000,
-  MAX_EXPANDED_BYTES = 80_000_000;
+export { MAX_FILE_BYTES, MAX_EXPANDED_BYTES } from "../core/limits";
+import {
+  MAX_FILE_BYTES,
+  MAX_EXPANDED_BYTES,
+  MAX_DOCUMENT_BYTES,
+  FONT_ARCHIVE_RESERVE,
+} from "../core/limits";
+import { validateRasterAssets } from "./raster";
 export async function nativeExport(doc: DesignDocument): Promise<Blob> {
+  validateDocument(doc);
+  await validateRasterAssets(doc.assets);
   const portable = structuredClone(doc);
   const files: Record<string, Uint8Array> = {};
   for (const a of portable.assets) {
@@ -20,13 +28,24 @@ export async function nativeExport(doc: DesignDocument): Promise<Blob> {
     a.data = path;
   }
   const bytes = await fontBytes();
+  requireThat(
+    bytes.reduce((s, b) => s + b.length, 0) < FONT_ARCHIVE_RESERVE,
+    "SIZE_LIMIT",
+    "Bundled font budget exceeded.",
+  );
   for (let i = 0; i < fonts.length; i++)
     files[`fonts/inter-${fonts[i].subset}-${fonts[i].weight}.woff2`] = bytes[i];
   files["document.json"] = strToU8(JSON.stringify(portable));
   files["fonts/OFL.txt"] = strToU8(
     await (await fetch(`${import.meta.env.BASE_URL}fonts-OFL.txt`)).text(),
   );
-  return new Blob([zipSync(files, { level: 6 }) as Uint8Array<ArrayBuffer>], {
+  const archive = zipSync(files, { level: 6 });
+  requireThat(
+    archive.length <= MAX_FILE_BYTES,
+    "SIZE_LIMIT",
+    "The native file exceeds the 32 MB portable-file limit.",
+  );
+  return new Blob([archive as Uint8Array<ArrayBuffer>], {
     type: "application/x-localdesign",
   });
 }
@@ -73,7 +92,8 @@ export function nativeImport(
     );
   }
   requireThat(
-    files["document.json"] && files["document.json"].length <= 8_000_000,
+    files["document.json"] &&
+      files["document.json"].length <= MAX_DOCUMENT_BYTES,
     "INVALID_ARCHIVE",
     "Missing or oversized document.json.",
   );

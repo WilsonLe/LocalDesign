@@ -7,6 +7,7 @@ import {
 } from "../core/model";
 import { base64 } from "../render/fonts";
 import { imageMime, MAX_FILE_BYTES, nativeImport } from "./native";
+import { validateRasterAssets } from "./raster";
 import { svgImport } from "./svg";
 export async function importFile(file: File) {
   requireThat(
@@ -15,8 +16,11 @@ export async function importFile(file: File) {
     "Imports are limited to 32 MB.",
   );
   const bytes = new Uint8Array(await file.arrayBuffer());
-  if (file.name.toLowerCase().endsWith(".localdesign"))
-    return { document: nativeImport(bytes), warnings: [] };
+  if (file.name.toLowerCase().endsWith(".localdesign")) {
+    const doc = nativeImport(bytes);
+    await validateRasterAssets(doc.assets);
+    return { document: doc, warnings: [] };
+  }
   if (file.name.toLowerCase().endsWith(".svg"))
     return svgImport(await file.text());
   const mime = imageMime(bytes);

@@ -1,6 +1,6 @@
 # LocalDesign
 
-A browser-local design editor for people and external agents. Draw on a canvas, organize layers, edit typography and layout, and export an editable `.localdesign` file, SVG or PNG. No account, backend, model provider or runtime credentials.
+A browser-local design editor for people and external agents, using LocalCut’s shadcn/Base UI components, neutral theme and monochrome line-art branding. Draw on a canvas, organize layers, edit typography and layout, and export an editable `.localdesign` file, SVG or PNG. No account, backend, model provider or runtime credentials.
 
 **Try it:** https://wilsonle.github.io/LocalDesign/
 
@@ -22,7 +22,7 @@ Three self-contained static instruction packages ship with the app: getting-star
 
 ### v0.1 limits
 
-Native `.fig`, custom fonts, arbitrary SVG CSS/gradients/filters, vector booleans, components/variants, advanced constraints, multiplayer, comments, animation and prototyping are outside this release. The narrow safe SVG importer is not a general SVG round-trip engine. Native archives preserve the complete editable scene; use them for lossless LocalDesign editing. Paths retain their local path data when their bounds are resized. Inter 400/600/700 is bundled for Latin/extended Latin/Vietnamese; other scripts/emoji use system fallback with warnings and need visual verification. Browser working copies remain origin/device-local. History and retry receipts are memory-only and reset on reload/switch; export before clearing browser data.
+Native `.fig`, custom fonts, arbitrary SVG CSS/gradients/filters, vector booleans, components/variants, advanced constraints, multiplayer, comments, animation and prototyping are outside this release. The narrow safe SVG importer is not a general SVG round-trip engine. Native archives preserve the complete editable scene; use them for lossless LocalDesign editing. Paths retain their local path data when their bounds are resized. Supported native designs stay within 24 MB UTF-8 metadata and a 30 MB combined portable content budget, so a successful native export fits the importer. Embedded raster images must decode and match their catalog dimensions. Inter 400/600/700 is bundled for Latin/extended Latin/Vietnamese; other scripts/emoji use system fallback with warnings and need visual verification. Browser working copies remain origin/device-local. History and retry receipts are memory-only and reset on reload/switch; export before clearing browser data.
 
 ## Develop
 

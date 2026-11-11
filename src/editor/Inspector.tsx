@@ -1,4 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
+import { NativeSelect } from "../components/ui/native-select";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AlignCenter,
   AlignLeft,
@@ -31,12 +35,13 @@ function Field({
   min?: number;
   max?: number;
 }) {
+  const cancelBlur = useRef(false);
   const [draft, setDraft] = useState(String(value));
   useEffect(() => setDraft(String(value)), [value]);
   return (
     <label className="field">
       <span>{label}</span>
-      <input
+      <Input
         type={type}
         value={draft}
         step={step}
@@ -44,11 +49,16 @@ function Field({
         max={max}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => {
+          if (cancelBlur.current) {
+            cancelBlur.current = false;
+            return;
+          }
           if (draft !== String(value)) onChange(draft);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
           if (e.key === "Escape") {
+            cancelBlur.current = true;
             setDraft(String(value));
             e.currentTarget.blur();
           }
@@ -69,7 +79,7 @@ function TextEditor({
   return (
     <label className="field">
       <span>Text content</span>
-      <textarea
+      <Textarea
         aria-label="Text content"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -160,7 +170,7 @@ export function Inspector({
                 run([{ op: "page_update", id: page.id, patch: { background } }])
               }
             />
-            <input
+            <Input
               aria-label="Page background color"
               type="color"
               value={page.background === "none" ? "#202023" : page.background}
@@ -194,7 +204,7 @@ export function Inspector({
             />
             <div className="checks">
               <label>
-                <input
+                <Input
                   type="checkbox"
                   checked={n.locked}
                   onChange={(e) => patch({ locked: e.target.checked })}
@@ -202,7 +212,7 @@ export function Inspector({
                 Locked
               </label>
               <label>
-                <input
+                <Input
                   type="checkbox"
                   checked={!n.hidden}
                   onChange={(e) => patch({ hidden: !e.target.checked })}
@@ -222,7 +232,7 @@ export function Inspector({
             </div>
             <label className="field">
               <span>Parent</span>
-              <select
+              <NativeSelect
                 value={n.parentId ?? ""}
                 onChange={(e) =>
                   run([
@@ -247,7 +257,7 @@ export function Inspector({
                       {p.name}
                     </option>
                   ))}
-              </select>
+              </NativeSelect>
             </label>
             <div className="icon-row" aria-label="Align layers">
               {(
@@ -257,16 +267,16 @@ export function Inspector({
                   ["right", AlignRight],
                 ] as const
               ).map(([axis, Icon]) => (
-                <button
+                <Button
                   key={axis}
                   title={`Align ${axis}`}
                   aria-label={`Align ${axis}`}
                   onClick={() => run([{ op: "align", ids: selection, axis }])}
                 >
                   <Icon size={15} />
-                </button>
+                </Button>
               ))}
-              <button
+              <Button
                 aria-label="Align top"
                 title="Align top"
                 onClick={() =>
@@ -274,8 +284,8 @@ export function Inspector({
                 }
               >
                 ⊤
-              </button>
-              <button
+              </Button>
+              <Button
                 aria-label="Align middle"
                 title="Align middle"
                 onClick={() =>
@@ -283,8 +293,8 @@ export function Inspector({
                 }
               >
                 ↕
-              </button>
-              <button
+              </Button>
+              <Button
                 aria-label="Align bottom"
                 title="Align bottom"
                 onClick={() =>
@@ -292,11 +302,11 @@ export function Inspector({
                 }
               >
                 ⊥
-              </button>
+              </Button>
             </div>
             {nodes.length >= 3 && (
               <div className="button-row">
-                <button
+                <Button
                   onClick={() =>
                     run([
                       { op: "distribute", ids: selection, axis: "horizontal" },
@@ -304,8 +314,8 @@ export function Inspector({
                   }
                 >
                   Distribute X
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() =>
                     run([
                       { op: "distribute", ids: selection, axis: "vertical" },
@@ -313,13 +323,13 @@ export function Inspector({
                   }
                 >
                   Distribute Y
-                </button>
+                </Button>
               </div>
             )}
           </Section>
           <Section title="Appearance">
             <div className="color-row">
-              <input
+              <Input
                 aria-label="Fill color"
                 type="color"
                 value={/^#[0-9a-f]{6}$/i.test(n.fill) ? n.fill : "#ffffff"}
@@ -355,7 +365,7 @@ export function Inspector({
                 {numeric("fontSize", n.fontSize, "Size", 1, 1)}
                 <label className="field">
                   <span>Style</span>
-                  <select
+                  <NativeSelect
                     value={n.fontWeight}
                     onChange={(e) =>
                       patch({
@@ -366,7 +376,7 @@ export function Inspector({
                     <option value="400">Regular</option>
                     <option value="600">Semibold</option>
                     <option value="700">Bold</option>
-                  </select>
+                  </NativeSelect>
                 </label>
                 {numeric(
                   "lineHeight",
@@ -380,7 +390,7 @@ export function Inspector({
               </div>
               <label className="field">
                 <span>Text align</span>
-                <select
+                <NativeSelect
                   value={n.textAlign}
                   onChange={(e) =>
                     patch({
@@ -391,7 +401,7 @@ export function Inspector({
                   <option>left</option>
                   <option>center</option>
                   <option>right</option>
-                </select>
+                </NativeSelect>
               </label>
               {measureText(n).overflow && (
                 <p className="warning">
@@ -421,7 +431,7 @@ export function Inspector({
             <Section title="Auto layout">
               <label className="field">
                 <span>Direction</span>
-                <select
+                <NativeSelect
                   value={n.layout.direction}
                   onChange={(e) =>
                     patch({
@@ -436,7 +446,7 @@ export function Inspector({
                   <option value="none">Free position</option>
                   <option value="horizontal">Horizontal</option>
                   <option value="vertical">Vertical</option>
-                </select>
+                </NativeSelect>
               </label>
               {n.layout.direction !== "none" && (
                 <>
@@ -460,7 +470,7 @@ export function Inspector({
                   </div>
                   <label className="field">
                     <span>Alignment</span>
-                    <select
+                    <NativeSelect
                       value={n.layout.align}
                       onChange={(e) =>
                         patch({
@@ -475,12 +485,12 @@ export function Inspector({
                       <option>start</option>
                       <option>center</option>
                       <option>end</option>
-                    </select>
+                    </NativeSelect>
                   </label>
                 </>
               )}
               <label className="check-line">
-                <input
+                <Input
                   type="checkbox"
                   checked={n.clip}
                   onChange={(e) => patch({ clip: e.target.checked })}
@@ -491,41 +501,41 @@ export function Inspector({
           )}
           <Section title="Arrange">
             <div className="button-row">
-              <button
+              <Button
                 onClick={() =>
                   run([{ op: "order", ids: selection, direction: "front" }])
                 }
               >
                 <ArrowUp size={13} />
                 Front
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() =>
                   run([{ op: "order", ids: selection, direction: "back" }])
                 }
               >
                 <ArrowDown size={13} />
                 Back
-              </button>
+              </Button>
             </div>
             <div className="button-row">
-              <button
+              <Button
                 onClick={() =>
                   run([{ op: "order", ids: selection, direction: "forward" }])
                 }
               >
                 Forward
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() =>
                   run([{ op: "order", ids: selection, direction: "backward" }])
                 }
               >
                 Backward
-              </button>
+              </Button>
             </div>
             <div className="button-row">
-              <button
+              <Button
                 onClick={() => {
                   const r = engine.dispatch([
                     { op: "duplicate", ids: selection, dx: 24, dy: 24 },
@@ -543,25 +553,25 @@ export function Inspector({
               >
                 <Copy size={13} />
                 Duplicate
-              </button>
-              <button onClick={() => run([{ op: "delete", ids: selection }])}>
+              </Button>
+              <Button onClick={() => run([{ op: "delete", ids: selection }])}>
                 <Trash2 size={13} />
                 Delete
-              </button>
+              </Button>
             </div>
             <div className="button-row">
-              <button
+              <Button
                 onClick={() =>
                   run([{ op: "group", ids: selection, id: uid() }])
                 }
               >
                 <Group size={13} />
                 Group
-              </button>
-              <button onClick={() => run([{ op: "ungroup", ids: selection }])}>
+              </Button>
+              <Button onClick={() => run([{ op: "ungroup", ids: selection }])}>
                 <Ungroup size={13} />
                 Ungroup
-              </button>
+              </Button>
             </div>
           </Section>
         </>
