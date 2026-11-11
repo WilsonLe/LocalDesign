@@ -677,3 +677,107 @@ test("Escape cancels an unfinished drawing gesture without a mutation", async ({
   expect(d.nodes).toHaveLength(0);
   expect(d.revision).toBe(0);
 });
+
+test("manual auto-layout inspector controls position children and share undo/redo with tools", async ({
+  page,
+}) => {
+  await harness(page);
+  await open(page);
+  const d = await inspect(page);
+  await edits(page, [
+    {
+      op: "create",
+      node: {
+        id: "manual-layout-frame",
+        type: "frame",
+        name: "Manual layout frame",
+        pageId: d.pageId,
+        width: 500,
+        height: 300,
+        fill: "#ffffff",
+      },
+    },
+    {
+      op: "create",
+      node: {
+        id: "manual-layout-a",
+        type: "rectangle",
+        name: "First child",
+        pageId: d.pageId,
+        parentId: "manual-layout-frame",
+        x: 11,
+        y: 12,
+        width: 40,
+        height: 60,
+        fill: "#ff0000",
+      },
+    },
+    {
+      op: "create",
+      node: {
+        id: "manual-layout-b",
+        type: "rectangle",
+        name: "Second child",
+        pageId: d.pageId,
+        parentId: "manual-layout-frame",
+        x: 150,
+        y: 100,
+        width: 80,
+        height: 40,
+        fill: "#0000ff",
+      },
+    },
+  ]);
+  await page
+    .getByRole("button", { name: "Select Manual layout frame", exact: true })
+    .click();
+  await page
+    .getByRole("combobox", { name: "Direction", exact: true })
+    .selectOption("horizontal");
+  await page.getByLabel("Gap", { exact: true }).fill("20");
+  await page.getByLabel("Gap", { exact: true }).press("Tab");
+  await page.getByLabel("Padding", { exact: true }).fill("30");
+  await page.getByLabel("Padding", { exact: true }).press("Tab");
+  await page
+    .getByRole("combobox", { name: "Alignment", exact: true })
+    .selectOption("center");
+  let state = await inspect(page);
+  expect(
+    state.nodes.find((n: any) => n.id === "manual-layout-a"),
+  ).toMatchObject({ x: 30, y: 120 });
+  expect(
+    state.nodes.find((n: any) => n.id === "manual-layout-b"),
+  ).toMatchObject({ x: 90, y: 130 });
+  const before = state.revision;
+  await page
+    .getByRole("combobox", { name: "Direction", exact: true })
+    .selectOption("vertical");
+  state = await inspect(page);
+  expect(state.revision).toBe(before + 1);
+  expect(
+    state.nodes.find((n: any) => n.id === "manual-layout-a"),
+  ).toMatchObject({ x: 230, y: 30 });
+  expect(
+    state.nodes.find((n: any) => n.id === "manual-layout-b"),
+  ).toMatchObject({ x: 210, y: 110 });
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  state = await inspect(page);
+  expect(
+    state.nodes.find((n: any) => n.id === "manual-layout-a"),
+  ).toMatchObject({ x: 30, y: 120 });
+  expect(
+    state.nodes.find((n: any) => n.id === "manual-layout-b"),
+  ).toMatchObject({ x: 90, y: 130 });
+  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  state = await inspect(page);
+  expect(
+    state.nodes.find((n: any) => n.id === "manual-layout-b"),
+  ).toMatchObject({ x: 210, y: 110 });
+  await page
+    .getByRole("checkbox", { name: "Clip content", exact: true })
+    .uncheck();
+  expect(
+    (await inspect(page)).nodes.find((n: any) => n.id === "manual-layout-frame")
+      .clip,
+  ).toBe(false);
+});
