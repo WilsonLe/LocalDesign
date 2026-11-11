@@ -1,0 +1,12 @@
+# GitHub Pages delivery
+
+The sole deployment target is https://wilsonle.github.io/LocalDesign/ from `WilsonLe/LocalDesign` main. Vite's base is `/LocalDesign/`. No server, runtime credentials, design uploads or environment secrets are required. Local browser documents do not sync between origins/devices.
+
+1. Run `npm ci` on the version in `.nvmrc`; `npm run check` builds, checks skills/types, runs core/file contracts and Playwright Chromium journeys on the built preview. Install the test browser with `npx playwright install --with-deps chromium` on a new CI host.
+2. Open the linked draft PR, complete one bounded independent review/address cycle and check the current committed base/head. Obtain user merge/deployment authority; the initial project request explicitly includes both for GitHub Pages. Do not bypass hosted checks/protection.
+3. Enable GitHub Pages with source GitHub Actions in repository settings (or `gh api --method POST repos/WilsonLe/LocalDesign/pages -f build_type=workflow` if it has no configuration). This changes only this repository's declared target.
+4. Merge the reviewed PR. `.github/workflows/pages.yml` checks and builds the actual main revision, uploads a Pages artifact and deploys through the github-pages environment. The Pages token is scoped to the deployment job; application code receives no token. Feature PR checks never deploy.
+5. Read the workflow result and environment deployment record for the merge SHA. Open the live URL, inspect `/LocalDesign/release.json` for its SHA, verify blank manual drawing/inspector, skill retrieval and actual tool discovery/edit/export using a WebMCP-capable browser. A deployed status or HTTP 200 alone is insufficient.
+6. Synchronize the canonical checkout with `git pull --ff-only`. Remove only task-owned stopped runtimes/worktrees when safe; retain evidence outside Git. Never clear user browser storage.
+
+Rollback: revert the implementation commit through a reviewed PR and redeploy main, or dispatch the last-known-good workflow revision as appropriate. With this initial release, no prior app exists: disabling the Pages deployment stops delivery while leaving downloaded files and browser working copies intact. Do not delete browser documents as rollback. File schema v1 must remain compatible or be rejected explicitly by subsequent releases.

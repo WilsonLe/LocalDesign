@@ -1,0 +1,399 @@
+{
+  "bundleVersion": "1.0.0",
+  "maxResponseBytes": 48000,
+  "source": {
+    "url": "https://github.com/WilsonLe/agentic-workflows",
+    "commit": "e29fcb3f80371841d529eaea047fa13619378563",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2026 Wilson Le"
+  },
+  "skills": [
+    {
+      "id": "getting-started",
+      "title": "LocalDesign getting started",
+      "whenToUse": "Use when first connecting to LocalDesign or creating, importing, editing, previewing or exporting a design.",
+      "supportedOutcomes": [
+        "static design authoring",
+        "rendered verification",
+        "portable export"
+      ],
+      "version": "1.0.0",
+      "path": "getting-started.md",
+      "sha256": "1213517a370245732fb34ac8dd78727a4c9f2019e487fb16cc7e0a4a855a2cb4",
+      "bytes": 10252,
+      "originalSkillIds": []
+    },
+    {
+      "id": "ui-design",
+      "title": "UI design and visual critique",
+      "whenToUse": "Use when composing or reviewing screens, cards, dashboards, forms, hierarchy, disclosure and accessible static design.",
+      "supportedOutcomes": [
+        "static design authoring",
+        "rendered verification",
+        "portable export"
+      ],
+      "version": "1.0.0",
+      "path": "ui-design.md",
+      "sha256": "18b57f48e797a815e32fafe919f71767de94e66a33b5ba96526ff2c38ff7715c",
+      "bytes": 12315,
+      "originalSkillIds": [
+        "ui-design"
+      ]
+    },
+    {
+      "id": "typography",
+      "title": "Typography and text fit",
+      "whenToUse": "Use when choosing available fonts, establishing text hierarchy, wrapping, line height, tracking, language coverage or checking overflow.",
+      "supportedOutcomes": [
+        "static design authoring",
+        "rendered verification",
+        "portable export"
+      ],
+      "version": "1.0.0",
+      "path": "typography.md",
+      "sha256": "5bb20ac93d3be87cfc31de5d9033e479e50159ae15e2f3e1c657c15d725910fa",
+      "bytes": 12272,
+      "originalSkillIds": [
+        "typography"
+      ]
+    }
+  ],
+  "sourceInventory": [
+    {
+      "path": "ui-design/SKILL.md",
+      "sha256": "47a5b923de4e42bfac7521430cbf78df27b1e1a5fb15327705e4301abc596b1f",
+      "disposition": "adapted",
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+    },
+    {
+      "path": "ui-design/agents/openai.yaml",
+      "sha256": "7a2ab95dba0722c631d78f3e19c6cd4659e81cc7d8a181f4c7b279adac11b22d",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "ui-design/references/cyobot-observations.md",
+      "sha256": "46e4c8e54ee85dc0204d5ec132f3219da0e0972b7202ac650f6d1396bc982dae",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "ui-design/references/design-references.md",
+      "sha256": "c4ef4f3d3e8051d57d839d9c3ef4d2528eb902f8cf23d4568cfde5ea20fb1db0",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "ui-design/references/disclosure-and-roles.md",
+      "sha256": "31c95ae85bfd4214ff35f89cd7c1e93cea4d755d7b6214eb703c10262424d466",
+      "disposition": "adapted",
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+    },
+    {
+      "path": "ui-design/references/evaluation-scenarios.md",
+      "sha256": "89d2e8f0a089be5faee9309c2f5ee5c3b64d96935f8d7826098c835960781d5c",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "ui-design/references/project-taste-record.md",
+      "sha256": "9c99fee24a36e198d141de72f2a3ebcae55d03e71aa46f175b6ca0c803cf96b7",
+      "disposition": "adapted",
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+    },
+    {
+      "path": "ui-design/references/visual-and-interaction-craft.md",
+      "sha256": "cd2fc2878d62caf8826240f96bbcedc908f1474768ded0369ffe493ff0ff19cb",
+      "disposition": "adapted",
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+    },
+    {
+      "path": "typography/SKILL.md",
+      "sha256": "d4864ca662ff681971539232092cd4e968ddf34dbd6dc57c2cfbb2a3806bda37",
+      "disposition": "adapted",
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+    },
+    {
+      "path": "typography/agents/openai.yaml",
+      "sha256": "2eb07dcbb3b914334c39027e89624c9921bb544fd39c18c306efbe850c736aa5",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "typography/references/font-library-and-layout.md",
+      "sha256": "a7726477382c57fb5f950b4e5e6f9e0d30c2c6315868c09d2cc2cefecb120ad9",
+      "disposition": "adapted",
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+    },
+    {
+      "path": "standard-development-workflow/SKILL.md",
+      "sha256": "4048683e376dbf9b4305c8c04b4246130ea0edafdf0e4f16a2e9ef364523b9cb",
+      "disposition": "adapted",
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+    },
+    {
+      "path": "standard-development-workflow/agents/openai.yaml",
+      "sha256": "940735969ef6f0bcdeb12499e249a79b7848a2a70dd94bc0bf75068cf10498f0",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/examples/archetype-matrix.md",
+      "sha256": "fa9939c87868127d46e650514f778d7f8b2f91207fee6b934d20dcd4a5aaeb33",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/examples/efficiency-scenarios.md",
+      "sha256": "22d59f6d9766613cca6439d0a31e71565936a48a7f0f0063a4b2224a5c124af4",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/composed-async-feedback.md",
+      "sha256": "a7b3f1d76637a1339db0ef6a04e5600d225cd534f700d0b15a447d1c552e02f7",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/critical-release-invariants.md",
+      "sha256": "7353f048f1a69e44b88ef438add841d77904374ce4971c84bee2f9193375e486",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/decomposition-and-pr-handoff.md",
+      "sha256": "90f6385f6129bdde831030132369d8468b839611eeda91639b9d30d09a0efed0",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/delivery-tracking.md",
+      "sha256": "ce123822eab8c3250ec8f3381d9f9cc12e27710e7f86e25d51b0ee4022e4d534",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/discovery-contract-and-scope.md",
+      "sha256": "eeaad704384f4ce3b7fb21e6177d783e4dc8642cf5849a72a6e160ede90fd176",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/documentation-impact.md",
+      "sha256": "e58748d9d5f6acadec636f9595ac7e36fa5ed0ff1dd32acc1296990fe425b6e0",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/efficient-delivery-and-external-work.md",
+      "sha256": "6ea2d144b8b724ba3a5cc6fcf3fdb4dc559f66b53ec929f6be8e2a545a658728",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/evaluation-matrix.md",
+      "sha256": "6454b22b843b57aea22a39a4b224d13e2ae6479be1f8f8f93281c62f085b2cb0",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/impact-inventory.md",
+      "sha256": "070e099a8e0c1455e8c51628f64965c4015084cc4d6e56c1464208fd3946045d",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/merge-deployment-readiness.md",
+      "sha256": "8c341b57ffd7c1658ca382c3aff98f292294460e4615408e7c316bff9253efd9",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/onboarding.md",
+      "sha256": "834af11a44d87726a49b096b8f258f2753c8c65146c036c5498f135c188f6433",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/project-adrs.md",
+      "sha256": "aee2cb57025d87a77d0695f7dffae1d697725901a0e21cdccac237e8e1549bc6",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/project-ui-conventions.md",
+      "sha256": "7be492c0ffc5b53b40ae2427dc202dc713ada1ec6ad192d8fbfccc4cfec4f8e5",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/release-readback.md",
+      "sha256": "289b54ed76895c3223c08c71f25cf3d2220559b4677be255f160f59912635c4a",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/runtime-diagnosis.md",
+      "sha256": "b403fd2ab6ad568bbd00f24379f984e28c41a3842d031b34014031d3305b5674",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/single-draft-pr-review.md",
+      "sha256": "3850c92bc6444c214ea94d7c2329888ca38a9e79097e7e03490b50c932a20a85",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/spec-ready.md",
+      "sha256": "6631cf62ed4ab2886ac046261d0dbd71957901309a47409796cf62ceac4b1bd4",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/stage-contracts.md",
+      "sha256": "2375b8eb9d8862dda06d635e531d101d533058158aa53d8535772facd4e82bfa",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/validation-state-and-resume.md",
+      "sha256": "11fd97d96a644f5de32c968f9290aea4628c4aa70562d5df3f247e5beb07d497",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/verification-deployment-cleanup.md",
+      "sha256": "7fcd08383330ba90b1dc6f517be9b94e26a686ac5fd84031e83d95277b462b4a",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/verification-evidence-and-release.md",
+      "sha256": "90b9261190a2aabb7490e5811049182c3e07a7f09ba51e2833bcc8d2f49798f9",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/workflow-record-model.md",
+      "sha256": "51d29b6f76a5fb2497daa6f0d5bbfdafa4262e48f09faa6a2dd5f96bf8d0bc43",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/references/worktree-bootstrap.md",
+      "sha256": "73f88b35a9d4ca17aba4b00f7a5646f50f655f23160209f82341094f7044022a",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/schemas/standard-workflow-v1.schema.json",
+      "sha256": "4614cd590583d1f46829fe8a20552fb5bf577151b993529da37a54136568b716",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/scripts/__pycache__/check_async_feedback.cpython-312.pyc",
+      "sha256": "d213f39998a2590f9614de43f1196249cd2c78565a60a9974478fabf48d6feaa",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/scripts/__pycache__/standard_workflow_record.cpython-312.pyc",
+      "sha256": "2f487a673b477e76200ad7c06f85e71cf7f509d22e21e2d4e1a13a3144a70f26",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/scripts/check_async_feedback.py",
+      "sha256": "f2145c5326f7555fa58834ef1a2c61457cb1b1f76a5a4d679030935f72add7f6",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/scripts/project_adrs.py",
+      "sha256": "1d458e8581f91b15a9ea3bef0c18425316a71cd892dbc0ea68e8d0ae45fc530d",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/scripts/standard_workflow_record.py",
+      "sha256": "03e1f77f94fae9ba8ed68a8855e464fa6b5c7c0a384b0c8b37557eeeb9d265f3",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/templates/repository-capability-profile.json",
+      "sha256": "3ce9db63bdcff49fa0439e0be37d2ce47afb7615a4b4ecd3fd65d61531621db7",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "standard-development-workflow/templates/task-run.json",
+      "sha256": "3e84c9992a86b8de56cfef7973015d07e2f12d8c764fd1a097a7b36d0513187d",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "engineering-diagnosis/SKILL.md",
+      "sha256": "30a015a71a36357fa4e77ac84b2b4ccc484bf2dfbe4b42de7e5d5527560e495b",
+      "disposition": "adapted",
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+    },
+    {
+      "path": "engineering-diagnosis/agents/openai.yaml",
+      "sha256": "be99909b193f16e68b3447c3b7c1ac70d083ee7b37c3b2212ae77fb5547bdb5f",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "engineering-review/SKILL.md",
+      "sha256": "4f825b14c9347f89da0da3b5059c59a404119e24f2c74b38d2baa9926c37d6e7",
+      "disposition": "adapted",
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+    },
+    {
+      "path": "engineering-review/agents/openai.yaml",
+      "sha256": "b0b54522e762e62266e7cb428dfbfa5f79f00470bef022de5fc67a2efcd823fc",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "engineering-review/references/evaluation-scenarios.md",
+      "sha256": "5adf6e8e5fa2eced6a9b5466f42e3fd6c2e374b38c3ca2ee160c87511635d443",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "engineering-review/references/review-checklist.md",
+      "sha256": "3f13eb93dba62610fb5d313a2b1bc9f00ed4568fb37e85489e50d0afec8a1f49",
+      "disposition": "adapted",
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+    },
+    {
+      "path": "engineering-review/references/security-review.md",
+      "sha256": "6c2916afeb41d2bf22dbfd92eb99168bc2f60c2e27d5ac02adc3f17cef37da11",
+      "disposition": "adapted",
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+    },
+    {
+      "path": "engineering-review/references/upstream.md",
+      "sha256": "cc843ce1d485db948c76332a44891f18c40c7200d523c4a25cd85b28622f9cfb",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    },
+    {
+      "path": "agent-instruction-design/SKILL.md",
+      "sha256": "232120025b1e466b32a53a1bb1f618fbc9d1bcc55921cc82d15a3f95dace0d12",
+      "disposition": "adapted",
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+    },
+    {
+      "path": "agent-instruction-design/agents/openai.yaml",
+      "sha256": "b11d12a567d1c8cf358776d1a89818bb80d7226c359ee7dec15e0366756e711b",
+      "disposition": "excluded",
+      "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
+    }
+  ]
+}
