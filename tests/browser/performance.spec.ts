@@ -63,7 +63,7 @@ test("large workspace interaction stays bounded without changing document data",
   }, doc);
   const metrics: Record<string, number> = {};
   let start = Date.now();
-  await page.reload();
+  await page.goto(`workspace/${doc.id}`);
   await expect(page.getByTestId("canvas")).toBeVisible();
   await expect(page.locator(".save-state")).toContainText("Saved locally");
   await expect(page.locator('[data-node-id="frame-0"]')).toBeVisible();
@@ -185,6 +185,9 @@ test("an open Fonts dialog refreshes when delayed bundled fonts become ready", a
     await route.continue();
   });
   await page.goto("./", { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { name: "New blank design", exact: true })
+    .click();
   await page.getByRole("button", { name: "Fonts", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   expect(await page.locator(".font-sample use").count()).toBe(0);
@@ -225,7 +228,7 @@ test("flat large-page marquee selection shares its traversal index", async ({
     });
     db.close();
   }, doc);
-  await page.reload();
+  await page.goto(`workspace/${doc.id}`);
   await expect(page.getByTestId("canvas")).toBeVisible();
   await expect(page.locator(".save-state")).toContainText("Saved locally");
   const canvas = (await page.getByTestId("canvas").boundingBox())!;

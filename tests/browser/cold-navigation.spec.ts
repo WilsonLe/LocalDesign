@@ -89,7 +89,7 @@ test("first visits to dense text regions and pages stay responsive", async ({
     });
     db.close();
   }, doc);
-  await page.reload();
+  await page.goto(`workspace/${doc.id}`);
   await expect(page.locator(".save-state")).toContainText("Saved locally");
   const session = await page.context().newCDPSession(page);
   if (process.env.LOCALDESIGN_PROFILE) {

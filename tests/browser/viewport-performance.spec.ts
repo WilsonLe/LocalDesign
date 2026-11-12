@@ -57,7 +57,7 @@ test("text-heavy multi-screen board renders only the visible area and preserves 
     db.close();
   }, doc);
   const start = Date.now();
-  await page.reload();
+  await page.goto(`workspace/${doc.id}`);
   await expect(page.locator(".save-state")).toContainText("Saved locally");
   await expect(page.getByTestId("canvas")).toBeVisible();
   const metrics: Record<string, unknown> = { openMs: Date.now() - start };

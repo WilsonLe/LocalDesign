@@ -20,6 +20,7 @@ const db = () =>
 export class Workspace {
   engine: DesignEngine;
   initialized = false;
+  active = false;
   status: "loading" | "saving" | "saved" | "error" = "loading";
   error = "";
   private saveChain = Promise.resolve();
@@ -31,6 +32,7 @@ export class Workspace {
   constructor(engine = new DesignEngine()) {
     this.engine = engine;
     engine.subscribe(() => {
+      if (!this.active) return;
       const d = engine.document;
       if (d.revision !== this.savedVersion || d.id !== this.docId) {
         this.savedVersion = d.revision;
@@ -50,15 +52,7 @@ export class Workspace {
   }
   async init() {
     try {
-      const store = await db(),
-        active = await store.get("settings", "active"),
-        saved = active ? await store.get("documents", active) : null;
-      if (saved) {
-        const next = validateDocument(saved);
-        await fontsReady(next);
-        this.savedBases.set(saved.id, JSON.stringify(saved));
-        this.engine.replace(next);
-      } else await this.persist(this.engine.document);
+      await db();
       this.status = "saved";
     } catch (e) {
       this.fail(e);
@@ -145,6 +139,7 @@ export class Workspace {
     copy.id = uid();
     copy.revision = 0;
     copy.name = (copy.name + " copy").slice(0, 200);
+    this.active = true;
     this.engine.replace(copy);
     await this.flush();
     return this.engine.document;
@@ -172,6 +167,7 @@ export class Workspace {
       "Document changed while saving. Retry the workspace action.",
     );
     assertNotAborted(signal);
+    this.active = true;
     this.engine.replace(blankDocument(name));
     await this.flush();
     return this.engine.document;
@@ -192,9 +188,26 @@ export class Workspace {
     requireThat(d, "MISSING_DOCUMENT", "Unknown document.");
     assertNotAborted(signal);
     this.savedBases.set(d.id, JSON.stringify(d));
+    this.savedVersion = next.revision;
+    this.docId = next.id;
+    this.active = true;
     this.engine.replace(next);
-    await this.flush();
+    this.status = "saved";
+    this.emit();
     return this.engine.document;
+  }
+  async close(signal?: AbortSignal) {
+    const expected = this.engine.document;
+    await this.flush();
+    requireThat(
+      this.engine.document === expected,
+      "STALE_REVISION",
+      "Document changed while closing. Retry the workspace action.",
+    );
+    assertNotAborted(signal);
+    this.active = false;
+    this.engine.replace(blankDocument());
+    this.emit();
   }
   async import(d: DesignDocument, signal?: AbortSignal) {
     const next = validateDocument(d),
@@ -207,6 +220,7 @@ export class Workspace {
       "Document changed while importing. Retry the import.",
     );
     assertNotAborted(signal);
+    this.active = true;
     this.engine.replace(next);
     await this.flush();
     return next;
@@ -214,7 +228,7 @@ export class Workspace {
   async remove(id: string, signal?: AbortSignal) {
     const expected = this.engine.document;
     requireThat(
-      id !== this.engine.document.id,
+      !this.active || id !== this.engine.document.id,
       "ACTIVE_DOCUMENT",
       "Open another document before deleting this one.",
     );
@@ -227,7 +241,7 @@ export class Workspace {
       "Document changed while deleting. Retry the workspace action.",
     );
     requireThat(
-      id !== this.engine.document.id,
+      !this.active || id !== this.engine.document.id,
       "ACTIVE_DOCUMENT",
       "Open another document before deleting this one.",
     );

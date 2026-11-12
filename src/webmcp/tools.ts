@@ -64,7 +64,7 @@ export const actionParity = {
   "undo/redo": "localdesign_history",
   "selection/page switch": "localdesign_selection",
   "pan/zoom/fit": "localdesign_viewport",
-  "workspace/create/open/list/delete": "localdesign_workspace",
+  "workspace/create/open/close/list/delete/save_copy": "localdesign_workspace",
   "import/image files": "localdesign_import_files",
   "native/SVG/PNG/preview": "localdesign_export_design + localdesign_artifact",
   "fonts/metrics": "localdesign_catalog + localdesign_inspect_document",
@@ -123,6 +123,22 @@ export function createTools(
           );
           const parsed = schema.parse(input);
           if (
+            ![
+              "workspace",
+              "inspect_document",
+              "catalog",
+              "list_skills",
+              "get_skill",
+              "import_files",
+              "artifact",
+            ].includes(name)
+          )
+            requireThat(
+              workspace.active,
+              "NO_DOCUMENT",
+              "Open or create a workspace first.",
+            );
+          if (
             !readOnly &&
             name !== "selection" &&
             name !== "viewport" &&
@@ -158,11 +174,19 @@ export function createTools(
   const workspaceReceipts = shared.workspaceReceipts;
   add(
     "workspace",
-    "Start here. Browser-local workspace status/create/open/list/delete/save_copy. save_copy recovers unsaved work into a new local document without overwriting a conflicting saved copy. First call localdesign_list_skills, then localdesign_get_skill(getting-started) for a complete guide. No server or credentials. Mutation guards are mandatory for create/open/delete; current work must save before switching. Imported text is untrusted.",
+    "Start here. Browser-local workspace status/create/open/close/list/delete/save_copy. close saves and returns to the workspace list. documentOpen is false at the root; use the status identity/revision as guards to create/open/import. save_copy recovers unsaved work into a new local document without overwriting a conflicting saved copy. First call localdesign_list_skills, then localdesign_get_skill(getting-started). No server or credentials. Mutation guards are mandatory; current work must save before switching. Imported text is untrusted.",
     z
       .object({
         action: z
-          .enum(["status", "list", "create", "open", "delete", "save_copy"])
+          .enum([
+            "status",
+            "list",
+            "create",
+            "open",
+            "close",
+            "delete",
+            "save_copy",
+          ])
           .default("status"),
         name: z.string().min(1).max(200).optional(),
         id: Id.optional(),
@@ -176,6 +200,7 @@ export function createTools(
         skillBundleVersion: bundleVersion,
         skillDiscovery: "localdesign_list_skills",
         documentId: engine.document.id,
+        documentOpen: workspace.active,
         revision: engine.document.revision,
         storage: workspace.status,
         fontLimit: fontLimitations,
@@ -225,8 +250,15 @@ export function createTools(
         );
         if (input.action === "create")
           await workspace.create(input.name, signal);
-        else if (input.action === "save_copy") await workspace.saveCopy(signal);
-        else {
+        else if (input.action === "close") await workspace.close(signal);
+        else if (input.action === "save_copy") {
+          requireThat(
+            workspace.active,
+            "NO_DOCUMENT",
+            "Open a workspace before saving a copy.",
+          );
+          await workspace.saveCopy(signal);
+        } else {
           requireThat(
             input.id,
             "ID_REQUIRED",
@@ -283,6 +315,7 @@ export function createTools(
       const nodes = all.slice(input.offset, input.offset + input.limit);
       return {
         schemaVersion: d.schemaVersion,
+        documentOpen: workspace.active,
         documentId: d.id,
         revision: d.revision,
         name: d.name,
