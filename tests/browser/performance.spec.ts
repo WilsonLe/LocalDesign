@@ -172,3 +172,76 @@ test("large workspace interaction stays bounded without changing document data",
     contentType: "application/json",
   });
 });
+
+test("an open Fonts dialog refreshes when delayed bundled fonts become ready", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/*.woff2", async (route) => {
+    await gate;
+    await route.continue();
+  });
+  await page.goto("./", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Fonts", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  expect(await page.locator(".font-sample use").count()).toBe(0);
+  release();
+  await expect(page.getByTestId("canvas")).toBeVisible();
+  await expect
+    .poll(() => page.locator(".font-sample use").count())
+    .toBeGreaterThan(0);
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
+
+test("flat large-page marquee selection shares its traversal index", async ({
+  page,
+}, testInfo) => {
+  await harness(page);
+  await open(page);
+  const doc = blankDocument("Large flat page");
+  doc.nodes = Array.from({ length: 6000 }, (_, i) =>
+    makeNode("rectangle", doc.pages[0].id, {
+      id: `flat-${i}`,
+      name: `Flat ${i}`,
+      x: 40 + (i % 30),
+      y: 40 + (Math.floor(i / 30) % 30),
+      width: 4,
+      height: 4,
+    }),
+  );
+  await page.evaluate(async (doc) => {
+    const request = indexedDB.open("localdesign-v1", 1);
+    const db = await new Promise<IDBDatabase>((resolve) => {
+      request.onsuccess = () => resolve(request.result);
+    });
+    const tx = db.transaction(["documents", "settings"], "readwrite");
+    tx.objectStore("documents").put(doc);
+    tx.objectStore("settings").put(doc.id, "active");
+    await new Promise<void>((resolve) => {
+      tx.oncomplete = () => resolve();
+    });
+    db.close();
+  }, doc);
+  await page.reload();
+  await expect(page.getByTestId("canvas")).toBeVisible();
+  await expect(page.locator(".save-state")).toContainText("Saved locally");
+  const canvas = (await page.getByTestId("canvas").boundingBox())!;
+  await page.mouse.move(canvas.x + 110, canvas.y + 110);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + 200, canvas.y + 200);
+  const start = Date.now();
+  await page.mouse.up();
+  const state = await inspect(page);
+  const elapsed = Date.now() - start;
+  expect(state.selection).toHaveLength(6000);
+  expect(state.revision).toBe(0);
+  expect(state.history).toEqual({ canUndo: false, canRedo: false });
+  expect(elapsed).toBeLessThan(2500);
+  await testInfo.attach("marquee-ms", {
+    body: String(elapsed),
+    contentType: "text/plain",
+  });
+});

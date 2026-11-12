@@ -101,12 +101,14 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 export const Inspector = memo(function Inspector({
+  ready,
   engine,
   document: doc,
   pageId,
   selection,
   onError,
 }: {
+  ready: boolean;
   engine: DesignEngine;
   document: Snapshot["document"];
   pageId: string;
@@ -151,7 +153,7 @@ export const Inspector = memo(function Inspector({
     />
   );
   return (
-    <div className="inspector">
+    <div className="inspector" aria-busy={!ready}>
       <div className="panel-heading">
         <strong>Design</strong>
         <span>

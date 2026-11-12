@@ -35,9 +35,12 @@ export function localPoint(
 export function worldRotation(d: DesignDocument, n: DesignNode) {
   return n.rotation + ancestors(d, n).reduce((s, n) => s + n.rotation, 0);
 }
-export function bounds(d: DesignDocument, nodes: DesignNode[]) {
+export function bounds(
+  d: DesignDocument,
+  nodes: DesignNode[],
+  index = indexNodes(d),
+) {
   if (!nodes.length) return { x: 0, y: 0, width: 800, height: 600 };
-  const index = indexNodes(d);
   const visible: DesignNode[] = [];
   const visited = new Set<string>();
   const include = (n: DesignNode) => {

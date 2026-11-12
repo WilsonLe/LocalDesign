@@ -695,6 +695,7 @@ export function App() {
             <X size={18} />
           </Button>
           <Inspector
+            ready={ready}
             engine={engine}
             document={doc}
             pageId={snapshot.pageId}

@@ -1,3 +1,4 @@
+import { indexNodes } from "../core/tree";
 import {
   useEffect,
   useRef,
@@ -295,10 +296,11 @@ export function Canvas({
     gesture.current = null;
     try {
       if (g.mode === "marquee" && marquee) {
+        const index = indexNodes(doc);
         const hits = doc.nodes
           .filter((n) => n.pageId === pageId && !n.parentId && !n.hidden)
           .filter((n) => {
-            const b = bounds(doc, [n]);
+            const b = bounds(doc, [n], index);
             return (
               b.x >= marquee.x &&
               b.y >= marquee.y &&

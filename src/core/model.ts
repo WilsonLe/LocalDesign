@@ -304,14 +304,18 @@ export function descendants(d: DesignDocument, id: string): DesignNode[] {
   visit(id);
   return out;
 }
-export function roots(d: DesignDocument, ids: string[]) {
+export function roots(
+  d: DesignDocument,
+  ids: string[],
+  byId?: ReadonlyMap<string, DesignNode>,
+) {
   if (!ids.length) return [];
   const selected = new Set(ids);
-  const { byId } = indexNodes(d);
+  const lookup = byId ?? indexNodes(d).byId;
   return d.nodes.filter(
     (n) =>
       selected.has(n.id) &&
-      !ancestors(d, n, byId).some((p) => selected.has(p.id)),
+      !ancestors(d, n, lookup).some((p) => selected.has(p.id)),
   );
 }
 export function ancestors(

@@ -346,3 +346,70 @@ it("rejects an edit before it creates a native file that cannot be reopened", ()
   ).toThrow(/64 MB/);
   expect(engine.document).toBe(before);
 });
+
+it("keeps transaction lookups current through mixed structural commands and rejection", () => {
+  const engine = new DesignEngine();
+  const page = engine.pageId;
+  const a = makeNode("frame", page, { id: "transaction-parent" });
+  const b = makeNode("rectangle", page, {
+    id: "transaction-child",
+    parentId: a.id,
+  });
+  engine.dispatch([
+    { op: "create", node: a },
+    { op: "create", node: b },
+    { op: "duplicate", ids: [b.id], dx: 4, dy: 4 },
+    { op: "group", ids: [b.id], id: "transaction-group" },
+    { op: "update", ids: ["transaction-group"], patch: { x: 12 } },
+    { op: "ungroup", ids: ["transaction-group"] },
+    { op: "reparent", ids: [b.id], parentId: null },
+    { op: "delete", ids: [a.id] },
+    { op: "create", node: a },
+    { op: "update", ids: [a.id], patch: { name: "Recreated" } },
+  ]);
+  expect(engine.document.nodes.map((n) => n.id).sort()).toEqual(
+    [b.id, a.id].sort(),
+  );
+  expect(engine.document.nodes.find((n) => n.id === b.id)?.parentId).toBeNull();
+  expect(engine.document.nodes.find((n) => n.id === a.id)?.name).toBe(
+    "Recreated",
+  );
+  const before = structuredClone(engine.document);
+  expect(() =>
+    engine.dispatch([
+      { op: "delete", ids: [b.id] },
+      { op: "update", ids: [b.id], patch: { x: 1 } },
+    ]),
+  ).toThrow();
+  expect(engine.document).toEqual(before);
+  engine.dispatch([{ op: "update", ids: [b.id], patch: { x: 30 } }]);
+  expect(engine.document.nodes.find((n) => n.id === b.id)?.x).toBe(30);
+  engine.history("undo", engine.guard());
+  engine.history("undo", engine.guard());
+  expect(engine.document.nodes).toEqual([]);
+});
+
+it("removes page-owned lookup entries before recreating IDs in the same batch", () => {
+  const engine = new DesignEngine();
+  const first = engine.pageId;
+  engine.dispatch([
+    {
+      op: "page_create",
+      page: { id: "removed-page", name: "Remove", background: "#202020" },
+    },
+    {
+      op: "create",
+      node: makeNode("rectangle", "removed-page", { id: "reused-node" }),
+    },
+    { op: "page_delete", id: "removed-page" },
+    { op: "create", node: makeNode("rectangle", first, { id: "reused-node" }) },
+    { op: "update", ids: ["reused-node"], patch: { x: 48 } },
+  ]);
+  expect(engine.document.pages).toHaveLength(1);
+  expect(engine.document.nodes).toHaveLength(1);
+  expect(engine.document.nodes[0]).toMatchObject({
+    id: "reused-node",
+    pageId: first,
+    x: 48,
+  });
+});
