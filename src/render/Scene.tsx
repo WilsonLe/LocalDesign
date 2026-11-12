@@ -6,9 +6,9 @@ import {
 } from "react";
 import { indexNodes, type NodeIndex } from "../core/tree";
 import { ancestors, type DesignDocument, type DesignNode } from "../core/model";
-import { measureText, textLineOrigin } from "./text";
-import { resolveFont } from "./fonts";
-import { shapeLine } from "./glyphs";
+import { textLineOrigin } from "./text";
+import { textShape } from "./textShape";
+import { visibleNodes, type ViewBox } from "./visibility";
 export const NodeShape = memo(
   function NodeShape({
     node: n,
@@ -45,14 +45,12 @@ export const NodeShape = memo(
       case "path":
         return <path d={n.path} {...style} />;
       case "text": {
-        const { lines } = measureText(n, doc);
-        const font = resolveFont(n, doc);
+        const { lines, font } = textShape(n, doc);
         return (
           <g aria-label={n.text} data-font-id={font.id}>
             <title>{n.text}</title>
             {font.record &&
-              lines.map((line, i) => {
-                const shaped = shapeLine(n, font.record!, line);
+              lines.map((shaped, i) => {
                 const origin = textLineOrigin(n, shaped.width, i);
                 return (
                   <g key={i} transform={`translate(${origin.x} ${origin.y})`}>
@@ -99,15 +97,17 @@ export function SceneNode({
   interactive = false,
   glyphPrefix = "",
   index,
+  visible,
 }: {
   node: DesignNode;
   doc: DesignDocument;
   index: NodeIndex;
+  visible?: Set<string>;
   onPointerDown?: PointerEventHandler<SVGGElement>;
   interactive?: boolean;
   glyphPrefix?: string;
 }) {
-  if (n.hidden) return null;
+  if (n.hidden || (visible && !visible.has(n.id))) return null;
   const children = index.children.get(n.id) ?? [];
   return (
     <g
@@ -148,6 +148,7 @@ export function SceneNode({
             key={child.id}
             node={child}
             index={index}
+            visible={visible}
             doc={doc}
             onPointerDown={onPointerDown}
             interactive={interactive}
@@ -165,28 +166,34 @@ export const Scene = memo(function Scene({
   interactive = false,
   onPointerDown,
   glyphPrefix = "",
+  viewBox,
 }: {
   doc: DesignDocument;
   pageId: string;
   rootIds?: string[];
+  viewBox?: ViewBox;
   interactive?: boolean;
   onPointerDown?: PointerEventHandler<SVGGElement>;
   glyphPrefix?: string;
 }) {
   const index = useMemo(() => indexNodes(doc), [doc.nodes]);
+  const roots = doc.nodes.filter((n) =>
+    rootIds ? rootIds.includes(n.id) : n.pageId === pageId && !n.parentId,
+  );
+  const visible = viewBox
+    ? visibleNodes(doc, roots, index, viewBox)
+    : undefined;
   const glyphs = new Map<string, string>();
   for (const node of doc.nodes.filter(
     (n) =>
+      (!visible || visible.has(n.id)) &&
       n.type === "text" &&
       n.pageId === pageId &&
       !n.hidden &&
       !ancestors(doc, n, index.byId).some((p) => p.hidden),
   )) {
-    const font = resolveFont(node, doc);
-    if (font.record)
-      for (const line of measureText(node, doc).lines)
-        for (const glyph of shapeLine(node, font.record, line).glyphs)
-          glyphs.set(glyph.id, glyph.path);
+    for (const line of textShape(node, doc).lines)
+      for (const glyph of line.glyphs) glyphs.set(glyph.id, glyph.path);
   }
   return (
     <>
@@ -195,21 +202,18 @@ export const Scene = memo(function Scene({
           <path key={id} id={`${glyphPrefix}${id}`} d={d} />
         ))}
       </defs>
-      {doc.nodes
-        .filter((n) =>
-          rootIds ? rootIds.includes(n.id) : n.pageId === pageId && !n.parentId,
-        )
-        .map((n) => (
-          <SceneNode
-            key={n.id}
-            node={n}
-            index={index}
-            doc={doc}
-            interactive={interactive}
-            onPointerDown={onPointerDown}
-            glyphPrefix={glyphPrefix}
-          />
-        ))}
+      {roots.map((n) => (
+        <SceneNode
+          key={n.id}
+          node={n}
+          index={index}
+          visible={visible}
+          doc={doc}
+          interactive={interactive}
+          onPointerDown={onPointerDown}
+          glyphPrefix={glyphPrefix}
+        />
+      ))}
     </>
   );
 });

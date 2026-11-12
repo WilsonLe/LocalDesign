@@ -231,11 +231,14 @@ test("reading-order display and auxiliary controls preserve scene stacking, layo
     "Right tie",
     "Rotated target",
   ]);
+  // Mount the complete scene to check paint order, then restore the original camera.
+  await tool(page, "viewport", { fit: "page", width: 1000, height: 700 });
   // Paint order is the original scene order, independent of panel order.
   const paint = await page
     .locator(".canvas [data-node-id]")
     .evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-node-id")));
   expect(paint.slice(0, 3)).toEqual(["section-3", "section-1", "heading"]);
+  await tool(page, "viewport", before.viewport);
   await page
     .getByRole("button", { name: "Collapse Selected work", exact: true })
     .click();
