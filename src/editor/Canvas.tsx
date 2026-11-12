@@ -73,6 +73,50 @@ export function Canvas({
     } | null>(null);
   const { document: doc, pageId, selection, viewport: v } = snapshot;
   const rendered = preview ?? doc;
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const svg = svgRef.current!;
+    const observer = new ResizeObserver(() => {
+      // SVG user units differ from CSS pixels when the interface is scaled.
+      setSize({ width: svg.clientWidth, height: svg.clientHeight });
+    });
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
+  // Keep the mounted scene stable while the camera moves inside its overscan.
+  // Refill only at the margin, rather than rebuilding glyph definitions per wheel event.
+  const coverage = useRef<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    zoom: number;
+  } | null>(null);
+  const view = {
+    x: -v.x / v.zoom,
+    y: -v.y / v.zoom,
+    width: size.width / v.zoom,
+    height: size.height / v.zoom,
+  };
+  const previous = coverage.current;
+  if (
+    !previous ||
+    previous.zoom !== v.zoom ||
+    view.x < previous.x ||
+    view.y < previous.y ||
+    view.x + view.width > previous.x + previous.width ||
+    view.y + view.height > previous.y + previous.height
+  ) {
+    const margin = 256 / v.zoom;
+    coverage.current = {
+      x: view.x - margin,
+      y: view.y - margin,
+      width: view.width + margin * 2,
+      height: view.height + margin * 2,
+      zoom: v.zoom,
+    };
+  }
+  const viewBox = coverage.current!;
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
         if (blocksCanvasShortcuts(e.target)) return;
@@ -415,7 +459,13 @@ export function Canvas({
         </defs>
         <rect width="100%" height="100%" fill="url(#dots)" />
         <g transform={`translate(${v.x} ${v.y}) scale(${v.zoom})`}>
-          <Scene doc={rendered} pageId={pageId} interactive />
+          <Scene
+            doc={rendered}
+            pageId={pageId}
+            interactive
+            viewBox={viewBox}
+            compactText={v.zoom < 0.3}
+          />
           {rendered.nodes
             .filter(
               (n) =>

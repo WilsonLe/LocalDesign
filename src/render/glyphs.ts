@@ -112,3 +112,48 @@ export function shapeLine(
   retainedGlyphs += glyphs.length;
   return result;
 }
+
+const compactLines = new WeakMap<Line, string[] | null>();
+export function compactLine(line: Line): string[] | null {
+  if (compactLines.has(line)) return compactLines.get(line)!;
+  // Repeated complex outlines must not expand a bounded glyph run without limit.
+  if (
+    line.glyphs.reduce((sum, glyph) => sum + glyph.path.length, 0) > 250_000
+  ) {
+    compactLines.set(line, null);
+    return null;
+  }
+  const paths: string[] = [];
+  let current = "",
+    bytes = 0,
+    right = -Infinity;
+  for (const glyph of line.glyphs) {
+    // Keep overlapping outlines as separate paint operations (combining marks,
+    // italic overhangs, RTL and negative tracking). Disjoint contours can share a path.
+    if (glyph.ink.x - glyph.scale <= right) {
+      paths.push(current);
+      current = "";
+    }
+    let coordinate = 0;
+    const path = glyph.path.replace(
+      /-?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi,
+      (number) => {
+        const x = coordinate++ % 2 === 0;
+        return String(
+          Number(number) * (x ? glyph.scale : -glyph.scale) +
+            (x ? glyph.x : glyph.y),
+        );
+      },
+    );
+    bytes += path.length;
+    if (bytes > 500_000) {
+      compactLines.set(line, null);
+      return null;
+    }
+    current += path;
+    right = glyph.ink.x + glyph.ink.width + glyph.scale;
+  }
+  if (current) paths.push(current);
+  compactLines.set(line, paths);
+  return paths;
+}
