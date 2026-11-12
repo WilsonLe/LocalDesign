@@ -47,11 +47,17 @@ export async function tool<T = any>(
     { name: `localdesign_${name}`, input },
   ) as Promise<T>;
 }
-export async function open(page: Page) {
-  await page.goto("./");
+export async function open(page: Page, id?: string) {
+  if (id) await page.goto(`workspace/${id}`);
+  else {
+    await page.goto("./");
+    await page
+      .getByRole("button", { name: "New blank design", exact: true })
+      .click();
+  }
   await expect(page.getByTestId("canvas")).toBeVisible();
   await expect
-    .poll(async () => page.locator(".save-state").innerText())
+    .poll(async () => page.locator(".save-state").textContent())
     .toContain("Saved locally");
 }
 export async function inspect(page: Page) {

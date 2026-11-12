@@ -20,13 +20,13 @@ export function connectWebMCP(
     return () => artifacts.clear();
   }
   let registration: AbortController | undefined;
-  let activeId = "";
+  let activeId: string | undefined;
   let sequence = Promise.resolve();
   let closed = false;
   let suspended = false;
   const refresh = () => {
     if (suspended) return;
-    const id = workspace.engine.document.id;
+    const id = workspace.active ? workspace.engine.document.id : "";
     if (id === activeId) return;
     activeId = id;
     registration?.abort();
@@ -53,7 +53,7 @@ export function connectWebMCP(
     });
   };
   refresh();
-  const unsubscribe = workspace.engine.subscribe(refresh);
+  const unsubscribe = workspace.subscribe(refresh);
   const hide = () => {
     suspended = true;
     registration?.abort();
@@ -61,7 +61,7 @@ export function connectWebMCP(
   };
   const show = () => {
     suspended = false;
-    activeId = "";
+    activeId = undefined;
     refresh();
   };
   window.addEventListener("pagehide", hide);

@@ -18,7 +18,6 @@ import {
   ChevronDown,
   Circle,
   FilePlus2,
-  FolderOpen,
   Frame,
   Hand,
   HelpCircle,
@@ -58,8 +57,17 @@ import { Inspector } from "./Inspector";
 import { Layers } from "./Layers";
 import { copySelection, pasteSelection } from "./clipboard";
 import { blocksCanvasShortcuts } from "./shortcuts";
+import { WorkspaceList } from "./WorkspaceList";
+import {
+  WorkspaceNavigation,
+  readWorkspaceRoute,
+  type NavigationState,
+} from "./workspaceRoute";
 const engine = new DesignEngine(),
-  workspace = new Workspace(engine),
+  workspace = new Workspace(engine, () => {
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement) focused.blur();
+  }),
   artifacts = new Artifacts();
 function Modal({
   title,
@@ -117,19 +125,23 @@ export function App() {
     [connection, setConnection] = useState<
       "connected" | "unavailable" | "error"
     >("unavailable"),
-    [modal, setModal] = useState<
-      "workspace" | "export" | "help" | "agent" | null
-    >(null),
+    [modal, setModal] = useState<"export" | "help" | "agent" | null>(null),
     [drawer, setDrawer] = useState<"layers" | "inspector" | null>(null),
-    [savedDocs, setSavedDocs] = useState<
-      Awaited<ReturnType<Workspace["list"]>>
-    >([]),
+    [navigation, setNavigation] = useState<NavigationState>({
+      route: readWorkspaceRoute(location.pathname),
+      loading: true,
+      error: "",
+    }),
     [busy, setBusy] = useState(false),
     [skill, setSkill] = useState("getting-started");
   const fileInput = useRef<HTMLInputElement>(null),
     imageInput = useRef<HTMLInputElement>(null),
     nameRef = useRef<HTMLInputElement>(null),
-    canvasWrap = useRef<HTMLDivElement>(null);
+    canvasWrap = useRef<HTMLDivElement>(null),
+    [navigator] = useState(
+      () => new WorkspaceNavigation(workspace, setNavigation),
+    );
+  const editing = workspace.active && navigation.route.kind === "workspace";
   const report = (e: unknown) =>
     setNotice(e instanceof Error ? e.message : String(e));
   const perform = async (fn: () => unknown | Promise<unknown>) => {
@@ -196,7 +208,12 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
     const unsub = workspace.subscribe(() => setStorage(workspace.status));
-    Promise.all([workspace.init(), fontsReady()])
+    let stopNavigation: (() => void) | undefined;
+    void navigator.start().then((stop) => {
+      if (cancelled) stop();
+      else stopNavigation = stop;
+    });
+    fontsReady()
       .then(() => {
         if (!cancelled) setReady(true);
       })
@@ -219,14 +236,11 @@ export function App() {
     return () => {
       cancelled = true;
       unsub();
+      stopNavigation?.();
       dispose();
       window.removeEventListener("beforeunload", before);
     };
   }, []);
-  useEffect(() => {
-    if (modal === "workspace")
-      perform(async () => setSavedDocs(await workspace.list()));
-  }, [modal]);
   useEffect(() => {
     if (!notice) return;
     const id = setTimeout(() => setNotice(""), 7000);
@@ -234,6 +248,8 @@ export function App() {
   }, [notice]);
   useEffect(() => {
     const id = doc.id;
+    setModal((current) => (current === "export" ? null : current));
+    setDrawer(null);
     return () => {
       void id;
       artifacts.clear();
@@ -241,7 +257,13 @@ export function App() {
   }, [doc.id]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (modal || blocksCanvasShortcuts(e.target)) return;
+      if (
+        !editing ||
+        navigation.loading ||
+        modal ||
+        blocksCanvasShortcuts(e.target)
+      )
+        return;
       const mod = e.metaKey || e.ctrlKey,
         lower = e.key.toLowerCase();
       const action = (fn: () => unknown | Promise<unknown>) => {
@@ -352,13 +374,15 @@ export function App() {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [doc, selection, modal]);
+  }, [doc, selection, modal, editing, navigation.loading]);
   const importSelected = async (file: File, asImage = false) => {
     setBusy(true);
+    workspace.commitPendingEdits();
     const guard = engine.guard(),
       pageId = engine.pageId;
     try {
       const result = await importFile(file);
+      workspace.commitPendingEdits();
       if (asImage) {
         if (result.document.assets.length !== 1)
           throw new Error("Choose a PNG, JPEG or WebP image.");
@@ -410,6 +434,8 @@ export function App() {
   ) => {
     setBusy(true);
     try {
+      if (!workspace.active)
+        throw new Error("Open a workspace before exporting.");
       const d = engine.document,
         id = d.id,
         blob =
@@ -457,86 +483,92 @@ export function App() {
       <header className="topbar">
         <Button
           className="brand"
-          title="Local workspace"
-          onClick={() => setModal("workspace")}
+          title="Workspaces"
+          aria-label="Workspaces"
+          onClick={() => void navigator.navigate({ kind: "list" })}
         >
           <BrandMark />
           <span>LocalDesign</span>
         </Button>
-        <span className="top-divider" />
-        <div className="document-title">
-          <Input
-            ref={nameRef}
-            aria-label="Design name"
-            disabled={!ready}
-            key={`${doc.id}-${doc.name}`}
-            defaultValue={doc.name}
-            maxLength={200}
-            onBlur={(e) => {
-              if (e.target.value !== doc.name)
-                void run([
-                  {
-                    op: "rename",
-                    name: e.target.value.trim() || "Untitled design",
-                  },
-                ]);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-          />
-          <Button
-            aria-label="Open workspace"
-            onClick={() => setModal("workspace")}
-          >
-            <ChevronDown size={13} />
-          </Button>
-        </div>
-        <span
-          className={`save-state ${storage === "error" ? "failed" : ""}`}
-          aria-live="polite"
-        >
-          {storage === "saved" ? (
-            <Check size={12} />
-          ) : storage === "saving" || storage === "loading" ? (
-            <LoaderCircle size={12} />
-          ) : (
-            <span>!</span>
-          )}
-          <span>
-            {storage === "saved"
-              ? "Saved locally"
-              : storage === "saving"
-                ? "Saving…"
-                : storage === "error"
-                  ? "Save failed"
-                  : "Opening…"}
-          </span>
-        </span>
-        <div className="top-spacer" />
-        <div className="history-actions">
-          <Button
-            aria-label="Undo"
-            title="Undo (⌘/Ctrl Z)"
-            disabled={!snapshot.canUndo}
-            onClick={() =>
-              perform(() => engine.history("undo", engine.guard()))
-            }
-          >
-            <Undo2 size={16} />
-          </Button>
-          <Button
-            aria-label="Redo"
-            title="Redo (⌘/Ctrl Shift Z)"
-            disabled={!snapshot.canRedo}
-            onClick={() =>
-              perform(() => engine.history("redo", engine.guard()))
-            }
-          >
-            <Redo2 size={16} />
-          </Button>
-        </div>
-        <span className="top-divider" />
+        {editing && (
+          <>
+            <span className="top-divider" />
+            <div className="document-title">
+              <Input
+                ref={nameRef}
+                aria-label="Design name"
+                disabled={!ready}
+                key={`${doc.id}-${doc.name}`}
+                defaultValue={doc.name}
+                maxLength={200}
+                onBlur={(e) => {
+                  if (e.target.value !== doc.name)
+                    void run([
+                      {
+                        op: "rename",
+                        name: e.target.value.trim() || "Untitled design",
+                      },
+                    ]);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                }}
+              />
+              <Button
+                aria-label="Open workspace"
+                onClick={() => void navigator.navigate({ kind: "list" })}
+              >
+                <ChevronDown size={13} />
+              </Button>
+            </div>
+            <span
+              className={`save-state ${storage === "error" ? "failed" : ""}`}
+              aria-live="polite"
+            >
+              {storage === "saved" ? (
+                <Check size={12} />
+              ) : storage === "saving" || storage === "loading" ? (
+                <LoaderCircle size={12} />
+              ) : (
+                <span>!</span>
+              )}
+              <span>
+                {storage === "saved"
+                  ? "Saved locally"
+                  : storage === "saving"
+                    ? "Saving…"
+                    : storage === "error"
+                      ? "Save failed"
+                      : "Opening…"}
+              </span>
+            </span>
+            <div className="top-spacer" />
+            <div className="history-actions">
+              <Button
+                aria-label="Undo"
+                title="Undo (⌘/Ctrl Z)"
+                disabled={!snapshot.canUndo}
+                onClick={() =>
+                  perform(() => engine.history("undo", engine.guard()))
+                }
+              >
+                <Undo2 size={16} />
+              </Button>
+              <Button
+                aria-label="Redo"
+                title="Redo (⌘/Ctrl Shift Z)"
+                disabled={!snapshot.canRedo}
+                onClick={() =>
+                  perform(() => engine.history("redo", engine.guard()))
+                }
+              >
+                <Redo2 size={16} />
+              </Button>
+            </div>
+            <span className="top-divider" />
+          </>
+        )}
+        {!editing && <div className="top-spacer" />}
         <Button
           className={`agent-button ${connection === "connected" ? "connected" : ""}`}
           title="Connect an agent"
@@ -551,21 +583,32 @@ export function App() {
         <Button
           className="import-button"
           onClick={() => fileInput.current?.click()}
-          disabled={busy || !ready}
+          disabled={busy || navigation.loading || !workspace.initialized}
         >
           <ArrowUpFromLine size={14} />
           <span>Import</span>
         </Button>
-        <Button
-          className="primary export-button"
-          onClick={() => setModal("export")}
-          disabled={busy || !ready}
-        >
-          <ArrowDownToLine size={14} />
-          <span>Export</span>
-        </Button>
+        {editing ? (
+          <Button
+            className="primary export-button"
+            onClick={() => setModal("export")}
+            disabled={busy || !ready}
+          >
+            <ArrowDownToLine size={14} />
+            <span>Export</span>
+          </Button>
+        ) : (
+          <Button
+            className="primary new-workspace-button"
+            disabled={busy || navigation.loading || !workspace.initialized}
+            onClick={() => perform(() => workspace.create())}
+          >
+            <FilePlus2 size={16} />
+            New blank design
+          </Button>
+        )}
       </header>
-      {storage === "error" && (
+      {storage === "error" && editing && (
         <div className="storage-error" role="alert">
           <strong>Local save failed.</strong> {workspace.error} Export a
           .localdesign backup before leaving this page.{" "}
@@ -578,132 +621,159 @@ export function App() {
           </Button>
         </div>
       )}
-      <div className="mobile-controls">
-        <Button
-          aria-expanded={drawer === "layers"}
-          onClick={() => setDrawer(drawer === "layers" ? null : "layers")}
-        >
-          <LayersIcon size={15} />
-          Pages & layers
-        </Button>
-        <Button
-          aria-expanded={drawer === "inspector"}
-          onClick={() => setDrawer(drawer === "inspector" ? null : "inspector")}
-        >
-          <Settings2 size={15} />
-          Properties
-        </Button>
-      </div>
-      <main className="editor-body">
-        <aside
-          className={`left-panel ${drawer === "layers" ? "drawer-open" : ""}`}
-          aria-label="Pages and layers"
-        >
-          <Button
-            className="drawer-close"
-            aria-label="Close layers"
-            onClick={() => setDrawer(null)}
-          >
-            <X size={18} />
-          </Button>
-          <Layers
-            engine={engine}
-            document={doc}
-            pageId={snapshot.pageId}
-            selection={selection}
-            onError={setNotice}
-            onFocusLayer={focusLayer}
-          />
-        </aside>
-        <div ref={canvasWrap} className="canvas-area">
-          {ready ? (
-            <Canvas
-              engine={engine}
-              snapshot={snapshot}
-              tool={tool}
-              setTool={setTool}
-              onError={setNotice}
-              onImage={() => imageInput.current?.click()}
-            />
-          ) : (
-            <div className="opening">Opening your local workspace…</div>
-          )}
-          <div className="canvas-top-label">
-            <span>{doc.pages.find((p) => p.id === engine.pageId)?.name}</span>
-          </div>
-          <div
-            className="floating-tools"
-            role="toolbar"
-            aria-label="Drawing tools"
-          >
-            {tools.map(([id, title, key, Icon], i) => (
-              <Button
-                key={id}
-                className={`${tool === id ? "active" : ""} ${i === 2 || i === 7 ? "tool-separated" : ""}`}
-                aria-label={title}
-                aria-pressed={tool === id}
-                title={`${title} (${key})`}
-                onClick={() =>
-                  id === "image" ? imageInput.current?.click() : setTool(id)
-                }
-                disabled={!ready}
-              >
-                <Icon size={18} />
-                {tool === id && <span className="tool-key">{key}</span>}
-              </Button>
-            ))}
-          </div>
-          <div className="zoom-controls">
-            <Button aria-label="Zoom out" onClick={() => zoom(0.8)}>
-              <Minus size={14} />
-            </Button>
-            <Button
-              aria-label="Reset zoom"
-              onClick={() => engine.setViewport({ zoom: 1 })}
-            >
-              {Math.round(viewport.zoom * 100)}%
-            </Button>
-            <Button aria-label="Zoom in" onClick={() => zoom(1.25)}>
-              <Plus size={14} />
-            </Button>
-            <span />
-            <Button
-              aria-label="Fit canvas"
-              title="Fit canvas (1)"
-              onClick={() => fit()}
-            >
-              <Maximize size={14} />
-            </Button>
-          </div>
-          <Button
-            className="help-button"
-            aria-label="Help and shortcuts"
-            onClick={() => setModal("help")}
-          >
-            <HelpCircle size={17} />
-          </Button>
+      {navigation.error && editing && (
+        <div className="storage-error" role="alert">
+          {navigation.error}
         </div>
-        <aside
-          className={`right-panel ${drawer === "inspector" ? "drawer-open" : ""}`}
-          aria-label="Properties"
-        >
-          <Button
-            className="drawer-close"
-            aria-label="Close properties"
-            onClick={() => setDrawer(null)}
-          >
-            <X size={18} />
-          </Button>
-          <Inspector
-            ready={ready}
-            engine={engine}
-            document={doc}
-            pageId={snapshot.pageId}
-            selection={selection}
-            onError={setNotice}
-          />
-        </aside>
-      </main>
+      )}
+      {editing ? (
+        <>
+          <div className="mobile-controls">
+            <Button
+              aria-expanded={drawer === "layers"}
+              onClick={() => setDrawer(drawer === "layers" ? null : "layers")}
+            >
+              <LayersIcon size={15} />
+              Pages & layers
+            </Button>
+            <Button
+              aria-expanded={drawer === "inspector"}
+              onClick={() =>
+                setDrawer(drawer === "inspector" ? null : "inspector")
+              }
+            >
+              <Settings2 size={15} />
+              Properties
+            </Button>
+          </div>
+          <main className="editor-body">
+            <aside
+              className={`left-panel ${drawer === "layers" ? "drawer-open" : ""}`}
+              aria-label="Pages and layers"
+            >
+              <Button
+                className="drawer-close"
+                aria-label="Close layers"
+                onClick={() => setDrawer(null)}
+              >
+                <X size={18} />
+              </Button>
+              <Layers
+                engine={engine}
+                document={doc}
+                pageId={snapshot.pageId}
+                selection={selection}
+                onError={setNotice}
+                onFocusLayer={focusLayer}
+              />
+            </aside>
+            <div ref={canvasWrap} className="canvas-area">
+              {ready && !navigation.loading ? (
+                <Canvas
+                  engine={engine}
+                  snapshot={snapshot}
+                  tool={tool}
+                  setTool={setTool}
+                  onError={setNotice}
+                  onImage={() => imageInput.current?.click()}
+                />
+              ) : (
+                <div className="opening">Opening your local workspace…</div>
+              )}
+              <div className="canvas-top-label">
+                <span>
+                  {doc.pages.find((p) => p.id === engine.pageId)?.name}
+                </span>
+              </div>
+              <div
+                className="floating-tools"
+                role="toolbar"
+                aria-label="Drawing tools"
+              >
+                {tools.map(([id, title, key, Icon], i) => (
+                  <Button
+                    key={id}
+                    className={`${tool === id ? "active" : ""} ${i === 2 || i === 7 ? "tool-separated" : ""}`}
+                    aria-label={title}
+                    aria-pressed={tool === id}
+                    title={`${title} (${key})`}
+                    onClick={() =>
+                      id === "image" ? imageInput.current?.click() : setTool(id)
+                    }
+                    disabled={!ready}
+                  >
+                    <Icon size={18} />
+                    {tool === id && <span className="tool-key">{key}</span>}
+                  </Button>
+                ))}
+              </div>
+              <div className="zoom-controls">
+                <Button aria-label="Zoom out" onClick={() => zoom(0.8)}>
+                  <Minus size={14} />
+                </Button>
+                <Button
+                  aria-label="Reset zoom"
+                  onClick={() => engine.setViewport({ zoom: 1 })}
+                >
+                  {Math.round(viewport.zoom * 100)}%
+                </Button>
+                <Button aria-label="Zoom in" onClick={() => zoom(1.25)}>
+                  <Plus size={14} />
+                </Button>
+                <span />
+                <Button
+                  aria-label="Fit canvas"
+                  title="Fit canvas (1)"
+                  onClick={() => fit()}
+                >
+                  <Maximize size={14} />
+                </Button>
+              </div>
+              <Button
+                className="help-button"
+                aria-label="Help and shortcuts"
+                onClick={() => setModal("help")}
+              >
+                <HelpCircle size={17} />
+              </Button>
+            </div>
+            <aside
+              className={`right-panel ${drawer === "inspector" ? "drawer-open" : ""}`}
+              aria-label="Properties"
+            >
+              <Button
+                className="drawer-close"
+                aria-label="Close properties"
+                onClick={() => setDrawer(null)}
+              >
+                <X size={18} />
+              </Button>
+              <Inspector
+                ready={ready}
+                engine={engine}
+                document={doc}
+                pageId={snapshot.pageId}
+                selection={selection}
+                onError={setNotice}
+              />
+            </aside>
+          </main>
+        </>
+      ) : (
+        <WorkspaceList
+          workspace={workspace}
+          loading={navigation.loading}
+          error={navigation.error}
+          onOpen={(id) => void navigator.navigate({ kind: "workspace", id })}
+          onRetry={() =>
+            void navigator.navigate(
+              readWorkspaceRoute(location.pathname),
+              false,
+            )
+          }
+          onList={() => void navigator.navigate({ kind: "list" })}
+        />
+      )}
       {notice && (
         <div className="toast" role="status">
           <span>{notice}</span>
@@ -736,66 +806,7 @@ export function App() {
           e.target.value = "";
         }}
       />
-      {modal === "workspace" && (
-        <Modal title="Your local workspace" onClose={() => setModal(null)}>
-          <Button
-            className="primary wide"
-            disabled={!ready}
-            onClick={() =>
-              perform(async () => {
-                await workspace.create();
-                setModal(null);
-              })
-            }
-          >
-            <FilePlus2 size={16} />
-            New blank design
-          </Button>
-          <div className="workspace-list">
-            {savedDocs.map((d) => (
-              <div className="workspace-item" key={d.id}>
-                <Button
-                  onClick={() =>
-                    perform(async () => {
-                      await workspace.open(d.id);
-                      setModal(null);
-                    })
-                  }
-                >
-                  <FolderOpen size={18} />
-                  <div>
-                    <strong>{d.name}</strong>
-                  </div>
-                  {d.id === doc.id && (
-                    <span className="current-label">Current</span>
-                  )}
-                </Button>
-                {d.id !== doc.id && (
-                  <Button
-                    aria-label={`Delete ${d.name}`}
-                    title="Permanently delete saved copy"
-                    onClick={() =>
-                      perform(async () => {
-                        if (
-                          confirm(
-                            `Delete “${d.name}” from this browser? Exported files are unaffected.`,
-                          )
-                        ) {
-                          await workspace.remove(d.id);
-                          setSavedDocs(await workspace.list());
-                        }
-                      })
-                    }
-                  >
-                    <X size={15} />
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-        </Modal>
-      )}
-      {modal === "export" && (
+      {editing && modal === "export" && (
         <Modal title="Take your design with you" onClose={() => setModal(null)}>
           <Button
             className="export-option"

@@ -962,43 +962,93 @@ kbd {
   width: 100%;
   margin-bottom: 15px;
 }
+.workspace-page {
+  flex: 1;
+  overflow: auto;
+  padding: 56px 24px;
+}
+.workspace-content {
+  max-width: 960px;
+  margin: 0 auto;
+}
+.workspace-content h1 {
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: -0.8px;
+  margin-bottom: 28px;
+  outline: none;
+}
 .workspace-list {
-  border-top: 1px solid #e5e5e5;
-  margin-top: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
 }
 .workspace-item {
   display: flex;
-  border-bottom: 1px solid #f5f5f5;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
   padding: 8px 0;
 }
-.workspace-item > button:first-child {
-  flex: 1;
-  justify-content: flex-start;
-  gap: 13px;
-  padding: 9px 7px;
-  min-width: 0;
-}
-.workspace-item button div {
+.workspace-item > a {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 5px;
+  flex: 1;
+  align-items: center;
+  gap: 16px;
   min-width: 0;
+  min-height: 56px;
+  padding: 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--foreground);
+}
+.workspace-item > a:hover {
+  background: var(--muted);
+}
+.workspace-item > a > svg {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
 }
 .workspace-item strong {
-  font-size: 12px;
-  max-width: 260px;
+  font-size: 14px;
+  font-weight: 500;
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
 }
-.workspace-item span {
-  font-size: 10px;
-  color: #737373;
+.workspace-item > button {
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--muted-foreground);
 }
-.workspace-item .current-label {
-  margin-left: auto;
-  color: #171717;
-  font-size: 9px;
+.workspace-empty {
+  display: flex;
+  min-height: 280px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+.workspace-empty h2 {
+  font-size: 15px;
+  font-weight: 500;
+}
+.workspace-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.workspace-error > span {
+  flex: 1 1 100%;
 }
 .export-option {
   display: flex;
@@ -1421,8 +1471,11 @@ kbd {
     max-width: 100%;
     width: 100%;
   }
-  .workspace-item strong {
-    max-width: 170px;
+  .workspace-page {
+    padding: 32px 20px;
+  }
+  .new-workspace-button {
+    font-size: 12px;
   }
   .storage-error {
     font-size: 10px;

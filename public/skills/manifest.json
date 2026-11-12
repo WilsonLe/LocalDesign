@@ -1,5 +1,5 @@
 {
-  "bundleVersion": "1.1.0",
+  "bundleVersion": "1.2.0",
   "maxResponseBytes": 48000,
   "source": {
     "url": "https://github.com/WilsonLe/agentic-workflows",
@@ -17,10 +17,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.1.0",
+      "version": "1.2.0",
       "path": "getting-started.md",
-      "sha256": "cd15c5cbe30af9d15cd2d0a9f591cdd6372d05e5404b939b2a4abecaec34d720",
-      "bytes": 15556,
+      "sha256": "685107b6194bd949e0e87815c78280d1ad079cb9c0f5e859095913cc59c68a91",
+      "bytes": 16251,
       "originalSkillIds": []
     },
     {
@@ -32,13 +32,11 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.1.0",
+      "version": "1.2.0",
       "path": "ui-design.md",
-      "sha256": "4bce5934ca224dc72c5aae3a08e263b99141184f296f8698b71282708dfba4dd",
-      "bytes": 17619,
-      "originalSkillIds": [
-        "ui-design"
-      ]
+      "sha256": "dbd76787a6d96dcc9e7d0803264f1b842164488c4a1655b6eed85cd3d5eff72c",
+      "bytes": 18314,
+      "originalSkillIds": ["ui-design"]
     },
     {
       "id": "typography",
@@ -49,13 +47,11 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.1.0",
+      "version": "1.2.0",
       "path": "typography.md",
-      "sha256": "fe9db519df469d757b34cbc40446603b5b6fc0f05464c5a1607940bf1cabd167",
-      "bytes": 18147,
-      "originalSkillIds": [
-        "typography"
-      ]
+      "sha256": "a5774cc23139e0221912970b1e0759e12232e154ece5935376ed62961f574fa0",
+      "bytes": 18842,
+      "originalSkillIds": ["typography"]
     }
   ],
   "sourceInventory": [
@@ -396,5 +392,5 @@
       "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
     }
   ],
-  "adaptationNotes": "Bundle 1.1.0 adds LocalDesign font catalog/assignment, licensed local font ingress, preserved requested identity and explicit mapping, glyph/portability warnings, schema-v2 native files and pixel/reopen evidence. Preserves large-document resource ceilings and semantic Layers guidance from main. Upstream provenance and browser preference remain unchanged."
+  "adaptationNotes": "Bundle 1.2.0 adds workspace-list roots, documentOpen status, guarded close and URL-synchronized create/open/import/copy guidance. Bundle 1.1.0 added LocalDesign font catalog/assignment, licensed local font ingress, preserved requested identity and explicit mapping, glyph/portability warnings, schema-v2 native files and pixel/reopen evidence. Preserves large-document resource ceilings and semantic Layers guidance from main. Upstream provenance and browser preference remain unchanged."
 }

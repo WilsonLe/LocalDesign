@@ -642,7 +642,7 @@ test("two tabs reject conflicting saves and recover the unsaved work as a separa
   const original = await inspect(page);
   const other = await context.newPage();
   await harness(other);
-  await open(other);
+  await open(other, original.documentId);
   expect((await inspect(other)).documentId).toBe(original.documentId);
   await edits(page, [{ op: "rename", name: "Saved from first tab" }]);
   await expect
