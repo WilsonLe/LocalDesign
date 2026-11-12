@@ -29,3 +29,11 @@ User correction in PR #2: remove all small description text, including the brows
 ## 2026-11-12 — Drawer actions need their own space
 
 Removing the workspace branding block exposed a mobile overlap: the absolute Close layers control intercepted Add page. Independent PR #3 review reproduced the normal click failure at 390 × 844. Reserve heading space for drawer dismissal independently of decorative sections; the existing narrow-screen browser journey now clicks Add page and verifies Page 2 before closing. Recheck real hit targets whenever removing adjacent header content.
+
+## 2026-11-12 — Put consumer browser preferences in exposed skills
+
+Trigger: the user clarified that the built-in browser preference must guide users' external agents, rather than only the current development session. Evidence: issue #4 and the served-package assertions in `tests/browser/agent.spec.ts`. Correction: include built-in browser first, explicit user/attached-tab precedence, observed fallback reasons, discovery retry and browser-local working-copy preservation in every self-contained runtime package. Scope: `public/skills`, its versioned manifest and connection documentation; no global memory or host browser policy. Verify the built-app cold-start journey returns the preference in all three packages and preserves revision/history on reads. On resume, inspect the served bundle version before claiming the change is available. Packaging checks do not establish future agent compliance.
+
+## 2026-11-12 — Derive deployed skill identity from the manifest
+
+Trigger: PR #5 pre-merge inspection found the Pages workflow hardcoded skill bundle 1.0.0 while the reviewed manifest had advanced to 1.0.1. Correction: the release-identity command reads application and skill versions from their owning manifests. Evidence: `tests/skills.test.ts` executes the actual workflow command with distinct fixture versions and checks the generated release.json. Scope: Pages release metadata; no document schema change. Verify deployed release.json against the merged SHA and manifest; on resume do not treat an old hardcoded release label as proof of the served bundle.

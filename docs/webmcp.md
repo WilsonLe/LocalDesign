@@ -1,5 +1,7 @@
 # Connecting an external agent
 
+Try the agent host’s built-in browser and page-tool discovery before opening Chrome, unless the user chose a browser or already attached a LocalDesign tab. Fall back only when the built-in browser is unavailable or lacks the required capability, explaining the observed reason; check the connection state and retry discovery before switching after a discovery failure. Working copies are browser-local: preserve existing work with a native export or resolve unsaved storage errors, then rediscover tools and inspect the destination document/revision before editing. The same URL does not transfer a working copy between browsers.
+
 Open the deployed app in a browser host that supports `document.modelContext.registerTool`. The desktop built-in browser used during development supports site-tool discovery. Ordinary browsers can edit without WebMCP; the Connect agent dialog explains the current registration state. There is no HTTP MCP endpoint to configure, provider token to enter, in-app chat or built-in agent.
 
 Ask the external agent: “Discover this page's tools, call localdesign_list_skills, read getting-started using localdesign_get_skill, then help me design …”. Runtime tool names may have a browser-generated suffix: use exactly the names returned by the host's discovery API. Guides refer to canonical names. The served instructions include the complete tool loop, model, boundaries, recovery and examples. UI design and typography packages require no prior plugin knowledge or network checkout.
