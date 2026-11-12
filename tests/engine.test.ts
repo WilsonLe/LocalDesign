@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAX_DOCUMENT_BYTES } from "../src/core/limits";
 import { DesignEngine } from "../src/core/engine";
 import {
   blankDocument,
@@ -323,11 +324,13 @@ it("locked ancestry also blocks creating/reparenting children into a destination
 
 it("rejects an edit before it creates a native file that cannot be reopened", () => {
   const doc = blankDocument();
-  doc.nodes = Array.from({ length: 1100 }, (_, i) =>
-    makeNode("text", doc.pages[0].id, {
-      id: `text-${i}`,
-      text: "a".repeat(20000),
-    }),
+  doc.nodes = Array.from(
+    { length: Math.floor(MAX_DOCUMENT_BYTES / 21000) - 100 },
+    (_, i) =>
+      makeNode("text", doc.pages[0].id, {
+        id: `text-${i}`,
+        text: "a".repeat(20000),
+      }),
   );
   const engine = new DesignEngine(doc),
     before = engine.document;
@@ -340,6 +343,6 @@ it("rejects an edit before it creates a native file that cannot be reopened", ()
         dy: 0,
       },
     ]),
-  ).toThrow(/24 MB/);
+  ).toThrow(/64 MB/);
   expect(engine.document).toBe(before);
 });

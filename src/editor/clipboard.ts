@@ -1,3 +1,4 @@
+import { MAX_NODES, MAX_ASSETS, MAX_CLIPBOARD_CHARS } from "../core/limits";
 import { validateRasterAssets } from "../files/raster";
 import { DocumentFonts } from "../fonts/schema";
 import { resolveFont, validateFontFaces } from "../render/fonts";
@@ -17,8 +18,8 @@ import { worldPoint, worldRotation } from "../core/geometry";
 const schema = z
   .object({
     format: z.literal("localdesign-clipboard-v1"),
-    nodes: z.array(NodeSchema).max(4000),
-    assets: z.array(AssetSchema).max(100),
+    nodes: z.array(NodeSchema).max(MAX_NODES),
+    assets: z.array(AssetSchema).max(MAX_ASSETS),
     fonts: DocumentFonts,
   })
   .strict();
@@ -74,7 +75,7 @@ export async function pasteSelection(engine: DesignEngine) {
     const text = await navigator.clipboard.readText();
     if (text.startsWith('{"format":"localdesign-clipboard-v1"')) {
       requireThat(
-        text.length < 32_000_000,
+        text.length <= MAX_CLIPBOARD_CHARS,
         "SIZE_LIMIT",
         "Clipboard is too large.",
       );

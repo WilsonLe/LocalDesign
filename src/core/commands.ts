@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { AssetSchema, Id, NodeSchema, PageSchema } from "./model";
 import { FontSchema } from "../fonts/schema";
-const ids = z.array(Id).min(1).max(4000);
+import { MAX_NODES } from "./limits";
+const ids = z.array(Id).min(1).max(MAX_NODES);
 // Remove creation defaults before making patches optional; Zod applies defaults inside optional fields.
 const Patch = z
   .object({

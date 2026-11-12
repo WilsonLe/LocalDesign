@@ -12,6 +12,7 @@ import { base64, portableFont } from "../src/fonts/data";
 import type { DocumentFont } from "../src/fonts/schema";
 import { measureText } from "../src/render/text";
 import shapingReference from "./fixtures/fonts/shaping-reference.json" with { type: "json" };
+import { MAX_ASSETS } from "../src/core/limits";
 
 const bytes = (path: string) => new Uint8Array(readFileSync(path));
 const serif = () =>
@@ -20,6 +21,53 @@ const serif = () =>
     "SourceSerif4-Regular.otf",
     "SIL OFL 1.1; editable redistribution permitted",
   );
+it("opens a full image catalog with portable multi-file local fonts in the same archive", () => {
+  const doc = blankDocument(),
+    font = localFont(
+      bytes(
+        "node_modules/@fontsource/inter/files/inter-vietnamese-600-italic.woff2",
+      ),
+      "Licensed subset fixture",
+      "SIL OFL 1.1",
+    ),
+    png = Uint8Array.from(
+      Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    );
+  doc.assets = Array.from({ length: MAX_ASSETS }, (_, i) => ({
+    id: `image-${i}`,
+    name: `Image ${i}`,
+    mime: "image/png" as const,
+    data: `data:image/png;base64,${base64(png)}`,
+    width: 1,
+    height: 1,
+  }));
+  doc.fonts = Array.from({ length: 48 }, (_, i) => ({
+    ...font,
+    id: `local-face-${i}`,
+    files: Array.from({ length: 3 }, () => ({ ...font.files[0] })),
+  }));
+  validateDocument(doc);
+  const portable = structuredClone(doc),
+    entries: Record<string, Uint8Array> = {};
+  for (const asset of portable.assets) {
+    asset.data = `assets/${asset.id}.png`;
+    entries[asset.data] = png;
+  }
+  for (const face of portable.fonts)
+    face.files.forEach((file, i) => {
+      file.data = `fonts/${face.id}-${i}.${file.format}`;
+      entries[file.data] = bytes(
+        "node_modules/@fontsource/inter/files/inter-vietnamese-600-italic.woff2",
+      );
+    });
+  entries["document.json"] = strToU8(JSON.stringify(portable));
+  const reopened = nativeImport(zipSync(entries));
+  expect(reopened.assets).toEqual(doc.assets);
+  expect(reopened.fonts).toEqual(doc.fonts);
+});
 it("shapes exact pinned bytes against independent HarfBuzz kerning and ligature advances", () => {
   for (const reference of shapingReference.fonts) {
     const data = bytes(reference.path);

@@ -19,6 +19,21 @@ test("scripted cold start uses only served schemas/skills, validates, authors, p
       expectedBundleVersion: catalog.bundleVersion,
     });
     expect(p.instructions).toContain("## Tool loop");
+    expect(p.instructions).toContain(
+      "Hero → Selected work → Get in touch → Footer",
+    );
+    expect(p.instructions).toContain(
+      "left-to-right for elements on the same row",
+    );
+    expect(p.instructions).toContain(
+      "inspect the Layers tree alongside the rendered canvas",
+    );
+    expect(p.instructions).toContain(
+      "Do not reorder scene nodes merely to tidy the panel",
+    );
+    expect(p.instructions).toContain(
+      "respect intentional existing organization",
+    );
     expect(p.bundleVersion).toBe(catalog.bundleVersion);
     expect(p.version).toBe(
       catalog.skills.find((s: any) => s.id === id).version,

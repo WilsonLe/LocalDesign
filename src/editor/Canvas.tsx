@@ -80,7 +80,11 @@ export function Canvas({
           setPreview(null);
           setMarquee(null);
         }
-        if (e.code === "Space") {
+        if (
+          e.code === "Space" &&
+          (e.target === document.body ||
+            (e.target instanceof Node && svgRef.current?.contains(e.target)))
+        ) {
           space.current = true;
           e.preventDefault();
         }

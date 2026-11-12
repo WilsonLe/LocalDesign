@@ -1,6 +1,10 @@
 import {
   MAX_DOCUMENT_BYTES,
   MAX_PORTABLE_BYTES,
+  MAX_NODES,
+  MAX_PAGES,
+  MAX_ASSETS,
+  MAX_ASSET_DATA_CHARS,
   MAX_FONT_BYTES,
   FONT_ARCHIVE_RESERVE,
 } from "./limits";
@@ -114,9 +118,9 @@ export const DocumentSchema = z
     id: Id,
     revision: z.number().int().min(0),
     name: z.string().min(1).max(200),
-    pages: z.array(PageSchema).min(1).max(100),
-    nodes: z.array(NodeSchema).max(4000),
-    assets: z.array(AssetSchema).max(100),
+    pages: z.array(PageSchema).min(1).max(MAX_PAGES),
+    nodes: z.array(NodeSchema).max(MAX_NODES),
+    assets: z.array(AssetSchema).max(MAX_ASSETS),
     fonts: DocumentFonts,
   })
   .strict();
@@ -213,9 +217,9 @@ export function validateDocument(input: unknown): DesignDocument {
   );
   d.fonts.forEach(validateFontRecord);
   requireThat(
-    d.assets.reduce((s, a) => s + a.data.length, 0) < 64_000_000,
+    d.assets.reduce((s, a) => s + a.data.length, 0) <= MAX_ASSET_DATA_CHARS,
     "SIZE_LIMIT",
-    "Total embedded assets exceed 48 MB.",
+    "Embedded assets exceed the portable content budget.",
   );
   for (const a of d.assets)
     requireThat(
@@ -278,12 +282,12 @@ export function validateDocument(input: unknown): DesignDocument {
   requireThat(
     documentBytes <= MAX_DOCUMENT_BYTES,
     "SIZE_LIMIT",
-    "Design metadata exceeds the 24 MB editable-file limit. Split this work across local documents.",
+    `Design metadata exceeds the ${MAX_DOCUMENT_BYTES / 1_000_000} MB editable-file limit.`,
   );
   requireThat(
     documentBytes + assetBytes + fontBytes <= MAX_PORTABLE_BYTES,
     "SIZE_LIMIT",
-    "Design content exceeds the 30 MB portable-file budget. Use smaller images/fonts or split pages into separate documents.",
+    `Design content exceeds the ${MAX_PORTABLE_BYTES / 1_000_000} MB portable-file budget. Use smaller images/fonts or separate documents.`,
   );
   return d;
 }

@@ -8,7 +8,7 @@ import { requireThat, DesignError } from "../core/model";
 import { MAX_FONT_FILE_BYTES, MAX_FONT_EXPANDED_BYTES } from "../core/limits";
 import { FontSchema, type DocumentFont, type FontFile } from "./schema";
 import { bundledCatalog } from "./bundled";
-import bundledIntegrity from "./bundled-integrity.json";
+import bundledIntegrity from "./bundled-integrity.json" with { type: "json" };
 registerFormat(TTFFont);
 registerFormat(WOFFFont);
 registerFormat(WOFF2Font);

@@ -16,6 +16,8 @@ import {
   MAX_EXPANDED_BYTES,
   MAX_DOCUMENT_BYTES,
   MAX_FONT_FILE_BYTES,
+  MAX_ASSETS,
+  MAX_ARCHIVE_ENTRIES,
   FONT_ARCHIVE_RESERVE,
 } from "../core/limits";
 import { validateRasterAssets } from "./raster";
@@ -49,7 +51,7 @@ export async function nativeExport(doc: DesignDocument): Promise<Blob> {
   requireThat(
     archive.length <= MAX_FILE_BYTES,
     "SIZE_LIMIT",
-    "The native file exceeds the 32 MB portable-file limit.",
+    `The native file exceeds the ${MAX_FILE_BYTES / 1_000_000} MB portable-file limit.`,
   );
   return new Blob([archive as Uint8Array<ArrayBuffer>], {
     type: "application/x-localdesign",
@@ -62,7 +64,7 @@ export function nativeImport(
   requireThat(
     bytes.length <= MAX_FILE_BYTES,
     "SIZE_LIMIT",
-    "Native archive exceeds 32 MB.",
+    `Native archive exceeds ${MAX_FILE_BYTES / 1_000_000} MB.`,
   );
   let total = 0,
     count = 0;
@@ -76,9 +78,9 @@ export function nativeImport(
           Number.isFinite(entry.originalSize) &&
             entry.originalSize >= 0 &&
             total <= MAX_EXPANDED_BYTES &&
-            count <= 300,
+            count <= MAX_ARCHIVE_ENTRIES,
           "ARCHIVE_LIMIT",
-          "Archive expands beyond 80 MB or has too many entries.",
+          `Archive expands beyond ${MAX_EXPANDED_BYTES / 1_000_000} MB or has too many entries.`,
         );
         requireThat(
           /^(document\.json|assets\/[\w-]+\.(png|jpeg|webp)|fonts\/[\w.-]+)$/.test(
@@ -143,7 +145,7 @@ export function nativeImport(
     d.fonts = [...(d.fonts ?? []), ...catalog];
   }
   requireThat(
-    Array.isArray(d.assets) && d.assets.length <= 100,
+    Array.isArray(d.assets) && d.assets.length <= MAX_ASSETS,
     "INVALID_ASSETS",
     "Invalid asset catalog.",
   );

@@ -13,7 +13,7 @@ export async function importFile(file: File) {
   requireThat(
     file.size <= MAX_FILE_BYTES,
     "SIZE_LIMIT",
-    "Imports are limited to 32 MB.",
+    `Imports are limited to ${MAX_FILE_BYTES / 1_000_000} MB.`,
   );
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (file.name.toLowerCase().endsWith(".localdesign")) {

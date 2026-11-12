@@ -110,12 +110,12 @@ test("human resize/rotate, multiselect, grouping, ordering, hide/lock and clipbo
   await page
     .getByRole("button", { name: "Select Shape A", exact: true })
     .click();
-  const canvas = (await page.getByTestId("canvas").boundingBox())!;
-  await drag(
-    page,
-    { x: canvas.x + 260, y: canvas.y + 250 },
-    { x: canvas.x + 300, y: canvas.y + 280 },
-  );
+  const handle = (await page.locator('[data-handle="se"]').boundingBox())!;
+  const corner = {
+    x: handle.x + handle.width / 2,
+    y: handle.y + handle.height / 2,
+  };
+  await drag(page, corner, { x: corner.x + 40, y: corner.y + 30 });
   let current = await inspect(page);
   expect(current.nodes.find((n: any) => n.id === "rect-a").width).toBe(160);
   await page.getByLabel("Rotation", { exact: true }).fill("30");

@@ -47,28 +47,37 @@ export function bounds(d: DesignDocument, nodes: DesignNode[]) {
   };
   nodes.forEach(include);
   if (!visible.length) return { x: 0, y: 0, width: 800, height: 600 };
-  const points = visible.flatMap((n) => {
+  let x = Infinity,
+    y = Infinity,
+    right = -Infinity,
+    bottom = -Infinity;
+  for (const n of visible) {
     const stroke =
       n.type === "frame" || n.stroke === "none" ? 0 : n.strokeWidth / 2;
     const ink = n.type === "text" ? measureText(n, d).inkBounds : null;
-    const left = Math.min(0, ink?.x ?? 0),
-      top = Math.min(0, ink?.y ?? 0),
-      right = Math.max(n.width, ink ? ink.x + ink.width : n.width),
-      bottom = Math.max(n.height, ink ? ink.y + ink.height : n.height);
-    return [
-      { x: left - stroke, y: top - stroke },
-      { x: right + stroke, y: top - stroke },
-      { x: right + stroke, y: bottom + stroke },
-      { x: left - stroke, y: bottom + stroke },
-    ].map((p) => worldPoint(d, n, p));
-  });
-  const x = Math.min(...points.map((p) => p.x)),
-    y = Math.min(...points.map((p) => p.y));
+    const localLeft = Math.min(0, ink?.x ?? 0),
+      localTop = Math.min(0, ink?.y ?? 0),
+      localRight = Math.max(n.width, ink ? ink.x + ink.width : n.width),
+      localBottom = Math.max(n.height, ink ? ink.y + ink.height : n.height);
+    const corners = [
+      { x: localLeft - stroke, y: localTop - stroke },
+      { x: localRight + stroke, y: localTop - stroke },
+      { x: localRight + stroke, y: localBottom + stroke },
+      { x: localLeft - stroke, y: localBottom + stroke },
+    ];
+    for (const corner of corners) {
+      const p = worldPoint(d, n, corner);
+      x = Math.min(x, p.x);
+      y = Math.min(y, p.y);
+      right = Math.max(right, p.x);
+      bottom = Math.max(bottom, p.y);
+    }
+  }
   return {
     x,
     y,
-    width: Math.max(1, Math.max(...points.map((p) => p.x)) - x),
-    height: Math.max(1, Math.max(...points.map((p) => p.y)) - y),
+    width: Math.max(1, right - x),
+    height: Math.max(1, bottom - y),
   };
 }
 export function applyLayouts(d: DesignDocument) {
