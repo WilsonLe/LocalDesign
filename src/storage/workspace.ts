@@ -29,7 +29,10 @@ export class Workspace {
   private docId = "";
   private savedBases = new Map<string, string>();
   private listeners = new Set<() => void>();
-  constructor(engine = new DesignEngine()) {
+  constructor(
+    engine = new DesignEngine(),
+    readonly commitPendingEdits: () => void = () => {},
+  ) {
     this.engine = engine;
     engine.subscribe(() => {
       if (!this.active) return;
@@ -135,6 +138,7 @@ export class Workspace {
   }
   async saveCopy(signal?: AbortSignal) {
     assertNotAborted(signal);
+    this.commitPendingEdits();
     const copy = structuredClone(this.engine.document);
     copy.id = uid();
     copy.revision = 0;
@@ -159,8 +163,12 @@ export class Workspace {
     }));
   }
   async create(name?: string, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    this.commitPendingEdits();
     const expected = this.engine.document;
     await this.flush();
+    assertNotAborted(signal);
+    this.commitPendingEdits();
     requireThat(
       this.engine.document === expected,
       "STALE_REVISION",
@@ -173,6 +181,8 @@ export class Workspace {
     return this.engine.document;
   }
   async open(id: string, signal?: AbortSignal) {
+    assertNotAborted(signal);
+    this.commitPendingEdits();
     const expected = this.engine.document;
     await this.flush();
     const store = await db(),
@@ -180,6 +190,8 @@ export class Workspace {
     requireThat(d, "MISSING_DOCUMENT", "Unknown document.");
     const next = validateDocument(d);
     await fontsReady(next);
+    assertNotAborted(signal);
+    this.commitPendingEdits();
     requireThat(
       this.engine.document === expected,
       "STALE_REVISION",
@@ -197,8 +209,12 @@ export class Workspace {
     return this.engine.document;
   }
   async close(signal?: AbortSignal) {
+    assertNotAborted(signal);
+    this.commitPendingEdits();
     const expected = this.engine.document;
     await this.flush();
+    assertNotAborted(signal);
+    this.commitPendingEdits();
     requireThat(
       this.engine.document === expected,
       "STALE_REVISION",
@@ -210,10 +226,14 @@ export class Workspace {
     this.emit();
   }
   async import(d: DesignDocument, signal?: AbortSignal) {
-    const next = validateDocument(d),
-      expected = this.engine.document;
+    assertNotAborted(signal);
+    const next = validateDocument(d);
+    this.commitPendingEdits();
+    const expected = this.engine.document;
     await this.flush();
     await fontsReady(next);
+    assertNotAborted(signal);
+    this.commitPendingEdits();
     requireThat(
       this.engine.document === expected,
       "STALE_REVISION",

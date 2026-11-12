@@ -64,7 +64,10 @@ import {
   type NavigationState,
 } from "./workspaceRoute";
 const engine = new DesignEngine(),
-  workspace = new Workspace(engine),
+  workspace = new Workspace(engine, () => {
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement) focused.blur();
+  }),
   artifacts = new Artifacts();
 function Modal({
   title,
@@ -374,10 +377,12 @@ export function App() {
   }, [doc, selection, modal, editing, navigation.loading]);
   const importSelected = async (file: File, asImage = false) => {
     setBusy(true);
+    workspace.commitPendingEdits();
     const guard = engine.guard(),
       pageId = engine.pageId;
     try {
       const result = await importFile(file);
+      workspace.commitPendingEdits();
       if (asImage) {
         if (result.document.assets.length !== 1)
           throw new Error("Choose a PNG, JPEG or WebP image.");

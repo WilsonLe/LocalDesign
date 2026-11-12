@@ -234,6 +234,8 @@ export function createTools(
       );
       shared.workspaceBusy = true;
       try {
+        // A focused UI draft may advance revision; reconcile before guard checks.
+        if (input.action !== "delete") workspace.commitPendingEdits();
         requireThat(
           g.expectedDocumentId === engine.document.id &&
             g.expectedRevision === engine.document.revision,
@@ -242,6 +244,7 @@ export function createTools(
         );
         if (input.action !== "save_copy") await workspace.flush();
         assertNotAborted(signal);
+        if (input.action !== "delete") workspace.commitPendingEdits();
         requireThat(
           g.expectedDocumentId === engine.document.id &&
             g.expectedRevision === engine.document.revision,
@@ -616,6 +619,7 @@ export function createTools(
         );
         return old.result;
       }
+      workspace.commitPendingEdits();
       requireThat(
         input.guard.expectedDocumentId === engine.document.id &&
           input.guard.expectedRevision === engine.document.revision,
@@ -629,6 +633,8 @@ export function createTools(
         "Prepared import expired. Prepare again.",
       );
       await workspace.flush();
+      assertNotAborted(signal);
+      workspace.commitPendingEdits();
       requireThat(
         !signal.aborted &&
           input.guard.expectedDocumentId === engine.document.id &&

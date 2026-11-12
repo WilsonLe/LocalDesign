@@ -456,3 +456,191 @@ test("document export dialogs retire on history close and tool-driven switch", a
   );
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
+
+for (const action of [
+  "close",
+  "create",
+  "open",
+  "save_copy",
+  "import",
+] as const) {
+  test(`tool ${action} commits focused drafts before checking switch guards`, async ({
+    page,
+  }) => {
+    await harness(page);
+    await open(page);
+    const first = await inspect(page);
+    const target = await workspaceAction(page, "create", {
+      name: "Switch target",
+    });
+    await workspaceAction(page, "open", { id: first.documentId });
+    await edits(page, [
+      {
+        op: "create",
+        node: {
+          id: "tool-draft",
+          type: "text",
+          name: "Tool draft",
+          pageId: first.pageId,
+          text: "Saved paragraph",
+          width: 600,
+        },
+      },
+    ]);
+    await tool(page, "selection", { ids: ["tool-draft"] });
+    const prepared =
+      action === "import"
+        ? await tool(page, "import_files", {
+            action: "prepare",
+            name: "Guarded.svg",
+            base64: Buffer.from(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20"/></svg>',
+            ).toString("base64"),
+          })
+        : null;
+    const before = await inspect(page),
+      url = page.url();
+    await page
+      .getByLabel("Text content", { exact: true })
+      .fill(`Pending paragraph before ${action}`);
+    const guard = {
+      expectedDocumentId: before.documentId,
+      expectedRevision: before.revision,
+      requestId: crypto.randomUUID(),
+    };
+    const result =
+      action === "import"
+        ? await tool(page, "import_files", {
+            action: "commit",
+            artifactId: prepared.importId,
+            guard,
+          })
+        : await tool(page, "workspace", {
+            action,
+            ...(action === "open" ? { id: target.documentId } : {}),
+            guard,
+          });
+    expect(result.code).toBe("STALE_REVISION");
+    await expect(page).toHaveURL(url);
+    expect(
+      (await inspect(page)).nodes.find(
+        (n: { id: string }) => n.id === "tool-draft",
+      ).text,
+    ).toBe(`Pending paragraph before ${action}`);
+    if (action === "import") {
+      const current = await inspect(page);
+      const retry = await tool(page, "import_files", {
+        action: "commit",
+        artifactId: prepared.importId,
+        guard: {
+          expectedDocumentId: current.documentId,
+          expectedRevision: current.revision,
+          requestId: crypto.randomUUID(),
+        },
+      });
+      expect(retry.isError, retry.message).not.toBe(true);
+    } else
+      await workspaceAction(
+        page,
+        action,
+        action === "open" ? { id: target.documentId } : {},
+      );
+    await workspaceAction(page, "open", { id: first.documentId });
+    expect(
+      (await inspect(page)).nodes.find(
+        (n: { id: string }) => n.id === "tool-draft",
+      ).text,
+    ).toBe(`Pending paragraph before ${action}`);
+  });
+}
+
+test("tool close preserves drafts typed while awaiting the previous save", async ({
+  page,
+}) => {
+  await harness(page);
+  await open(page);
+  const first = await inspect(page);
+  await edits(page, [
+    {
+      op: "create",
+      node: {
+        id: "late-draft",
+        type: "text",
+        name: "Late draft",
+        pageId: first.pageId,
+        text: "Saved paragraph",
+        width: 600,
+      },
+    },
+  ]);
+  await tool(page, "selection", { ids: ["late-draft"] });
+  await expect(page.locator(".save-state")).toContainText("Saved locally");
+  await page.evaluate(() => {
+    const transaction = IDBDatabase.prototype.transaction;
+    let held = false;
+    IDBDatabase.prototype.transaction = function (
+      ...args: Parameters<IDBDatabase["transaction"]>
+    ) {
+      const tx = transaction.apply(this, args);
+      if (
+        !held &&
+        args[1] === "readwrite" &&
+        tx.objectStoreNames.contains("documents")
+      ) {
+        held = true;
+        let holding = true;
+        const store = tx.objectStore("documents");
+        const spin = () => {
+          if (holding) store.get("__pending_draft__").onsuccess = spin;
+        };
+        spin();
+        (window as any).__draftWriteHeld = true;
+        (window as any).__releaseDraftWrite = () => {
+          holding = false;
+        };
+      }
+      return tx;
+    };
+  });
+  await edits(page, [{ op: "rename", name: "Save in flight" }]);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__draftWriteHeld))
+    .toBe(true);
+  const before = await inspect(page),
+    url = page.url();
+  await page.evaluate((before) => {
+    void (window as any).__testSiteTools
+      .get("localdesign_workspace")
+      .execute({
+        action: "close",
+        guard: {
+          expectedDocumentId: before.documentId,
+          expectedRevision: before.revision,
+          requestId: "close-with-late-draft",
+        },
+      })
+      .then((result: unknown) => {
+        (window as any).__draftCloseResult = result;
+      });
+  }, before);
+  await page
+    .getByLabel("Text content", { exact: true })
+    .fill("Paragraph typed while closing");
+  await page.evaluate(() => (window as any).__releaseDraftWrite());
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__draftCloseResult?.code))
+    .toBe("STALE_REVISION");
+  await expect(page).toHaveURL(url);
+  expect(
+    (await inspect(page)).nodes.find(
+      (n: { id: string }) => n.id === "late-draft",
+    ).text,
+  ).toBe("Paragraph typed while closing");
+  await workspaceAction(page, "close");
+  await workspaceAction(page, "open", { id: first.documentId });
+  expect(
+    (await inspect(page)).nodes.find(
+      (n: { id: string }) => n.id === "late-draft",
+    ).text,
+  ).toBe("Paragraph typed while closing");
+});
