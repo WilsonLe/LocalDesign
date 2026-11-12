@@ -49,6 +49,7 @@ for (const skill of manifest.skills) {
     );
   checkLinks(path, text);
   for (const section of [
+    "Browser preference",
     "Inputs",
     "Tool loop",
     "Errors",

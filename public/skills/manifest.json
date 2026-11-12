@@ -1,5 +1,5 @@
 {
-  "bundleVersion": "1.0.0",
+  "bundleVersion": "1.0.1",
   "maxResponseBytes": 48000,
   "source": {
     "url": "https://github.com/WilsonLe/agentic-workflows",
@@ -17,10 +17,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.0.0",
+      "version": "1.0.1",
       "path": "getting-started.md",
-      "sha256": "91b8dfa5513450174f0a5fa78460784e01a4e1d3021d2246b68cf983da9f100b",
-      "bytes": 10427,
+      "sha256": "00d3544b30b61ee0089264716246da7a421031376a1cb4d8e589c78ea7828417",
+      "bytes": 11475,
       "originalSkillIds": []
     },
     {
@@ -32,10 +32,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.0.0",
+      "version": "1.0.1",
       "path": "ui-design.md",
-      "sha256": "35067eb23281496b71fca47fc40b9c511971964707da5663ceb6d93581f391df",
-      "bytes": 12490,
+      "sha256": "f54e6a8ea676f978714f228343dfa2f866b2a2137fa9bc46eb8527496a38107e",
+      "bytes": 13538,
       "originalSkillIds": [
         "ui-design"
       ]
@@ -49,10 +49,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.0.0",
+      "version": "1.0.1",
       "path": "typography.md",
-      "sha256": "fe81eb1a906c7e7fd5a30e4f5da9e668cdd1626e6e4a9a66ac43e667137caa19",
-      "bytes": 12447,
+      "sha256": "61d976412ae5cacae86d2789e0cd1e4e961f8bf789d7f48ee21a4581995eae37",
+      "bytes": 13495,
       "originalSkillIds": [
         "typography"
       ]
@@ -395,5 +395,6 @@
       "disposition": "excluded",
       "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
     }
-  ]
+  ],
+  "adaptationNotes": "Bundle 1.0.1 adds LocalDesign-specific built-in browser preference, observed fallback reasons and browser-local working-copy preservation to every package; upstream source inventory and license remain unchanged."
 }

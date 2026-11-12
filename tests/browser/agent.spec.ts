@@ -19,6 +19,23 @@ test("scripted cold start uses only served schemas/skills, validates, authors, p
       expectedBundleVersion: catalog.bundleVersion,
     });
     expect(p.instructions).toContain("## Tool loop");
+    expect(p.bundleVersion).toBe(catalog.bundleVersion);
+    expect(p.version).toBe(
+      catalog.skills.find((s: any) => s.id === id).version,
+    );
+    const browserPreference = p.instructions
+      .split("## Browser preference\n")[1]
+      ?.split("\n## ")[0];
+    expect(browserPreference).toContain(
+      "Before opening Chrome, first try the host's built-in browser",
+    );
+    expect(browserPreference).toContain(
+      "state the observed reason for the fallback",
+    );
+    expect(browserPreference).toContain("do not leave unsaved work behind");
+    expect(browserPreference).toContain(
+      "discover tools again and inspect the actual document and revision",
+    );
   }
   const after = await inspect(page);
   expect(after.revision).toBe(before.revision);

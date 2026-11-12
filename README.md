@@ -16,7 +16,7 @@ The workspace menu opens/creates/manages browser-local documents. IndexedDB save
 
 ### Connect an agent
 
-Open the same URL in a WebMCP-capable agent browser. Ask it to discover this page's tools, call `localdesign_list_skills`, and read `getting-started` with `localdesign_get_skill`. It edits the same document/history as you. Browser hosts may suffix canonical tool names: use the discovered names. The Connect agent dialog reports availability; there is no remote MCP server or API key flow. [Connection and parity guide](docs/webmcp.md).
+Use the agent host’s built-in browser first and discover this page’s tools before opening Chrome. Respect an explicit browser choice or an already attached LocalDesign tab; use another browser when the built-in browser is unavailable or lacks the required capability, and explain the observed reason. Open the same URL in that WebMCP-capable agent browser. Ask it to discover this page's tools, call `localdesign_list_skills`, and read `getting-started` with `localdesign_get_skill`. It edits the same document/history as you. Browser hosts may suffix canonical tool names: use the discovered names. The Connect agent dialog reports availability; there is no remote MCP server or API key flow. [Connection and parity guide](docs/webmcp.md).
 
 Three self-contained static instruction packages ship with the app: getting-started, UI design/critique and typography. They include complete operational guidance and attribution, need no Agentic Workflows installation or runtime GitHub fetch, and remain readable offline after the app loads. Design content deliberately returned to an external agent is handled by that agent/provider; LocalDesign itself does not upload it.
 
