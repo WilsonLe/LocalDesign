@@ -13,6 +13,7 @@ import {
   bundledCatalog,
   type FontChoice as Choice,
 } from "../fonts/bundled";
+import { prepareFastLayout } from "./fastLayout";
 export { base64 } from "../fonts/data";
 
 const urls = import.meta.glob<string>(
@@ -23,6 +24,8 @@ const bundled = new Map<string, DocumentFont>();
 const loading = new Map<string, Promise<void>>();
 const loaded = new Set<string>();
 let ready: Promise<void> | undefined;
+let epoch = 0;
+export const fontEpoch = () => epoch;
 export const fontLimitations =
   "Static TTF/OTF/WOFF/WOFF2 only; 4 MB/file, 12 MB/document, 48 faces. Supply redistribution permission. System fonts are never read or embedded. Missing families/styles/glyphs remain explicit; inspect pixels as well as overflow.";
 export function availableFonts(doc?: DesignDocument): Choice[] {
@@ -178,6 +181,7 @@ export async function validateFontFaces(fonts: DocumentFont[]) {
           if (face) document.fonts.add(face);
         });
         loaded.add(key);
+        epoch++;
       })();
       loading.set(key, pending);
       pending.catch(() => {
@@ -197,6 +201,7 @@ export async function fontsReady(doc?: DesignDocument) {
   if (!ready) {
     ready = (async () => {
       if (typeof document === "undefined") return;
+      await prepareFastLayout().catch(() => {});
       for (const family of families) {
         const response = await fetch(
           `${import.meta.env.BASE_URL}${family.slug}-OFL.txt`,
@@ -241,6 +246,7 @@ export async function fontsReady(doc?: DesignDocument) {
           };
           validateFontRecord(record);
           bundled.set(face.id, record);
+          epoch++;
         }
       }
       await validateFontFaces([...bundled.values()]);

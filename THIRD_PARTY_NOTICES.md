@@ -41,3 +41,7 @@ Source Serif 4 by Adobe, via @fontsource/source-serif-4 5.3.1, and IBM Plex Mono
 ## Font parsing and identity
 
 Fontkit 3.0.0 by Devon Govett, MIT (https://github.com/foliojs/fontkit); static TTF/OTF/WOFF/WOFF2 readers and glyph shaping/outlines are used; input collections, variable and color fonts are rejected. Full MIT notice: public/fontkit-LICENSE.txt. @noble/hashes 2.4.0 by Paul Miller, MIT (https://github.com/paulmillr/noble-hashes), supplies SHA-256 content identity. Full MIT notice: public/noble-hashes-LICENSE.txt. Package licenses are retained in their distributions.
+
+## Fast bundled-font shaping
+
+harfbuzzjs 1.6.4 (https://github.com/harfbuzz/harfbuzzjs), MIT, packages the HarfBuzz WASM shaping engine. Full notices ship in public/harfbuzzjs-LICENSE.txt and public/harfbuzz-LICENSE.txt. It operates locally on the existing validated bundled font bytes; Fontkit retains outline parsing and the fallback shaping path.

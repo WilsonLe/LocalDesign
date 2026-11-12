@@ -18,9 +18,13 @@ it("keeps overlapping glyphs in separate paint operations and bounds outline exp
       { ...glyph, x: 40, ink: { ...glyph.ink, x: 40 } },
     ],
   })!;
-  expect(paths).toHaveLength(2);
-  expect(paths[0]).toBe("M0 20L20 0ZM30 20L50 0Z");
-  expect(paths[1]).toBe("M40 20L60 0Z");
+  expect(paths.scale).toBe(2);
+  expect(paths.paths).toHaveLength(2);
+  expect(paths.paths[0]).toBe("M0 -10l10 10zM15 -10l10 10z");
+  expect(paths.paths[1]).toBe("M20 -10l10 10z");
+  expect(
+    compactLine({ width: 100, glyphs: [glyph, { ...glyph, scale: 3 }] }),
+  ).toBeNull();
   const large = {
     width: 1,
     glyphs: [{ ...glyph, path: "M0 0L10 10Z".repeat(30000) }],

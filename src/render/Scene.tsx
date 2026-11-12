@@ -59,27 +59,28 @@ export const NodeShape = memo(
                   compactText && n.stroke === "none"
                     ? compactLine(shaped)
                     : null;
+                if (compact)
+                  return compact.paths.map((d, j) => (
+                    <path
+                      key={`${i}-${j}`}
+                      d={d}
+                      transform={`translate(${origin.x} ${origin.y}) scale(${compact.scale} ${-compact.scale})`}
+                      fill={n.fill}
+                      data-compact-text=""
+                    />
+                  ));
                 return (
                   <g key={i} transform={`translate(${origin.x} ${origin.y})`}>
-                    {compact
-                      ? compact.map((d, j) => (
-                          <path
-                            key={j}
-                            d={d}
-                            fill={n.fill}
-                            data-compact-text=""
-                          />
-                        ))
-                      : shaped.glyphs.map((glyph, j) => (
-                          <use
-                            key={j}
-                            href={`#${glyphPrefix}${glyph.id}`}
-                            transform={`translate(${glyph.x} ${glyph.y}) scale(${glyph.scale} ${-glyph.scale})`}
-                            fill={n.fill}
-                            stroke={n.stroke}
-                            strokeWidth={n.strokeWidth / glyph.scale}
-                          />
-                        ))}
+                    {shaped.glyphs.map((glyph, j) => (
+                      <use
+                        key={j}
+                        href={`#${glyphPrefix}${glyph.id}`}
+                        transform={`translate(${glyph.x} ${glyph.y}) scale(${glyph.scale} ${-glyph.scale})`}
+                        fill={n.fill}
+                        stroke={n.stroke}
+                        strokeWidth={n.strokeWidth / glyph.scale}
+                      />
+                    ))}
                   </g>
                 );
               })}
@@ -162,25 +163,27 @@ export function SceneNode({
           style={{ pointerEvents: "all" } as CSSProperties}
         />
       )}
-      <g
-        clipPath={
-          n.clip && n.type === "frame" ? `url(#clip-${n.id})` : undefined
-        }
-      >
-        {children.map((child) => (
-          <SceneNode
-            key={child.id}
-            node={child}
-            index={index}
-            visible={visible}
-            compactText={compactText}
-            doc={doc}
-            onPointerDown={onPointerDown}
-            interactive={interactive}
-            glyphPrefix={glyphPrefix}
-          />
-        ))}
-      </g>
+      {children.length > 0 && (
+        <g
+          clipPath={
+            n.clip && n.type === "frame" ? `url(#clip-${n.id})` : undefined
+          }
+        >
+          {children.map((child) => (
+            <SceneNode
+              key={child.id}
+              node={child}
+              index={index}
+              visible={visible}
+              compactText={compactText}
+              doc={doc}
+              onPointerDown={onPointerDown}
+              interactive={interactive}
+              glyphPrefix={glyphPrefix}
+            />
+          ))}
+        </g>
+      )}
     </g>
   );
 }

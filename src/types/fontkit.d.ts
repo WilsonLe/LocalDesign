@@ -30,7 +30,10 @@ declare module "fontkit" {
     characterSet: number[];
     variationAxes: Record<string, unknown>;
     name: { records: Record<string, Record<string, string>> };
-    directory: { tables: Record<string, unknown> };
+    directory: {
+      tables: Record<string, { length: number; transformed?: boolean }>;
+    };
+    _getTableStream(tag: string): { readBuffer(length: number): Uint8Array };
     "OS/2": {
       usWeightClass: number;
       fsType: {

@@ -35,6 +35,7 @@ type FontInfo = {
   unicodeRange: string;
   notice: string;
   bytes: number;
+  expandedBytes: number;
 };
 const cache = new Map<string, FontInfo>();
 let cachedBytes = 0;
@@ -249,6 +250,7 @@ export function readFont(bytes: Uint8Array): FontInfo {
       characters: new Set(characters),
       unicodeRange: ranges(characters),
       bytes: bytes.length,
+      expandedBytes: expanded,
       notice: [
         font.name.records.copyright,
         font.name.records.licenseDescription,

@@ -1,21 +1,31 @@
 import { create } from "fontkit";
+import { fastLayout } from "./fastLayout";
 import { fontInfo, fontKey, unbase64 } from "../fonts/data";
 import type { DocumentFont, FontFile } from "../fonts/schema";
 import type { DesignNode } from "../core/model";
 
 type Font = ReturnType<typeof create>;
-const parsed = new Map<string, Font>();
+const parsed = new Map<string, { font: Font; bytes: number }>();
+let parsedBytes = 0;
 const outlines = new Map<string, string>();
 let outlineBytes = 0;
 function face(file: FontFile) {
   const digest = fontInfo(file).digest;
-  let font = parsed.get(digest);
-  if (!font) {
-    // At most two maximum-expanded faces, plus small used-glyph path caches.
-    if (parsed.size >= 2) parsed.delete(parsed.keys().next().value!);
-    font = create(unbase64(file.data));
-    parsed.set(digest, font);
+  const cached = parsed.get(digest);
+  if (cached) return cached.font;
+  const bytes = unbase64(file.data);
+  const expanded = fontInfo(file).expandedBytes;
+  while (
+    parsed.size &&
+    (parsed.size >= 144 || parsedBytes + expanded > 32_000_000)
+  ) {
+    const first = parsed.keys().next().value!;
+    parsedBytes -= parsed.get(first)!.bytes;
+    parsed.delete(first);
   }
+  const font = create(bytes);
+  parsed.set(digest, { font, bytes: expanded });
+  parsedBytes += expanded;
   return font;
 }
 type PositionedGlyph = {
@@ -26,18 +36,10 @@ type PositionedGlyph = {
   scale: number;
   ink: { x: number; y: number; width: number; height: number };
 };
-type Line = { glyphs: PositionedGlyph[]; width: number };
+type Line = { glyphs: PositionedGlyph[]; width: number; geometryKey?: string };
 const lines = new Map<string, Line>();
 let retainedGlyphs = 0;
-export function shapeLine(
-  n: Pick<DesignNode, "fontSize" | "letterSpacing">,
-  record: DocumentFont,
-  text: string,
-): Line {
-  text = text.normalize("NFC");
-  const key = `${fontKey(record)}:${n.fontSize}:${n.letterSpacing}:${text}`;
-  const old = lines.get(key);
-  if (old) return old;
+function segmentsFor(record: DocumentFont, text: string) {
   const segments: { file: FontFile; text: string }[] = [];
   for (const char of Array.from(text)) {
     const file =
@@ -48,6 +50,111 @@ export function shapeLine(
     if (last?.file === file) last.text += char;
     else segments.push({ file, text: char });
   }
+  return segments;
+}
+function layout(
+  font: Font,
+  record: DocumentFont,
+  text: string,
+  tracking: boolean,
+  glyphs = true,
+) {
+  return (
+    (record.source === "bundled"
+      ? fastLayout(font, text, tracking, glyphs)
+      : null) ??
+    font.layout(text, tracking ? { liga: false, clig: false } : undefined)
+  );
+}
+// Safe HarfBuzz cluster boundaries retain the same prefix advances when cut.
+// Unsafe kerning/ligature/context boundaries remain on the exact standalone path.
+export function prefixWidths(
+  n: Pick<DesignNode, "fontSize" | "letterSpacing">,
+  record: DocumentFont,
+  text: string,
+) {
+  if (record.source !== "bundled") return new Map<number, number>();
+  const widths = new Map<number, number>();
+  let x = 0,
+    spacing = false,
+    offset = 0;
+  for (const segment of segmentsFor(record, text)) {
+    const font = face(segment.file),
+      scale = n.fontSize / font.unitsPerEm;
+    const run = fastLayout(font, segment.text, !!n.letterSpacing, false);
+    if (!run) return new Map<number, number>();
+    for (let i = 0; i < run.infos.length; i++) {
+      const info = run.infos[i];
+      if (
+        (info.flags & 1) === 0 &&
+        (i === 0 || info.cluster !== run.infos[i - 1].cluster)
+      )
+        widths.set(offset + info.cluster, x - (spacing ? n.letterSpacing : 0));
+      const position = run.positions[i];
+      x += position.xAdvance * scale;
+      if (position.xAdvance) {
+        x += n.letterSpacing;
+        spacing = true;
+      }
+    }
+    offset += segment.text.length;
+    widths.set(offset, x - (spacing ? n.letterSpacing : 0));
+  }
+  return widths;
+}
+const widths = new Map<string, number>();
+let widthCharacters = 0;
+export function lineWidth(
+  n: Pick<DesignNode, "fontSize" | "letterSpacing">,
+  record: DocumentFont,
+  text: string,
+) {
+  text = text.normalize("NFC");
+  const key = `${fontKey(record)}:${n.fontSize}:${n.letterSpacing}:${text}`;
+  const prior = widths.get(key);
+  if (prior !== undefined) return prior;
+  let x = 0,
+    spacing = false;
+  for (const segment of segmentsFor(record, text)) {
+    const font = face(segment.file),
+      scale = n.fontSize / font.unitsPerEm;
+    for (const position of layout(
+      font,
+      record,
+      segment.text,
+      !!n.letterSpacing,
+      false,
+    ).positions) {
+      x += position.xAdvance * scale;
+      if (position.xAdvance) {
+        x += n.letterSpacing;
+        spacing = true;
+      }
+    }
+  }
+  const width = x - (spacing ? n.letterSpacing : 0);
+  while (
+    widths.size &&
+    (widths.size >= 8192 || widthCharacters + key.length > 1_000_000)
+  ) {
+    const first = widths.keys().next().value!;
+    widthCharacters -= first.length;
+    widths.delete(first);
+  }
+  widths.set(key, width);
+  widthCharacters += key.length;
+  return width;
+}
+export function shapeLine(
+  n: Pick<DesignNode, "fontSize" | "letterSpacing">,
+  record: DocumentFont,
+  text: string,
+): Line {
+  text = text.normalize("NFC");
+  const key = `${fontKey(record)}:${n.fontSize}:${n.letterSpacing}:${text}`;
+  const old = lines.get(key);
+  if (old) return old;
+  const segments = segmentsFor(record, text);
   let x = 0,
     y = 0,
     spacing = false;
@@ -55,10 +162,7 @@ export function shapeLine(
   for (const segment of segments) {
     const font = face(segment.file),
       scale = n.fontSize / font.unitsPerEm;
-    const run = font.layout(
-      segment.text,
-      n.letterSpacing ? { liga: false, clig: false } : undefined,
-    );
+    const run = layout(font, record, segment.text, !!n.letterSpacing);
     for (let i = 0; i < run.glyphs.length; i++) {
       const glyph = run.glyphs[i],
         position = run.positions[i],
@@ -99,10 +203,14 @@ export function shapeLine(
       }
     }
   }
-  const result = { glyphs, width: x - (spacing ? n.letterSpacing : 0) };
+  const result = {
+    glyphs,
+    width: x - (spacing ? n.letterSpacing : 0),
+    geometryKey: `${fontKey(record)}:${n.letterSpacing / n.fontSize}:${text}`,
+  };
   while (
     lines.size &&
-    (lines.size >= 256 || retainedGlyphs + glyphs.length > 50000)
+    (lines.size >= 4096 || retainedGlyphs + glyphs.length > 50000)
   ) {
     const first = lines.keys().next().value!;
     retainedGlyphs -= lines.get(first)!.glyphs.length;
@@ -113,8 +221,67 @@ export function shapeLine(
   return result;
 }
 
-const compactLines = new WeakMap<Line, string[] | null>();
-export function compactLine(line: Line): string[] | null {
+const relativeOutlines = new Map<
+  string,
+  { x: number; y: number; rest: string }
+>();
+let relativeBytes = 0;
+function relativeOutline(glyph: PositionedGlyph) {
+  const key = glyph.id;
+  const old = relativeOutlines.get(key);
+  if (old) return old;
+  let x = 0,
+    y = 0,
+    sx = 0,
+    sy = 0,
+    firstX = 0,
+    firstY = 0,
+    rest = "";
+  for (const [i, command] of [
+    ...glyph.path.matchAll(/([MLQCZ])([^MLQCZ]*)/g),
+  ].entries()) {
+    const op = command[1];
+    if (op === "Z") {
+      rest += "z";
+      x = sx;
+      y = sy;
+      continue;
+    }
+    const values = command[2].trim().split(/[ ,]+/).map(Number);
+    const endX = values.at(-2)!,
+      endY = values.at(-1)!;
+    if (i === 0) {
+      firstX = endX;
+      firstY = endY;
+    } else
+      rest +=
+        op.toLowerCase() + values.map((v, j) => v - (j % 2 ? y : x)).join(" ");
+    x = endX;
+    y = endY;
+    if (op === "M") {
+      sx = x;
+      sy = y;
+    }
+  }
+  const result = { x: firstX, y: firstY, rest };
+  while (
+    relativeOutlines.size &&
+    relativeBytes + key.length + rest.length > 4_000_000
+  ) {
+    const first = relativeOutlines.keys().next().value!;
+    relativeBytes -= first.length + relativeOutlines.get(first)!.rest.length;
+    relativeOutlines.delete(first);
+  }
+  relativeOutlines.set(key, result);
+  relativeBytes += key.length + rest.length;
+  return result;
+}
+
+type Compact = { paths: string[]; scale: number };
+const geometries = new Map<string, string[]>();
+let geometryBytes = 0;
+const compactLines = new WeakMap<Line, Compact | null>();
+export function compactLine(line: Line): Compact | null {
   if (compactLines.has(line)) return compactLines.get(line)!;
   // Repeated complex outlines must not expand a bounded glyph run without limit.
   if (
@@ -122,6 +289,17 @@ export function compactLine(line: Line): string[] | null {
   ) {
     compactLines.set(line, null);
     return null;
+  }
+  const scale = line.glyphs[0]?.scale ?? 1;
+  if (line.glyphs.some((glyph) => glyph.scale !== scale)) {
+    compactLines.set(line, null);
+    return null;
+  }
+  const geometry = line.geometryKey && geometries.get(line.geometryKey);
+  if (geometry) {
+    const result = { paths: geometry, scale };
+    compactLines.set(line, result);
+    return result;
   }
   const paths: string[] = [];
   let current = "",
@@ -134,17 +312,8 @@ export function compactLine(line: Line): string[] | null {
       paths.push(current);
       current = "";
     }
-    let coordinate = 0;
-    const path = glyph.path.replace(
-      /-?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi,
-      (number) => {
-        const x = coordinate++ % 2 === 0;
-        return String(
-          Number(number) * (x ? glyph.scale : -glyph.scale) +
-            (x ? glyph.x : glyph.y),
-        );
-      },
-    );
+    const outline = relativeOutline(glyph);
+    const path = `M${glyph.x / scale + outline.x} ${-glyph.y / scale + outline.y}${outline.rest}`;
     bytes += path.length;
     if (bytes > 500_000) {
       compactLines.set(line, null);
@@ -154,6 +323,21 @@ export function compactLine(line: Line): string[] | null {
     right = glyph.ink.x + glyph.ink.width + glyph.scale;
   }
   if (current) paths.push(current);
-  compactLines.set(line, paths);
-  return paths;
+  const result = { paths, scale };
+  if (line.geometryKey) {
+    const size =
+      line.geometryKey.length +
+      paths.reduce((sum, path) => sum + path.length, 0);
+    while (geometries.size && geometryBytes + size > 4_000_000) {
+      const first = geometries.keys().next().value!;
+      geometryBytes -=
+        first.length +
+        geometries.get(first)!.reduce((sum, path) => sum + path.length, 0);
+      geometries.delete(first);
+    }
+    geometries.set(line.geometryKey, paths);
+    geometryBytes += size;
+  }
+  compactLines.set(line, result);
+  return result;
 }
