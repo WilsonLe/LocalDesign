@@ -368,6 +368,10 @@ test("normal editing without WebMCP, wide/narrow drawers, keyboard focus and cur
     .getByRole("button", { name: "Pages & layers", exact: true })
     .click();
   await expect(page.getByLabel("Search layers")).toBeVisible();
+  await page.getByRole("button", { name: "Add page", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Page 2", exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Close layers" }).click();
   await page.getByRole("button", { name: "Properties", exact: true }).click();
   await expect(page.getByLabel("Page name", { exact: true })).toBeVisible();
