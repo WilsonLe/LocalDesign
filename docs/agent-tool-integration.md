@@ -1,0 +1,220 @@
+# LocalDesign agent-tool integration decisions
+
+Date: 13 November 2026 (Australia/Brisbane).
+
+Status: implementation authorized by the user's 13 November 2026 goal, including all Recommended later items, merge, GitHub Pages deployment and verification. Delivery owner: [issue #23](https://github.com/WilsonLe/LocalDesign/issues/23). The original comparison below remains the scope inventory; its evidence section records the pre-implementation baseline.
+
+## Implementation progress
+
+All Ready and Conditional → Recommended rows and F01–F12 are in scope. Ignore remains excluded. Work is isolated on `wilsonle/agent-tool-integration`; the full goal remains open until every family has current-head evidence, independent review, passing hosted checks and deployed functional verification.
+
+| Scope                   | Current evidence / remaining work                                                                                                                                                                                                                               |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ready inspection        | Implemented bounded overview, ID/page/name/type filters and concise detail modes. Focused unit and built-browser checks pass. Convenient preview and asset helper remain.                                                                                       |
+| F01 context             | Guidelines, decisions and captured raster references use guarded commands, human controls, bounded reads and native schema v3. Built-browser native export/reopen/reload and readback pass. Full-release guidance and actual external-host verification remain. |
+| F06 pages               | Reorder and direct move-to-page preserve IDs/world transforms, locks and atomic history. Unit and built-browser human controls/undo pass. Final release-wide acceptance remains.                                                                                |
+| F02 tokens/themes       | Pending implementation and verification.                                                                                                                                                                                                                        |
+| F03 components/variants | Pending implementation and verification.                                                                                                                                                                                                                        |
+| F04 checkpoints         | Pending implementation and verification.                                                                                                                                                                                                                        |
+| F05 review/activity     | Pending implementation and verification.                                                                                                                                                                                                                        |
+| F07 exports             | Pending implementation and verification.                                                                                                                                                                                                                        |
+| F08 icons               | Pending implementation and verification.                                                                                                                                                                                                                        |
+| F09 prototypes          | Pending implementation and verification.                                                                                                                                                                                                                        |
+| F10 component packages  | Pending implementation and verification.                                                                                                                                                                                                                        |
+| F11 approval/handoff    | Pending implementation and verification.                                                                                                                                                                                                                        |
+| F12 local MCP companion | Pending supported-client experiment, architecture decision, implementation and verification.                                                                                                                                                                    |
+| Release                 | Full suite, independent final-head review (two-pass budget unused), hosted checks, merge, Pages deployment and deployed functional evidence remain.                                                                                                             |
+
+Foundation checks: `npx vitest run tests/context-pages.test.ts tests/fonts.test.ts tests/native.test.ts tests/engine.test.ts tests/skills.test.ts` — 43 passed; `npm run build` — passed; `LOCALDESIGN_TEST_PORT=4208 npx playwright test tests/browser/context-pages.spec.ts` — 3 passed; formatting and diff checks — passed. These checks are local feature evidence, not whole-roadmap completion or CI/deployment evidence. Port 4198 belongs to an unrelated LocalCut process and was preserved.
+
+## Decision summary
+
+Keep LocalDesign a browser-local native design editor. Improve agent inspection and visual review first, then add the document features that make repeated design work consistent and recoverable.
+
+| Category                  | Doop tools | Decision                                                                                                        |
+| ------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------- |
+| Ready to integrate        | 12         | Eight useful equivalents already exist; improve three agent workflows and optionally add a local asset helper.  |
+| Conditional → Recommended | 34         | Build the stated native feature before exposing its agent operation. Some capabilities belong in a later phase. |
+| Conditional → Ignore      | 24         | Exclude these integrations from the planned work. Use the external agent's tools where appropriate.             |
+
+The 70 tool names are source identifiers for comparison. Integrating a capability means designing a LocalDesign equivalent, retaining our scene JSON, command engine, browser-local assets and current limits. It does not mean copying Doop's code or promising its complete payloads, account model, HTML behavior or public URL contracts.
+
+Readiness is scoped to the behavior stated in each row. For example, native frame creation and font-byte import are ready even though Doop also accepts HTML or remote font URLs. Recommended frame export covers local output formats; its hosted URLs and PSD output are deliberately excluded.
+
+'Ignore' means no implementation allocation for the current project direction. Revisit an ignored item only when a concrete new user requirement changes its cost/benefit or the product boundary. The host-tool alternatives depend on what the user's agent actually has connected.
+
+## 1. Ready to integrate
+
+No new document or editor primitive is required for these local equivalents. Adapter/schema work, documentation and consumer verification may still be necessary. Prefer extending the existing tool owner over adding aliases for operations already covered.
+
+| Doop tool              | Decision                 | LocalDesign scope and reasoning                                                                                                                                                                                                                    |
+| ---------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_guide`            | Keep existing            | Use localdesign_list_skills and localdesign_get_skill. Complete versioned packages already exist; another guide endpoint would duplicate discovery.                                                                                                |
+| `list_canvases`        | Keep existing            | Use localdesign_workspace action list for browser-local documents. Shared accounts and remote workspaces are excluded.                                                                                                                             |
+| `create_canvas`        | Keep existing            | Use workspace action create with current guards. It already protects the previous working copy and opens the new document.                                                                                                                         |
+| `create_canvas_page`   | Keep existing            | Use apply_edits page_create. Retain one engine transaction and the same undo behavior as the UI.                                                                                                                                                   |
+| `create_frame`         | Keep existing            | Use apply_edits create with a native frame and its children in one batch. Accept scene JSON; HTML ingestion is excluded.                                                                                                                           |
+| `delete_frame`         | Keep existing            | Use apply_edits delete. Descendant removal, locks, stale-revision rejection and undo already belong to the engine.                                                                                                                                 |
+| `get_canvas`           | Improve inspection       | Add a bounded overview mode to inspect_document: pages, top-level frames, world bounds and child counts. Agents can orient themselves without fetching the entire scene.                                                                           |
+| `get_frame`            | Improve inspection       | Extend inspect_document with ID queries, page/name/type filters and detail levels while retaining subtree pagination and text metrics. Reuse the existing read owner.                                                                              |
+| `get_frame_screenshot` | Improve preview delivery | Reuse the PNG renderer and artifact owner for a convenient frame preview. Verify whether each browser host can present an image directly; keep a supported artifact fallback. Rendering exists, but a universal inline-image response is unproven. |
+| `set_page_background`  | Keep existing            | Use apply_edits page_update.background. The local equivalent is an explicit native paint value; do not promise Doop's theme-default reset semantics.                                                                                               |
+| `upload_asset`         | Optional local helper    | A helper can validate supplied PNG/JPEG/WebP bytes and return a local asset ID through asset_add. Do not add network uploads, public URLs, host-path access, GIF decoding or arbitrary SVG assets.                                                 |
+| `upload_font`          | Keep existing            | Use localdesign_import_font for authorized static font bytes, license metadata and per-document embedding. URL fetching, shared font libraries and Doop's different limits are excluded.                                                           |
+
+Prioritize the three inspection/preview improvements. Treat the asset helper as optional: add it only if it materially reduces the current asset_add workflow rather than duplicating it. Keep all existing guards, validation, locks, retry receipts and undo semantics.
+
+## 2. Conditionally integrated
+
+These additions depend on a new feature. Recommendations below reflect fit with LocalDesign, implementation burden, local/offline usefulness and whether the external agent can already perform the work elsewhere.
+
+### 2.1 Recommended
+
+#### Feature prerequisites
+
+Each feature includes its native data model, engine operations, appropriate human controls, persistence/native-file handling, renderer/export implications and agent contracts. Persistent schema changes need explicit migration/rejection behavior; tool wrappers alone do not deliver the feature.
+
+| ID  | New feature                 | Required outcome                                                                                                                                                                                                                               |
+| --- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F01 | Document context            | Named guidelines, a brief, concise decisions and pinned reference snapshots with provenance. Preserve them in browser storage and native archives, with bounded reads and user control. Imported text remains untrusted data.                  |
+| F02 | Design tokens               | Typed document tokens, native property bindings, alias validation, usage lookup and guarded rename/delete. Add theme modes only after ordinary tokens work. Update canvas and outputs through the same resolved values.                        |
+| F03 | Native components           | Reusable native subtrees, stable part IDs, properties, variants, linked instances, sparse overrides, deletion/recovery and deterministic propagation. Include UI operations and bounded impact previews.                                       |
+| F04 | Persistent checkpoints      | Bounded retained frame/component snapshots with referenced assets/fonts. Define byte budgets and storage-failure recovery; restore through guarded engine commands as a new monotonic revision.                                                |
+| F05 | Local review and activity   | Node/position-anchored threads, replies, resolution and a transient visible agent status. Preserve missing-anchor context. No resident-agent task queue, account system or multiplayer dependency.                                             |
+| F06 | Page organization           | A canonical reorder operation and a direct move-to-page operation. Preserve page/node IDs and descendant transforms. Keep page deletion explicit and reconcile selection/view without extra document history.                                  |
+| F07 | Local export improvements   | Explicit scale controls, JPEG, PDF and composition-crop export. Use the shared renderer and text metrics, retain output limits/warnings, and distinguish isolated selection output from composition crops. Exclude PSD and hosted render URLs. |
+| F08 | Native icon catalog         | A small searchable licensed bundled set with attribution, previews and insertion as validated native paths. Avoid arbitrary imported SVG markup, provider credentials and runtime catalog downloads.                                           |
+| F09 | Local prototypes            | A native interaction graph and local player with entry frames, navigation, overlays and broken-target validation. Use the shared scene renderer; do not execute imported HTML or arbitrary scripts.                                            |
+| F10 | Portable component packages | Explicit local package export/import with dependency, asset and licensed-font closure; stable origin/version identifiers; and user-selected revision updates in one document. No automatic fetches or multi-document writes.                   |
+
+#### Tool decisions
+
+| Doop tool                   | Condition | Decision            | Reasoning                                                                                                                                                                           |
+| --------------------------- | --------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_guidelines`           | F01       | Recommended         | Discover the document's named brief and brand guides so a new agent can resume without reading prior chats.                                                                         |
+| `get_guidelines`            | F01       | Recommended         | Retrieve the relevant document guide in full while distinguishing user-authored guidance from untrusted imported design text.                                                       |
+| `set_guidelines`            | F01       | Recommended         | Maintain agreed rules in the portable document, with explicit edit ownership and undo.                                                                                              |
+| `save_decision`             | F01       | Recommended         | Keep concise choices and their rationale. Store palette/type values in tokens rather than repeating them in prose.                                                                  |
+| `get_reference`             | F01       | Recommended         | Retrieve pinned reference snapshots with provenance. A later agent should see the intended reference even when the original site changes.                                           |
+| `create_tokens`             | F02       | Recommended         | Create typed document values and bind native properties to them. This removes repeated literals and supports coherent changes.                                                      |
+| `get_tokens`                | F02       | Recommended         | Discover token roles, resolved values and usage. Editor-shell theme tokens are separate from authored-document tokens.                                                              |
+| `set_tokens`                | F02       | Recommended         | Update, rename and remove tokens through the engine, with aliases and dependants handled explicitly.                                                                                |
+| `set_token_themes`          | F02       | Recommended later   | Add named token modes after ordinary bindings work. Light/dark and brand variants fit the native document model without another renderer.                                           |
+| `create_component`          | F03       | Recommended         | Define a reusable native subtree with stable part IDs and permitted properties instead of independent copies.                                                                       |
+| `list_components`           | F03       | Recommended         | Expose component names, descriptions, properties and usage before agents draw repeated patterns.                                                                                    |
+| `get_component`             | F03       | Recommended         | Return the definition, dependencies, instances and source revision so an agent can assess the impact of an edit.                                                                    |
+| `insert_instance`           | F03       | Recommended         | Place a linked instance through the same guarded engine transaction used by human controls.                                                                                         |
+| `update_component`          | F03       | Recommended         | Propagate a definition change with an impact preview and deterministic handling of overrides.                                                                                       |
+| `update_instances`          | F03       | Recommended         | Support instance properties, sparse overrides, reset and detach without breaking links for ordinary edits.                                                                          |
+| `get_component_preview`     | F03       | Recommended         | Render a bounded matrix of variants through the shared renderer so an agent can inspect states together.                                                                            |
+| `delete_component`          | F03       | Recommended         | Define recoverable deletion and explicit detachment behavior so removing a definition does not unexpectedly destroy its uses.                                                       |
+| `restore_component`         | F03       | Recommended         | Restore a retained definition and eligible instance links, with explicit handling of name collisions and detached instances.                                                        |
+| `restore_component_version` | F03 + F04 | Recommended         | Restore a prior component definition as a new revision, preserving compatible instance properties and reporting conflicts.                                                          |
+| `import_component`          | F03 + F10 | Recommended later   | Import a user-selected portable component package with its assets, fonts and dependencies. Keep the first implementation local.                                                     |
+| `sync_component`            | F03 + F10 | Recommended later   | Apply an explicitly selected package revision to linked definitions in one document, with a diff and override-conflict handling. No background fetch or cross-document sweep.       |
+| `get_comments`              | F05       | Recommended         | Read local review threads anchored to stable nodes or positions. Deleted anchors must remain understandable.                                                                        |
+| `reply_to_comment`          | F05       | Recommended         | Keep a response with the design element and its discussion. Ordinary replies need no resident-agent routing or task billing.                                                        |
+| `resolve_comment`           | F05       | Recommended         | Represent addressed versus outstanding review work without deleting the conversation.                                                                                               |
+| `set_status`                | F05       | Recommended         | Show one concise, transient agent status in the editor. A local human-agent workflow benefits without multiplayer or accounts.                                                      |
+| `list_frame_versions`       | F04       | Recommended         | Expose bounded persistent checkpoints; current session undo disappears on reload or document switching.                                                                             |
+| `restore_frame_version`     | F04       | Recommended         | Restore a frame subtree as a guarded new revision, preserving stable identity and offering recovery from the restoration.                                                           |
+| `set_canvas_pages`          | F06       | Recommended         | Add page reordering and explicit reconciliation semantics. Rename/delete already exist; reordering should preserve page and node IDs.                                               |
+| `update_frame`              | F06       | Recommended         | Keep ordinary native metadata updates and add a direct move to another page. Preserve descendant IDs and transforms without temporary-container workarounds.                        |
+| `export_frame`              | F07       | Recommended, scoped | Extend local export with scale controls, JPEG and PDF while preserving PNG/SVG/native support. Ignore layered PSD, public URLs and a hosted live-render service.                    |
+| `export_layer`              | F07       | Recommended         | Offer an explicit crop of the rendered composition around a node, alongside existing isolated selection export. The two operations have different background and overlap semantics. |
+| `search_icons`              | F08       | Recommended         | Add a small searchable licensed icon catalog that inserts safe native paths. Prefer a coherent bundled set over a network service or a huge catalog.                                |
+| `get_prototype`             | F09       | Recommended later   | Inspect and validate a native interaction graph once design-system and review foundations work. Flag broken targets before presentation.                                            |
+| `set_prototype_start`       | F09       | Recommended later   | Choose the entry frame for a local prototype player. Start with navigation and overlays; arbitrary scripts and remote hosting are excluded.                                         |
+
+#### Additional recommended capabilities
+
+These are cross-cutting capabilities, not additional entries in the 70-tool count.
+
+| ID  | Capability                             | Condition and reasoning                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F11 | Human approval and development handoff | Add a human-controlled approval record bound to the reviewed content and dependency versions. Agents may read approval but cannot self-approve. A change to a token, component, font, geometry or other rendered content must invalidate sign-off or preserve an immutable approved snapshot. This extends overview/frame reads after the feature exists.                                                                     |
+| F12 | Optional local MCP bridge              | Add a companion bridge only after validating the intended client and browser connection. Reuse the active editor's engine, registration lifetime and guards; keep editing in the same document as the human. This can broaden agent compatibility without hosted designs or provider credentials. It needs a separate architecture decision because ADR 0001 currently specifies page WebMCP rather than a companion service. |
+
+F11 should follow checkpoints and stable dependency tracking. F12 belongs after the native page-tool workflow is reliable and should target a tested client, rather than promising compatibility with every MCP host.
+
+### 2.2 Ignore
+
+The missing prerequisite is recorded so the decision is explicit. It is not a recommendation to build that prerequisite.
+
+| Doop tool                   | Feature it would require                                 | Decision              | Reasoning / alternative                                                                                                                                                                                                                         |
+| --------------------------- | -------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `append_frame_html`         | HTML content model and live HTML streaming               | Ignore                | Structured edit batches already appear incrementally. HTML streaming would introduce a second authoring/rendering contract; keep native batches and ordinary progress reporting.                                                                |
+| `edit_frame_html`           | Editable HTML documents and string replacement           | Ignore                | Stable node-ID patches already express local changes. HTML find/replace would bypass the representation the editor and exports share.                                                                                                           |
+| `set_frame_html`            | HTML ingestion and rendering                             | Ignore                | Whole-document HTML replacement adds substantial rendering, import and recovery complexity. Continue using native scene edits and validated imports.                                                                                            |
+| `publish_library`           | Shared team library hosting and identity                 | Ignore                | Portable local packages cover reuse without a hosted publishing system. Do not introduce accounts or a cloud workspace for this tool.                                                                                                           |
+| `update_library_everywhere` | Bulk writes across documents or team canvases            | Ignore                | A sweeping update has a large conflict and recovery surface. Explicit per-document package updates are sufficient for the proposed library feature.                                                                                             |
+| `get_feedback`              | Claimable work queue and agent task assignment           | Ignore                | Comments and a visible status cover local review. Claiming/routing work is an orchestration service outside this editor's present role.                                                                                                         |
+| `import_webpage`            | Website capture and editable DOM-to-scene conversion     | Ignore                | Faithful editable HTML/CSS conversion would dominate scope and create a competing import/rendering model. Use the host browser for research and raster references for comparison.                                                               |
+| `import_figma`              | Figma connection or file parser plus scene conversion    | Ignore                | Exact mapping of Figma layout, components, assets and fonts is a substantial platform commitment. External tools can supply references or supported exports; add a native converter only after a concrete migration need changes this decision. |
+| `import_from_canva`         | Canva connection and editable conversion                 | Ignore                | Platform-specific authentication and fidelity maintenance do not improve the core native editor enough to justify the work.                                                                                                                     |
+| `import_psd`                | PSD parsing, masks, blend modes and effect fidelity      | Ignore                | The renderer lacks several required concepts. Raster or supported SVG references cover current needs without presenting a lossy import as editable fidelity.                                                                                    |
+| `export_to_canva`           | Canva connection and round-trip conversion               | Ignore                | Keep delivery portable through local files. A vendor-specific export pipeline introduces a large ongoing compatibility burden.                                                                                                                  |
+| `search_images`             | Stock-photo provider connection and ingestion            | Ignore in LocalDesign | Use the external agent's search/browser tools, then import selected authorized bytes. Keep this service outside the document editor.                                                                                                            |
+| `search_logos`              | Brand lookup service and remote asset ingestion          | Ignore in LocalDesign | The host can find the intended brand asset. LocalDesign needs reliable ingestion and provenance, rather than another search integration.                                                                                                        |
+| `search_inspiration`        | Remote inspiration catalog                               | Ignore in LocalDesign | Agents already research through their host. Persist the selected reference and rationale through F01.                                                                                                                                           |
+| `list_backgrounds`          | Curated background asset service or bundled catalog      | Ignore                | This is optional content inventory with continuing curation cost. Users and agents can import chosen imagery through existing capabilities.                                                                                                     |
+| `generate_image`            | Built-in image-generation provider integration           | Ignore in LocalDesign | Use the host's image-generation capability and import its output. Do not introduce provider credentials, quota handling or a built-in model.                                                                                                    |
+| `list_linear_issues`        | Linear authentication and ticket search                  | Ignore in LocalDesign | Use the host's existing issue connector. The relevant brief can be recorded in document context.                                                                                                                                                |
+| `get_linear_issue`          | Linear authentication and ticket retrieval               | Ignore in LocalDesign | Reading a project ticket does not need another integration inside the editor; let the external agent carry the relevant context.                                                                                                                |
+| `list_posthog_pages`        | PostHog authentication and analytics discovery           | Ignore in LocalDesign | Analytics exploration belongs with the external agent's connected tools.                                                                                                                                                                        |
+| `get_page_insights`         | PostHog authentication and analytics presentation        | Ignore in LocalDesign | The external agent can interpret the evidence and record the design implication and source in F01.                                                                                                                                              |
+| `get_profile`               | User accounts and remote identity                        | Ignore                | Browser-local editing has no account profile to expose. Actor labels for local review need no account system.                                                                                                                                   |
+| `view_website`              | Cross-origin website capture or a remote browser service | Ignore in LocalDesign | Use the host browser for screenshot/text inspection. Avoid maintaining a duplicate browsing service.                                                                                                                                            |
+| `report_issue`              | Automated diagnostics submission service                 | Ignore                | A user-reviewed issue draft or local diagnostic export is adequate. Do not silently send designs, logs or feedback to maintainers.                                                                                                              |
+| `share_feedback`            | Automated product-feedback submission service            | Ignore                | Ordinary user-initiated project channels suffice. This is not a design-authoring capability.                                                                                                                                                    |
+
+#### Additional ignored scope
+
+Hosted public render URLs, cloud asset/font libraries, team identity/access management, multiplayer infrastructure, resident model roles, provider credentials and built-in AI remain outside this integration roadmap. Portable local component packages under F10 are the recommended reuse path.
+
+Arbitrary HTML/CSS rendering, native Figma/Canva/PSD parity and executable imported scripts are not prerequisites for the recommended native scene capabilities.
+
+## Suggested implementation order
+
+1. Improve bounded overview, focused node reads and preview delivery. Verify actual browser-host image presentation and artifact fallback.
+2. Add F01 document context, F06 page organization and the first F07 local output improvements as separate, reviewable changes.
+3. Add F02 document tokens and F08 the small native icon catalog.
+4. Add F03 components and F04 checkpoints. Component version restoration depends on both; do not expose it early as a thin wrapper.
+5. Add F05 local review and activity, then F11 human approval bound to reviewed dependency versions.
+6. Add F10 portable component reuse and F09 local prototypes. Add token themes after ordinary bindings are stable; undertake F12 separately with a concrete supported client.
+
+This sequence is a prioritization proposal, not a single implementation batch. Each feature should have an observable user outcome and its own acceptance evidence.
+
+## Integration requirements
+
+- Commands and runtime/JSON schemas remain owned by src/core/commands.ts; document mutations remain owned by src/core/engine.ts. UI, shortcuts and agent tools use the same owner.
+- Preserve atomic failure, document/revision guards, idempotent retries, single-gesture history and the separation of selection/view state from document history.
+- Reuse the shared renderer, font metrics and output warnings. Retain asset/path/archive limits, licensed font provenance and validation before replacing a working copy.
+- Give persistent features bounded resource behavior, migration rules and save/backup/retry recovery. A successful local operation must not silently create a native archive that cannot reopen.
+- Keep docs/webmcp.md, action parity, catalog capability statements and bundled skill examples aligned with delivered behavior. A validated guide is not evidence that a future agent obeys it.
+- Verify the built app, real page-tool discovery/calls and relevant output round trips. Distinguish source/harness results, actual host behavior, CI and deployed functional evidence.
+
+## Evidence and limits
+
+LocalDesign source was inspected at commit `768d9b59eb0d2d99f3b66b50513bda2d2a1e8573`. It exposes 14 canonical page tools and 16 edit command variants. Source evidence includes the strict document schema, tool schemas, export implementation and accepted local architecture.
+
+Doop's connected tool definitions exposed 70 names on 13 November 2026. Its guide and exposed contracts were inspected during this comparison; editing, import and external integration behavior was not exercised. The public documentation provides supporting context and may lag the connected catalog.
+
+Earlier in this chat, the built-in browser discovered LocalDesign's deployed tools and successfully read its skill catalog and getting-started guide. That establishes the observed discovery/guidance calls, not execution of every operation or deployment of the source snapshot above. No new runtime, hosted CI or deployment verification was performed for this decision document.
+
+### LocalDesign sources
+
+- [README and product scope](https://github.com/WilsonLe/LocalDesign/blob/768d9b59eb0d2d99f3b66b50513bda2d2a1e8573/README.md).
+- [Tool registration, inspection, exports and action parity](https://github.com/WilsonLe/LocalDesign/blob/768d9b59eb0d2d99f3b66b50513bda2d2a1e8573/src/webmcp/tools.ts).
+- [Command schemas](https://github.com/WilsonLe/LocalDesign/blob/768d9b59eb0d2d99f3b66b50513bda2d2a1e8573/src/core/commands.ts) and [document model](https://github.com/WilsonLe/LocalDesign/blob/768d9b59eb0d2d99f3b66b50513bda2d2a1e8573/src/core/model.ts).
+- [Document mutation engine](https://github.com/WilsonLe/LocalDesign/blob/768d9b59eb0d2d99f3b66b50513bda2d2a1e8573/src/core/engine.ts).
+- [Shared SVG/PNG export behavior](https://github.com/WilsonLe/LocalDesign/blob/768d9b59eb0d2d99f3b66b50513bda2d2a1e8573/src/files/export.tsx) and [artifact lifetime/reads](https://github.com/WilsonLe/LocalDesign/blob/768d9b59eb0d2d99f3b66b50513bda2d2a1e8573/src/files/artifacts.ts).
+- [Agent connection guide](https://github.com/WilsonLe/LocalDesign/blob/768d9b59eb0d2d99f3b66b50513bda2d2a1e8573/docs/webmcp.md).
+- [ADR 0001: browser-local engine and optional WebMCP](https://github.com/WilsonLe/LocalDesign/blob/768d9b59eb0d2d99f3b66b50513bda2d2a1e8573/docs/adr/0001-browser-local-engine.md) and [ADR 0002: self-contained skills](https://github.com/WilsonLe/LocalDesign/blob/768d9b59eb0d2d99f3b66b50513bda2d2a1e8573/docs/adr/0002-self-contained-skills.md).
+
+### Doop sources
+
+- Connected Doop MCP tool definitions and get_guide response observed in this chat; these supply the 70-name inventory and detailed operation contracts.
+- [Agent connection and public tool reference](https://doop.design/docs/get-started).
+- [Design tokens](https://doop.design/docs/tokens).
+- [Documentation index for collaboration, history, prototypes, imports and exports](https://doop.design/docs).

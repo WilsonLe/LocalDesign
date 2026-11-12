@@ -1,5 +1,14 @@
 import { z } from "zod";
-import { AssetSchema, Id, NodeSchema, PageSchema } from "./model";
+import {
+  AssetSchema,
+  Id,
+  NodeSchema,
+  PageSchema,
+  GuidelineSchema,
+  DecisionSchema,
+  ReferenceSchema,
+} from "./model";
+import { MAX_PAGES } from "./limits";
 import { FontSchema } from "../fonts/schema";
 import { MAX_NODES } from "./limits";
 const ids = z.array(Id).min(1).max(MAX_NODES);
@@ -35,6 +44,25 @@ const Patch = z
   })
   .strict();
 export const CommandSchema = z.discriminatedUnion("op", [
+  z
+    .object({ op: z.literal("guideline_set"), guideline: GuidelineSchema })
+    .strict(),
+  z.object({ op: z.literal("guideline_delete"), id: Id }).strict(),
+  z
+    .object({ op: z.literal("decision_add"), decision: DecisionSchema })
+    .strict(),
+  z.object({ op: z.literal("decision_delete"), id: Id }).strict(),
+  z
+    .object({ op: z.literal("reference_set"), reference: ReferenceSchema })
+    .strict(),
+  z.object({ op: z.literal("reference_delete"), id: Id }).strict(),
+  z
+    .object({
+      op: z.literal("pages_reorder"),
+      pageIds: z.array(Id).min(1).max(MAX_PAGES),
+    })
+    .strict(),
+  z.object({ op: z.literal("move_to_page"), ids, pageId: Id }).strict(),
   z.object({ op: z.literal("create"), node: NodeSchema }).strict(),
   z.object({ op: z.literal("update"), ids, patch: Patch }).strict(),
   z.object({ op: z.literal("delete"), ids }).strict(),

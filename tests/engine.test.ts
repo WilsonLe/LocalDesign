@@ -155,7 +155,7 @@ describe("shared engine transactions", () => {
       ]),
     ).toThrow(/asset/);
     expect(() =>
-      validateDocument({ ...engine.document, schemaVersion: 3 }),
+      validateDocument({ ...engine.document, schemaVersion: 4 }),
     ).toThrow();
   });
   it("blocks edits to locked nodes/ancestors and permits unlocking", () => {

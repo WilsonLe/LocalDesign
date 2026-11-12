@@ -8,6 +8,9 @@ import {
   MAX_ASSET_DATA_CHARS,
   MAX_FONT_BYTES,
   FONT_ARCHIVE_RESERVE,
+  MAX_GUIDELINES,
+  MAX_DECISIONS,
+  MAX_REFERENCES,
 } from "./limits";
 import {
   DocumentFonts,
@@ -113,9 +116,35 @@ export const AssetSchema = z
   })
   .strict();
 export type DesignAsset = z.infer<typeof AssetSchema>;
+export const GuidelineSchema = z
+  .object({
+    id: Id,
+    name: z.string().trim().min(1).max(200),
+    content: z.string().min(1).max(24000),
+  })
+  .strict();
+export const DecisionSchema = z
+  .object({
+    id: Id,
+    decision: z.string().min(1).max(500),
+    rationale: z.string().min(1).max(1000),
+    author: z.string().min(1).max(80),
+    createdAt: z.iso.datetime(),
+  })
+  .strict();
+export const ReferenceSchema = z
+  .object({
+    id: Id,
+    title: z.string().min(1).max(200),
+    assetId: Id,
+    provenance: z.string().min(1).max(1000),
+    sourceDocumentId: Id.optional(),
+    sourceRevision: z.number().int().min(0).optional(),
+  })
+  .strict();
 export const DocumentSchema = z
   .object({
-    schemaVersion: z.literal(2),
+    schemaVersion: z.literal(3),
     id: Id,
     revision: z.number().int().min(0),
     name: z.string().min(1).max(200),
@@ -123,13 +152,16 @@ export const DocumentSchema = z
     nodes: z.array(NodeSchema).max(MAX_NODES),
     assets: z.array(AssetSchema).max(MAX_ASSETS),
     fonts: DocumentFonts,
+    guidelines: z.array(GuidelineSchema).max(MAX_GUIDELINES).default([]),
+    decisions: z.array(DecisionSchema).max(MAX_DECISIONS).default([]),
+    references: z.array(ReferenceSchema).max(MAX_REFERENCES).default([]),
   })
   .strict();
 export type DesignDocument = z.infer<typeof DocumentSchema>;
 export type Viewport = { x: number; y: number; zoom: number };
 export function blankDocument(name = "Untitled design"): DesignDocument {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: uid(),
     revision: 0,
     name,
@@ -137,6 +169,9 @@ export function blankDocument(name = "Untitled design"): DesignDocument {
     nodes: [],
     assets: [],
     fonts: [],
+    guidelines: [],
+    decisions: [],
+    references: [],
   };
 }
 export function makeNode(
@@ -179,16 +214,38 @@ export function requireThat(
 export function validateDocument(input: unknown): DesignDocument {
   const raw = input as { schemaVersion?: number } | null;
   const d = DocumentSchema.parse(
-    raw?.schemaVersion === 1 ? { ...raw, schemaVersion: 2 } : input,
+    raw && [1, 2].includes(raw.schemaVersion ?? 0)
+      ? { ...raw, schemaVersion: 3 }
+      : input,
   );
   const ids = new Set<string>();
-  for (const item of [...d.pages, ...d.nodes, ...d.assets, ...d.fonts]) {
+  for (const item of [
+    ...d.pages,
+    ...d.nodes,
+    ...d.assets,
+    ...d.fonts,
+    ...d.guidelines,
+    ...d.decisions,
+    ...d.references,
+  ]) {
     requireThat(!ids.has(item.id), "DUPLICATE_ID", `Duplicate ID: ${item.id}`);
     ids.add(item.id);
   }
   const pageIds = new Set(d.pages.map((p) => p.id));
   const nodes = new Map(d.nodes.map((n) => [n.id, n]));
   const assets = new Map(d.assets.map((a) => [a.id, a]));
+  requireThat(
+    new Set(d.guidelines.map((g) => g.name.toLocaleLowerCase())).size ===
+      d.guidelines.length,
+    "DUPLICATE_GUIDELINE",
+    "Guideline names must be unique.",
+  );
+  for (const reference of d.references)
+    requireThat(
+      assets.has(reference.assetId),
+      "MISSING_ASSET",
+      `Missing reference image: ${reference.title}`,
+    );
   let fontBytes = 0;
   let bundledBytes = 0;
   for (const font of d.fonts) {

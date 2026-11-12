@@ -1,0 +1,17 @@
+# 0004 — Native agent capabilities and portable document extensions
+
+Status: accepted for [issue #23](https://github.com/WilsonLe/LocalDesign/issues/23) by the user's 13 November 2026 implementation, merge and deployment request. Supersedes the initial-release feature exclusions in ADR 0001 for the specifically recommended native features. The browser-local architecture, safe import boundary and shared renderer remain.
+
+The complete scope is maintained in [the integration decision and delivery document](../agent-tool-integration.md). Implement the ready equivalents and recommended features, including later themes, components, checkpoints, local review, page organization, local outputs, native icons, prototypes, portable component packages and human approval. Exclude the ignored integrations and cloud/provider services. A local MCP companion requires its own scoped architecture decision and supported-client evidence; this ADR does not introduce one.
+
+Document schema v3 starts with bounded guidelines, decisions and reference snapshots pointing at embedded raster assets. These are editable user data; they do not become executable instructions. Context records, page ordering and cross-page movement are canonical commands using the same atomic validation, global IDs, history and guards as existing operations. Reads provide bounded metadata/full retrieval through WebMCP. Pinning a selection renders through the existing PNG owner, validates the produced raster and commits the asset/reference atomically with the pre-render guard.
+
+Extend v3 explicitly as the unreleased candidate gains its approved feature families. Migrate v1/v2 files and browser working copies through the document validator without losing node/font identity or content. Native font catalogs and resolver-order files apply to v2 and newer archives; do not tie their decoding to one current schema literal. Unknown future versions reject before replacement. Older releases cannot open v3 archives. Preserve working copies and portable backups rather than silently downgrading.
+
+Keep one stored native representation and shared resolution/rendering pipeline. Adding a parallel HTML document/renderer, unsafe SVG insertion, hosted assets or vendor import services would weaken the core ownership and portability model and remains excluded. General skills stay static and versioned; document-specific context travels with the design. New UI belongs in concise progressive controls and the existing neutral component system. No initial templates or unrequested design content is inserted.
+
+Consequences: persistent additions consume the existing metadata/portable-content budgets and must validate references, IDs and collection bounds. Native format, human controls, tools, output behavior, examples and recovery evidence must advance together. Approval must bind rendered content/dependency versions; components, tokens and prototypes cannot claim readiness from schemas alone.
+
+Evidence starts with context/page atomicity, migration, rotated subtree movement and filtered inspection in `tests/context-pages.test.ts`, plus human context capture/native reopen, page controls and tool discovery contracts in `tests/browser/context-pages.spec.ts`. Final acceptance and deployed evidence remain on the delivery owner.
+
+Rollback: revert through the reviewed release process while preserving browser working copies and v3 backups. An older app must reject unsupported v3 content explicitly; never clear storage or remove unsupported fields as a downgrade.

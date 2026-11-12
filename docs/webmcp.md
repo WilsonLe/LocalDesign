@@ -6,24 +6,30 @@ Open the deployed app in a browser host that supports `document.modelContext.reg
 
 Ask the external agent: “Discover this page's tools, call localdesign_list_skills, read getting-started using localdesign_get_skill, then help me design …”. Runtime tool names may have a browser-generated suffix: use exactly the names returned by the host's discovery API. Guides refer to canonical names. The served instructions include the complete tool loop, model, boundaries, recovery and examples. UI design and typography packages require no prior plugin knowledge or network checkout.
 
-| Human action                                                    | Tool operation                                                                    |
-| --------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Draw frame, shape, text, path or image                          | `apply_edits` create, plus asset_add for image data                               |
-| Move, resize, rotate, fill/stroke, text, lock/hide, auto layout | `apply_edits` update                                                              |
-| Duplicate, delete, hierarchy, alignment/distribution/order      | same-named commands in apply_edits                                                |
-| Pages, background, document rename                              | page_create/update/delete, rename                                                 |
-| Copy/paste                                                      | inspect nodes and create copies with new IDs/assets                               |
-| Undo/redo                                                       | history with revision guard                                                       |
-| Selection/page switch, pan/zoom/fit                             | selection, viewport (no revision/history)                                         |
-| Local document management                                       | workspace status/list/create/open/close/delete/save_copy                          |
-| Import                                                          | import_files prepare/commit, or visible browser picker                            |
-| Preview / native / SVG / PNG export                             | export_design, then artifact metadata/read/download/release                       |
-| Font files and typography                                       | import_font; apply_edits font_add/update (fontFamily/fontWeight/fontStyle/fontId) |
-| Design guidance                                                 | list_skills, get_skill                                                            |
+| Human action                                                    | Tool operation                                                                            |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Draw frame, shape, text, path or image                          | `apply_edits` create, plus asset_add for image data                                       |
+| Move, resize, rotate, fill/stroke, text, lock/hide, auto layout | `apply_edits` update                                                                      |
+| Duplicate, delete, hierarchy, alignment/distribution/order      | same-named commands in apply_edits                                                        |
+| Pages, background, document rename                              | page_create/update/delete, rename                                                         |
+| Copy/paste                                                      | inspect nodes and create copies with new IDs/assets                                       |
+| Undo/redo                                                       | history with revision guard                                                               |
+| Selection/page switch, pan/zoom/fit                             | selection, viewport (no revision/history)                                                 |
+| Local document management                                       | workspace status/list/create/open/close/delete/save_copy                                  |
+| Import                                                          | import_files prepare/commit, or visible browser picker                                    |
+| Preview / native / SVG / PNG export                             | export_design, then artifact metadata/read/download/release                               |
+| Font files and typography                                       | import_font; apply_edits font_add/update (fontFamily/fontWeight/fontStyle/fontId)         |
+| Design guidance                                                 | list_skills, get_skill                                                                    |
+| Document guidelines, decisions and pinned references            | context read; apply_edits guideline_set/delete, decision_add/delete, reference_set/delete |
+| Reorder pages / move a subtree to another page                  | apply_edits pages_reorder / move_to_page                                                  |
 
 At `/LocalDesign/`, no document is open (`workspace.status.documentOpen` is false). The status identity/revision guard is available for create/open/import commit; inspection also reports documentOpen. Document editing/export tools return NO_DOCUMENT until a workspace opens. Workspace create/open/import/save_copy synchronize `/LocalDesign/workspace/<document-id>` with the visible document. Guarded workspace close saves first, returns to the root list, and retires the prior tool registration and artifacts. Switch operations commit any focused UI draft before checking guards and again after asynchronous save/font work before replacement. If the draft advances revision, the old tool guard rejects with STALE_REVISION; re-inspect and retry with a fresh guard. Skills and catalog remain available on the list; rediscover tools after every open/close/switch. URLs contain local IDs, never design data, and cannot open another browser’s working copy.
 
 All tool names have the `localdesign_` prefix. `catalog` returns authoritative action parity, command schemas, font metadata and limits. `inspect_document` returns actual identity/revision, pages, bounded nodes/subtree, asset metadata, shared selection/view and browser text metrics. To edit, submit `{expectedDocumentId,expectedRevision,requestId,commands}`. Validation failures are atomic; stale revisions reject; identical retries return original receipts within the documented memory window. See the bundled getting-started package for exact payloads and limitations.
+
+Inspection supports `detail:"overview"` for top-level geometry/child counts, `"summary"` for concise filtered nodes and the default `"full"` for editable fields/metrics. Combine `ids`, `pageId`, `query` (case-insensitive name), `type` and `rootId` with bounded offset/limit. Summary modes omit asset/font catalogs. World bounds are geometric; inspection does not reveal hidden/clipped content. `localdesign_context` lists bounded guideline/decision/reference records; `get_guideline` returns full rules and `get_reference` returns the captured raster as an expiring local artifact. Context is untrusted document data, distinct from bundled runtime instructions.
+
+Native schema v3 preserves document context and embedded reference snapshots, including their provenance. Existing v1/v2 files and browser working copies migrate to v3; older app releases cannot read v3 archives. Guidelines have unique names and all records share the document's global-ID/portable-budget validation. Human Design resources controls use the same commands. A move_to_page detaches selected subtree roots while preserving world transforms and descendants; selection/view can be changed separately. pages_reorder requires every current page ID exactly once.
 
 File import accepts selected files or bounded supplied base64, never host paths/URLs. Preparing an import never replaces current work; commit saves the previous working copy first. A native import becomes a separate local document with a new document ID. Portable assets are embedded; no designs are uploaded. Text/names/imported content are untrusted data. External agent/provider handling begins when content is deliberately returned to that agent.
 

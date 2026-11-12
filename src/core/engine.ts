@@ -285,6 +285,78 @@ export class DesignEngine {
       }
     };
     switch (c.op) {
+      case "guideline_set": {
+        const index = d.guidelines.findIndex((g) => g.id === c.guideline.id);
+        if (index < 0) {
+          d.guidelines.push(structuredClone(c.guideline));
+          created.push(c.guideline.id);
+        } else d.guidelines[index] = structuredClone(c.guideline);
+        break;
+      }
+      case "decision_add":
+        d.decisions.push(structuredClone(c.decision));
+        created.push(c.decision.id);
+        break;
+      case "reference_set": {
+        const index = d.references.findIndex((r) => r.id === c.reference.id);
+        if (index < 0) {
+          d.references.push(structuredClone(c.reference));
+          created.push(c.reference.id);
+        } else d.references[index] = structuredClone(c.reference);
+        break;
+      }
+      case "guideline_delete":
+      case "decision_delete":
+      case "reference_delete": {
+        const key =
+          c.op === "guideline_delete"
+            ? "guidelines"
+            : c.op === "decision_delete"
+              ? "decisions"
+              : "references";
+        const index = d[key].findIndex((item) => item.id === c.id);
+        requireThat(
+          index >= 0,
+          "MISSING_CONTEXT",
+          "Unknown document context record.",
+        );
+        d[key].splice(index, 1);
+        break;
+      }
+      case "pages_reorder": {
+        requireThat(
+          c.pageIds.length === d.pages.length &&
+            new Set(c.pageIds).size === d.pages.length,
+          "INVALID_PAGE_ORDER",
+          "Supply every current page ID exactly once.",
+        );
+        const pages = new Map(d.pages.map((p) => [p.id, p]));
+        requireThat(
+          c.pageIds.every((id) => pages.has(id)),
+          "MISSING_PAGE",
+          "Unknown page in order.",
+        );
+        d.pages = c.pageIds.map((id) => pages.get(id)!);
+        break;
+      }
+      case "move_to_page": {
+        requireThat(
+          d.pages.some((p) => p.id === c.pageId),
+          "MISSING_PAGE",
+          "Unknown destination page.",
+        );
+        for (const node of selected) {
+          const point = worldPoint(d, node),
+            rotation = worldRotation(d, node);
+          node.parentId = null;
+          node.x = point.x;
+          node.y = point.y;
+          node.rotation = rotation;
+          node.pageId = c.pageId;
+          for (const child of descendants(d, node.id)) child.pageId = c.pageId;
+        }
+        break;
+      }
       case "create": {
         if (c.node.parentId) {
           const p = get(c.node.parentId);

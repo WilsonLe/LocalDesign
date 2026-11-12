@@ -239,7 +239,7 @@ it("font edits use guarded atomic history, retain requested identity and never r
     validateFontRecord({ ...font, redistributionAllowed: false } as never),
   ).toThrow();
 });
-it("native v2 embeds the actual local face, notices and requested/mapped identity; v1 remains editable", async () => {
+it("native files embed the actual local face, notices and requested/mapped identity; legacy files remain editable", async () => {
   const doc = blankDocument(),
     font = serif();
   doc.fonts.push(font);
@@ -255,7 +255,7 @@ it("native v2 embeds the actual local face, notices and requested/mapped identit
   const file = new Uint8Array(await (await nativeExport(doc)).arrayBuffer()),
     entries = unzipSync(file);
   const raw = JSON.parse(strFromU8(entries["document.json"]));
-  expect(raw.schemaVersion).toBe(2);
+  expect(raw.schemaVersion).toBe(3);
   expect(raw.fonts[0].files[0].data).toBe(`fonts/${font.id}-0.otf`);
   expect(entries[raw.fonts[0].files[0].data]).toEqual(
     bytes("tests/fixtures/fonts/SourceSerif4-Regular.otf"),
@@ -284,7 +284,7 @@ it("native v2 embeds the actual local face, notices and requested/mapped identit
   const old = nativeImport(
     zipSync({ "document.json": strToU8(JSON.stringify(legacy)) }),
   );
-  expect(old.schemaVersion).toBe(2);
+  expect(old.schemaVersion).toBe(3);
   expect(old.fonts).toEqual([]);
   expect(validateDocument(old)).toEqual(old);
 });

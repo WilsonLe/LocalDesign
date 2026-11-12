@@ -123,11 +123,11 @@ export function nativeImport(
   );
   const d = raw as DesignDocument;
   requireThat(
-    [1, 2].includes(d.schemaVersion),
+    [1, 2, 3].includes(d.schemaVersion),
     "UNSUPPORTED_VERSION",
     "This file needs a different version of LocalDesign.",
   );
-  if (d.schemaVersion === 2 && files["fonts/catalog.json"]) {
+  if (d.schemaVersion >= 2 && files["fonts/catalog.json"]) {
     requireThat(
       files["fonts/catalog.json"].length <= FONT_ARCHIVE_RESERVE,
       "FONT_LIMIT",
@@ -206,7 +206,7 @@ export function nativeImport(
     }
   }
   const result = validateDocument(d);
-  if (d.schemaVersion === 2 && files["fonts/order.json"]) {
+  if (d.schemaVersion >= 2 && files["fonts/order.json"]) {
     requireThat(
       files["fonts/order.json"].length <= MAX_DOCUMENT_FONTS * 104 + 2,
       "INVALID_FONT",

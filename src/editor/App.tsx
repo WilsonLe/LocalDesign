@@ -58,6 +58,7 @@ import { Layers } from "./Layers";
 import { copySelection, pasteSelection } from "./clipboard";
 import { blocksCanvasShortcuts } from "./shortcuts";
 import { WorkspaceList } from "./WorkspaceList";
+import { DesignResources } from "./DesignResources";
 import {
   WorkspaceNavigation,
   readWorkspaceRoute,
@@ -125,7 +126,9 @@ export function App() {
     [connection, setConnection] = useState<
       "connected" | "unavailable" | "error"
     >("unavailable"),
-    [modal, setModal] = useState<"export" | "help" | "agent" | null>(null),
+    [modal, setModal] = useState<
+      "export" | "help" | "agent" | "resources" | null
+    >(null),
     [drawer, setDrawer] = useState<"layers" | "inspector" | null>(null),
     [navigation, setNavigation] = useState<NavigationState>({
       route: readWorkspaceRoute(location.pathname),
@@ -248,7 +251,9 @@ export function App() {
   }, [notice]);
   useEffect(() => {
     const id = doc.id;
-    setModal((current) => (current === "export" ? null : current));
+    setModal((current) =>
+      current === "export" || current === "resources" ? null : current,
+    );
     setDrawer(null);
     return () => {
       void id;
@@ -569,6 +574,15 @@ export function App() {
           </>
         )}
         {!editing && <div className="top-spacer" />}
+        {editing && (
+          <Button
+            aria-label="Design resources"
+            title="Design resources"
+            onClick={() => setModal("resources")}
+          >
+            <LayersIcon size={16} />
+          </Button>
+        )}
         <Button
           className={`agent-button ${connection === "connected" ? "connected" : ""}`}
           title="Connect an agent"
@@ -842,6 +856,11 @@ export function App() {
               <strong>PNG</strong>
             </Button>
           </div>
+        </Modal>
+      )}
+      {editing && modal === "resources" && (
+        <Modal title="Design resources" onClose={() => setModal(null)}>
+          <DesignResources engine={engine} document={doc} onError={setNotice} />
         </Modal>
       )}
       {modal === "agent" && (

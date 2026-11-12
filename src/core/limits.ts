@@ -18,3 +18,6 @@ export const FONT_ARCHIVE_RESERVE = 1_000_000;
 export const MAX_FONT_FILE_BYTES = 4_000_000;
 export const MAX_FONT_EXPANDED_BYTES = 16_000_000;
 export const MAX_FONT_BYTES = 12_000_000;
+export const MAX_GUIDELINES = 50;
+export const MAX_DECISIONS = 200;
+export const MAX_REFERENCES = 100;
