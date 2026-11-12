@@ -1,7 +1,7 @@
 import type { DesignDocument, DesignNode } from "../core/model";
 import { resolveFont } from "./fonts";
 import { fontKey } from "../fonts/data";
-import { shapeLine } from "./glyphs";
+import { lineWidth, prefixWidths, shapeLine } from "./glyphs";
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 export function textLineOrigin(n: DesignNode, width: number, index: number) {
   return {
@@ -57,15 +57,26 @@ function computeMeasurement(
   n: DesignNode,
   font: ReturnType<typeof resolveFont>,
 ) {
-  const width = (text: string) =>
-    font.record
-      ? shapeLine(n, font.record, text).width
+  let prepared = "",
+    prefixes = new Map<number, number>();
+  const prepare = (text: string) => {
+    prepared = text;
+    prefixes = font.record ? prefixWidths(n, font.record, text) : new Map();
+  };
+  const width = (text: string) => {
+    const prefix = prefixes.get(text.length);
+    if (prefix !== undefined && prepared.startsWith(text)) return prefix;
+    return font.record
+      ? lineWidth(n, font.record, text)
       : text.length * n.fontSize * 0.55 +
-        Math.max(0, Array.from(text).length - 1) * n.letterSpacing;
+          Math.max(0, Array.from(text).length - 1) * n.letterSpacing;
+  };
   const lines: string[] = [];
   for (const paragraph of n.text.normalize("NFC").split("\n")) {
+    prepare(paragraph);
     let line = "";
-    for (const { segment: char } of graphemes.segment(paragraph)) {
+    const chars = [...graphemes.segment(paragraph)].map((part) => part.segment);
+    for (const [index, char] of chars.entries()) {
       if (line && width(line + char) > n.width) {
         const split = line.lastIndexOf(" ");
         if (split > line.length * 0.4) {
@@ -75,6 +86,7 @@ function computeMeasurement(
           lines.push(line);
           line = char;
         }
+        prepare(line + chars.slice(index + 1).join(""));
       } else line += char;
     }
     lines.push(line);

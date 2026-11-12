@@ -1,5 +1,5 @@
 import type { DesignDocument, DesignNode } from "../core/model";
-import { resolveFont } from "./fonts";
+import { fontEpoch, resolveFont } from "./fonts";
 import { measureText } from "./text";
 import { shapeLine } from "./glyphs";
 
@@ -10,7 +10,7 @@ const shapes = new WeakMap<
   DesignNode,
   {
     fonts: DesignDocument["fonts"];
-    record: ReturnType<typeof resolveFont>["record"];
+    epoch: number;
     value: ReturnType<typeof compute>;
   }
 >();
@@ -29,11 +29,11 @@ function compute(
   };
 }
 export function textShape(node: DesignNode, doc: DesignDocument) {
-  const font = resolveFont(node, doc);
+  const epoch = fontEpoch();
   const cached = shapes.get(node);
-  if (cached && cached.fonts === doc.fonts && cached.record === font.record)
+  if (cached && cached.fonts === doc.fonts && cached.epoch === epoch)
     return cached.value;
-  const value = compute(node, doc, font);
-  shapes.set(node, { fonts: doc.fonts, record: font.record, value });
+  const value = compute(node, doc, resolveFont(node, doc));
+  shapes.set(node, { fonts: doc.fonts, epoch, value });
   return value;
 }

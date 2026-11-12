@@ -107,7 +107,9 @@ export function Canvas({
     view.x + view.width > previous.x + previous.width ||
     view.y + view.height > previous.y + previous.height
   ) {
-    const margin = 256 / v.zoom;
+    // Overview views already span many screens; a smaller prefetch fringe
+    // avoids mounting thousands of extra cold text layers on each first visit.
+    const margin = (v.zoom < 0.3 ? 64 : 256) / v.zoom;
     coverage.current = {
       x: view.x - margin,
       y: view.y - margin,
