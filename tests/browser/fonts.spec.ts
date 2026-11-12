@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { unzipSync, zipSync, strFromU8 } from "fflate";
 import { expect, test, type Page } from "@playwright/test";
 import { harness, open, tool, inspect, edits } from "./helpers";
+import shapingReference from "../fixtures/fonts/shaping-reference.json" with { type: "json" };
 
 async function artifactBytes(
   page: Page,
@@ -283,26 +284,15 @@ test("licensed local fonts render the same pixels in canvas, preview, SVG, PNG a
   expect(svgText).toContain("SIL Open Font License");
   expect(svgText).toContain("<use");
   expect(svgText).not.toContain("<text ");
-  const referenceAlias = svgText.match(/font-family:'([^']+)'/)![1];
-  const referenceWidth = await page.evaluate(
-    ({ alias, lines }) => {
-      const ctx = document.createElement("canvas").getContext("2d")!;
-      ctx.font = `400 42px '${alias}'`;
-      return Math.max(
-        ...lines.map((line: string) => ctx.measureText(line).width),
-      );
-    },
-    {
-      alias: referenceAlias,
-      lines: before.textMetrics.find((m: any) => m.id === "heading").lines,
-    },
-  );
-  expect(
-    Math.abs(
-      referenceWidth -
-        before.textMetrics.find((m: any) => m.id === "heading").width,
+  const reference = shapingReference.fonts[0];
+  const heading = before.textMetrics.find((m: any) => m.id === "heading");
+  const advances = reference.advances as Record<string, number>;
+  const referenceWidth = Math.max(
+    ...heading.lines.map(
+      (line: string) => (advances[line] * 42) / reference.unitsPerEm,
     ),
-  ).toBeLessThan(0.25);
+  );
+  expect(heading.width).toBeCloseTo(referenceWidth, 6);
   const pixelResult = await page.evaluate(
     async ({ screenshot, svg, png, preview }) => {
       const decode = async (source: string) => {

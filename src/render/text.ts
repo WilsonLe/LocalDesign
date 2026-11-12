@@ -1,6 +1,18 @@
 import type { DesignDocument, DesignNode } from "../core/model";
 import { resolveFont } from "./fonts";
 import { shapeLine } from "./glyphs";
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+export function textLineOrigin(n: DesignNode, width: number, index: number) {
+  return {
+    x:
+      n.textAlign === "center"
+        ? (n.width - width) / 2
+        : n.textAlign === "right"
+          ? n.width - width
+          : 0,
+    y: n.fontSize + index * n.fontSize * n.lineHeight,
+  };
+}
 export function measureText(n: DesignNode, doc?: DesignDocument) {
   const font = resolveFont(n, doc);
   const width = (text: string) =>
@@ -9,9 +21,9 @@ export function measureText(n: DesignNode, doc?: DesignDocument) {
       : text.length * n.fontSize * 0.55 +
         Math.max(0, Array.from(text).length - 1) * n.letterSpacing;
   const lines: string[] = [];
-  for (const paragraph of n.text.split("\n")) {
+  for (const paragraph of n.text.normalize("NFC").split("\n")) {
     let line = "";
-    for (const char of Array.from(paragraph)) {
+    for (const { segment: char } of graphemes.segment(paragraph)) {
       if (line && width(line + char) > n.width) {
         const split = line.lastIndexOf(" ");
         if (split > line.length * 0.4) {
@@ -26,10 +38,28 @@ export function measureText(n: DesignNode, doc?: DesignDocument) {
     lines.push(line);
   }
   const textHeight = lines.length * n.fontSize * n.lineHeight;
+  let left = Infinity,
+    top = Infinity,
+    right = -Infinity,
+    bottom = -Infinity;
+  if (font.record)
+    for (const [index, line] of lines.entries()) {
+      const shaped = shapeLine(n, font.record, line),
+        origin = textLineOrigin(n, shaped.width, index);
+      for (const glyph of shaped.glyphs) {
+        left = Math.min(left, origin.x + glyph.ink.x);
+        top = Math.min(top, origin.y + glyph.ink.y);
+        right = Math.max(right, origin.x + glyph.ink.x + glyph.ink.width);
+        bottom = Math.max(bottom, origin.y + glyph.ink.y + glyph.ink.height);
+      }
+    }
   return {
     lines,
     width: Math.max(0, ...lines.map(width)),
     height: textHeight,
+    inkBounds: Number.isFinite(left)
+      ? { x: left, y: top, width: right - left, height: bottom - top }
+      : null,
     overflow: textHeight > n.height || lines.some((l) => width(l) > n.width),
     fallbackWarning:
       [

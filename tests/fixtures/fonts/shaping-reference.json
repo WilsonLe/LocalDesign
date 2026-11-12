@@ -1,0 +1,28 @@
+{
+  "generator": "HarfBuzz 12.1.0 via uharfbuzz 0.51.7; fontTools 4.60.2",
+  "method": "Decode each pinned file to sfnt, scale to unitsPerEm, guess LTR Latin segment properties and shape with default OpenType features. Advances are unhinted design units, independent of OS browser hinting.",
+  "fonts": [
+    {
+      "path": "tests/fixtures/fonts/SourceSerif4-Regular.otf",
+      "sha256": "edf160d0d584deee8a3bb2c3371b2a7624ca63580fbe02c57c1f4c91e84d8787",
+      "unitsPerEm": 1000,
+      "advances": {
+        "Forward Deployed": 8174,
+        "Engineer at Lyra": 7372,
+        "AVATAR": 3541,
+        "office ffi": 3602
+      }
+    },
+    {
+      "path": "node_modules/@fontsource/source-serif-4/files/source-serif-4-latin-400-normal.woff2",
+      "sha256": "02194deb92d3975dd30e11a3824a1f1db32b48c93654e60560cb81ce8e7b5f95",
+      "unitsPerEm": 1000,
+      "advances": {
+        "Forward Deployed": 8771,
+        "Engineer at Lyra": 7862,
+        "AVATAR": 3763,
+        "office ffi": 3825
+      }
+    }
+  ]
+}

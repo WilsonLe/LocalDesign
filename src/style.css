@@ -825,8 +825,14 @@ kbd {
   display: grid;
   gap: 4px;
 }
-.font-preview span {
-  font-size: 22px;
+.font-sample {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  color: var(--foreground);
+}
+.font-sample use {
+  fill: currentColor;
 }
 .font-permission {
   display: flex;

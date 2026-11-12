@@ -343,6 +343,7 @@ export function createTools(
     EditSchema,
     true,
     async (input, signal) => {
+      await fontsReady(engine.document);
       await validateRasterAssets(
         input.commands.flatMap((c) => (c.op === "asset_add" ? [c.asset] : [])),
       );
@@ -364,6 +365,7 @@ export function createTools(
         "WORKSPACE_BUSY",
         "Wait for the workspace operation.",
       );
+      await fontsReady(engine.document);
       await validateRasterAssets(
         input.commands.flatMap((c) => (c.op === "asset_add" ? [c.asset] : [])),
       );

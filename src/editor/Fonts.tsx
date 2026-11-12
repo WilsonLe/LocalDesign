@@ -1,10 +1,15 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { NativeSelect } from "../components/ui/native-select";
 import { Dialog, DialogContent, DialogTitle } from "../components/ui/dialog";
 import type { DesignEngine, Snapshot } from "../core/engine";
-import { makeNode, requireThat, type DesignNode } from "../core/model";
+import {
+  makeNode,
+  requireThat,
+  type DesignDocument,
+  type DesignNode,
+} from "../core/model";
 import { MAX_FONT_FILE_BYTES } from "../core/limits";
 import { localFont } from "../fonts/data";
 import {
@@ -13,6 +18,54 @@ import {
   resolveFont,
   validateFontFaces,
 } from "../render/fonts";
+import { Scene } from "../render/Scene";
+import { measureText } from "../render/text";
+
+function FontSample({
+  doc,
+  font,
+  label,
+}: {
+  doc: DesignDocument;
+  font: Pick<DesignNode, "fontFamily" | "fontId" | "fontWeight" | "fontStyle">;
+  label: string;
+}) {
+  const id = `sample-${useId().replace(/[^\w-]/g, "")}`;
+  const node = makeNode("text", doc.pages[0].id, {
+    fontFamily: font.fontFamily,
+    fontId: font.fontId,
+    fontWeight: font.fontWeight,
+    fontStyle: font.fontStyle,
+    id,
+    text: "Aa Bb 0123 · Tiếng Việt",
+    fontSize: 22,
+    width: 10000,
+    height: 100,
+    fill: "#171717",
+  });
+  const metrics = measureText(node, doc),
+    ink = metrics.inkBounds;
+  const x = Math.min(0, ink?.x ?? 0) - 2,
+    y = Math.min(0, ink?.y ?? 0) - 2;
+  const width = Math.max(metrics.width, ink ? ink.x + ink.width : 0) - x + 2;
+  const height = Math.max(metrics.height, ink ? ink.y + ink.height : 0) - y + 2;
+  return (
+    <svg
+      className="font-sample"
+      role="img"
+      aria-label={label}
+      width={width}
+      height={height}
+      viewBox={`${x} ${y} ${width} ${height}`}
+    >
+      <Scene
+        doc={{ ...doc, nodes: [node] }}
+        pageId={node.pageId}
+        glyphPrefix={`${id}-`}
+      />
+    </svg>
+  );
+}
 
 export function FontManager({
   engine,
@@ -50,22 +103,26 @@ export function FontManager({
           <DialogTitle>Fonts</DialogTitle>
           <div className="font-previews">
             {families.map((family) => {
-              const font = resolveFont(
-                makeNode("text", doc.pages[0].id, { fontFamily: family }),
-                doc,
+              const choices = availableFonts(doc).filter(
+                (f) => f.family === family,
               );
+              const face =
+                choices.find(
+                  (f) => f.weight === "400" && f.style === "normal",
+                ) ?? choices[0];
               return (
                 <div className="font-preview" key={family}>
                   <strong>{family}</strong>
-                  <span
-                    style={{
-                      fontFamily: font.cssFamily,
-                      fontWeight: font.weight,
-                      fontStyle: font.style,
+                  <FontSample
+                    doc={doc}
+                    font={{
+                      fontFamily: face.family,
+                      fontWeight: face.weight,
+                      fontStyle: face.style,
+                      fontId: face.id,
                     }}
-                  >
-                    Aa Bb 0123 · Tiếng Việt
-                  </span>
+                    label={`${family} preview`}
+                  />
                 </div>
               );
             })}
@@ -277,36 +334,30 @@ export function FontControls({
           </NativeSelect>
         </label>
       </div>
-      <div
-        className="type-preview"
-        style={{
-          fontFamily: font.cssFamily,
-          fontWeight: font.weight,
-          fontStyle: font.style,
-        }}
-      >
-        Aa Bb 0123 · Tiếng Việt
+      <div className="type-preview">
+        <FontSample doc={doc} font={node} label={`${font.family} preview`} />
       </div>
-      {(font.status !== "exact" || node.fontId) && (
-        <label className="field">
-          <span>Replacement</span>
-          <NativeSelect
-            aria-label="Replacement"
-            value={node.fontId ?? ""}
-            onChange={(e) => patch({ fontId: e.target.value || null })}
-          >
-            <option value="">No replacement</option>
-            {node.fontId && !catalog.some((f) => f.id === node.fontId) && (
-              <option value={node.fontId}>Missing font ID</option>
-            )}
-            {catalog.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.family} · {f.weight} {f.style}
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
-      )}
+      <label className="field">
+        <span>{font.status === "exact" ? "Font source" : "Replacement"}</span>
+        <NativeSelect
+          aria-label={font.status === "exact" ? "Font source" : "Replacement"}
+          value={node.fontId ?? ""}
+          onChange={(e) => patch({ fontId: e.target.value || null })}
+        >
+          <option value="">Automatic</option>
+          {node.fontId && !catalog.some((f) => f.id === node.fontId) && (
+            <option value={node.fontId}>Missing font ID</option>
+          )}
+          {catalog.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.family} · {f.weight} {f.style} ·{" "}
+              {f.source === "local"
+                ? `Local · ${doc.fonts.find((record) => record.id === f.id)?.provenance ?? "Font"} · ${f.id.slice(-8)}`
+                : "Bundled"}
+            </option>
+          ))}
+        </NativeSelect>
+      </label>
       <FontManager engine={engine} snapshot={snapshot} />
     </>
   );

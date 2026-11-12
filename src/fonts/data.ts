@@ -198,7 +198,16 @@ export function readFont(bytes: Uint8Array): FontInfo {
       "INVALID_FONT",
       "Font metadata is invalid.",
     );
-    const characters = font.characterSet;
+    const points = font.characterSet;
+    requireThat(
+      points.length <= 200000 &&
+        points.every((p) => Number.isInteger(p) && p >= 0 && p <= 0x10ffff),
+      "INVALID_FONT",
+      "Font character map is invalid.",
+    );
+    const characters = points.filter(
+      (point) => font.glyphForCodePoint(point).id !== 0,
+    );
     requireThat(
       characters.length > 0 &&
         characters.length <= 200000 &&
@@ -215,11 +224,14 @@ export function readFont(bytes: Uint8Array): FontInfo {
     let outlineBytes = 0;
     for (let id = 0; id < font.numGlyphs; id++) {
       const path = font.getGlyph(id).path.toSVG();
+      const box = font.getGlyph(id).path.bbox;
       outlineBytes += path.length;
       requireThat(
         path.length <= 100000 &&
           outlineBytes <= MAX_FONT_EXPANDED_BYTES &&
-          /^[MmLlHhVvCcSsQqTtAaZz\d\s,.+eE-]*$/.test(path),
+          /^[MmLlHhVvCcSsQqTtAaZz\d\s,.+eE-]*$/.test(path) &&
+          (!path ||
+            [box.minX, box.minY, box.maxX, box.maxY].every(Number.isFinite)),
         "INVALID_FONT",
         "Font outlines are invalid or too complex (16 MB maximum). Choose a simpler static font.",
       );
@@ -325,6 +337,24 @@ export function fontKey(font: Pick<DocumentFont, "files">) {
   return key;
 }
 export const fontAlias = (font: DocumentFont) => `LD-${fontKey(font)}`;
+const partitions = new Map<string, string[]>();
+export function fontRanges(font: DocumentFont) {
+  const key = fontKey(font),
+    prior = partitions.get(key);
+  if (prior) return prior;
+  const covered = new Set<number>();
+  const result = font.files.map((file) => {
+    const points = [...fontInfo(file).characters].filter(
+      (point) => !covered.has(point),
+    );
+    points.forEach((point) => covered.add(point));
+    return ranges(points);
+  });
+  if (partitions.size >= 144)
+    partitions.delete(partitions.keys().next().value!);
+  partitions.set(key, result);
+  return result;
+}
 export function localFont(
   bytes: Uint8Array,
   provenance: string,

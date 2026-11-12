@@ -1,4 +1,5 @@
 import { ancestors, type DesignDocument, type DesignNode } from "./model";
+import { measureText } from "../render/text";
 export type Point = { x: number; y: number };
 export function transform(p: Point, n: DesignNode, inverse = false): Point {
   const a = ((n.rotation * Math.PI) / 180) * (inverse ? -1 : 1);
@@ -49,11 +50,16 @@ export function bounds(d: DesignDocument, nodes: DesignNode[]) {
   const points = visible.flatMap((n) => {
     const stroke =
       n.type === "frame" || n.stroke === "none" ? 0 : n.strokeWidth / 2;
+    const ink = n.type === "text" ? measureText(n, d).inkBounds : null;
+    const left = Math.min(0, ink?.x ?? 0),
+      top = Math.min(0, ink?.y ?? 0),
+      right = Math.max(n.width, ink ? ink.x + ink.width : n.width),
+      bottom = Math.max(n.height, ink ? ink.y + ink.height : n.height);
     return [
-      { x: -stroke, y: -stroke },
-      { x: n.width + stroke, y: -stroke },
-      { x: n.width + stroke, y: n.height + stroke },
-      { x: -stroke, y: n.height + stroke },
+      { x: left - stroke, y: top - stroke },
+      { x: right + stroke, y: top - stroke },
+      { x: right + stroke, y: bottom + stroke },
+      { x: left - stroke, y: bottom + stroke },
     ].map((p) => worldPoint(d, n, p));
   });
   const x = Math.min(...points.map((p) => p.x)),

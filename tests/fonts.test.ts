@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { unzipSync, strFromU8, zipSync, strToU8 } from "fflate";
 import { expect, it } from "vitest";
 import { DesignEngine } from "../src/core/engine";
@@ -9,6 +10,8 @@ import { resolveFont } from "../src/render/fonts";
 import { bundledCatalog, families } from "../src/fonts/bundled";
 import { base64, portableFont } from "../src/fonts/data";
 import type { DocumentFont } from "../src/fonts/schema";
+import { measureText } from "../src/render/text";
+import shapingReference from "./fixtures/fonts/shaping-reference.json" with { type: "json" };
 
 const bytes = (path: string) => new Uint8Array(readFileSync(path));
 const serif = () =>
@@ -17,6 +20,31 @@ const serif = () =>
     "SourceSerif4-Regular.otf",
     "SIL OFL 1.1; editable redistribution permitted",
   );
+it("shapes exact pinned bytes against independent HarfBuzz kerning and ligature advances", () => {
+  for (const reference of shapingReference.fonts) {
+    const data = bytes(reference.path);
+    expect(createHash("sha256").update(data).digest("hex")).toBe(
+      reference.sha256,
+    );
+    const font = localFont(data, reference.path, "SIL OFL 1.1"),
+      doc = blankDocument();
+    doc.fonts.push(font);
+    for (const [text, advance] of Object.entries(reference.advances)) {
+      const node = makeNode("text", doc.pages[0].id, {
+        fontFamily: font.family,
+        fontId: font.id,
+        fontSize: 72,
+        text,
+        width: 10000,
+        height: 200,
+      });
+      expect(measureText(node, doc).width).toBeCloseTo(
+        (advance * 72) / reference.unitsPerEm,
+        6,
+      );
+    }
+  }
+});
 it("every bundled face matches its real bytes, license and total portable reserve", async () => {
   const doc = blankDocument();
   doc.fonts = bundledCatalog.map((face) => {

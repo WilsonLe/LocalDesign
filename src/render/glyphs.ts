@@ -24,6 +24,7 @@ type PositionedGlyph = {
   x: number;
   y: number;
   scale: number;
+  ink: { x: number; y: number; width: number; height: number };
 };
 type Line = { glyphs: PositionedGlyph[]; width: number };
 const lines = new Map<string, Line>();
@@ -72,14 +73,24 @@ export function shapeLine(
         outlines.set(pathKey, path);
         outlineBytes += path.length;
       }
-      if (path)
+      if (path) {
+        const box = glyph.path.bbox;
+        const gx = x + position.xOffset * scale,
+          gy = y - position.yOffset * scale;
         glyphs.push({
           id: `glyph-${fontInfo(segment.file).digest}-${glyph.id}`,
           path,
-          x: x + position.xOffset * scale,
-          y: y - position.yOffset * scale,
+          x: gx,
+          y: gy,
           scale,
+          ink: {
+            x: gx + box.minX * scale,
+            y: gy - box.maxY * scale,
+            width: (box.maxX - box.minX) * scale,
+            height: (box.maxY - box.minY) * scale,
+          },
         });
+      }
       x += position.xAdvance * scale;
       y -= position.yAdvance * scale;
       if (position.xAdvance) {

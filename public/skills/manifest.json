@@ -19,8 +19,8 @@
       ],
       "version": "1.1.0",
       "path": "getting-started.md",
-      "sha256": "dfbd9a073e174e44cfde4474d227e12695e1ab556b4cd2c9636da0fdc6d03759",
-      "bytes": 13169,
+      "sha256": "239ffa771bfcf23c679c70e4d65fbe8f9f72db8ef2381751bb2b53d480058d02",
+      "bytes": 13573,
       "originalSkillIds": []
     },
     {
@@ -34,8 +34,8 @@
       ],
       "version": "1.1.0",
       "path": "ui-design.md",
-      "sha256": "ce79eff53a8b10e07bdb8502ea912b4b83d12f3fe12ced02b0d31526cbc70ab2",
-      "bytes": 15232,
+      "sha256": "c465ee88d4e00181214ac3e7f58716ccc58c5c5b3727e87c4e0cd7e8ef5e2455",
+      "bytes": 15636,
       "originalSkillIds": [
         "ui-design"
       ]
@@ -51,8 +51,8 @@
       ],
       "version": "1.1.0",
       "path": "typography.md",
-      "sha256": "065b08e2550f17164a4ce074fff7eac4dc673575c61eb23d4883ea95663b8405",
-      "bytes": 15749,
+      "sha256": "2d874005170dc6ccc8bf9f89fa19835780f00f6f29e507dc4573acc85ca31e12",
+      "bytes": 16164,
       "originalSkillIds": [
         "typography"
       ]

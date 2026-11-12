@@ -1,6 +1,12 @@
 import type { DesignDocument, DesignNode } from "../core/model";
 import { requireThat } from "../core/model";
-import { base64, fontAlias, fontInfo, validateFontRecord } from "../fonts/data";
+import {
+  base64,
+  fontAlias,
+  fontInfo,
+  fontRanges,
+  validateFontRecord,
+} from "../fonts/data";
 import type { DocumentFont } from "../fonts/schema";
 import {
   families,
@@ -136,9 +142,12 @@ export function resolveFont(node: DesignNode, doc?: DesignDocument) {
 export function fontCSS(records: DocumentFont[]) {
   return records
     .flatMap((font) =>
-      font.files.map(
-        (file) =>
-          `@font-face{font-family:'${fontAlias(font)}';font-style:${font.style};font-weight:${font.weight};font-display:block;src:${fontSource(file)};unicode-range:${fontInfo(file).unicodeRange};}`,
+      font.files.flatMap((file, i) =>
+        fontRanges(font)[i]
+          ? [
+              `@font-face{font-family:'${fontAlias(font)}';font-style:${font.style};font-weight:${font.weight};font-display:block;src:${fontSource(file)};unicode-range:${fontRanges(font)[i]};}`,
+            ]
+          : [],
       ),
     )
     .join("\n");
@@ -154,17 +163,20 @@ export async function validateFontFaces(fonts: DocumentFont[]) {
     if (!loading.has(key)) {
       const pending = (async () => {
         const faces = await Promise.all(
-          font.files.map(async (file) => {
+          font.files.map(async (file, i) => {
+            const range = fontRanges(font)[i];
             const face = new FontFace(key, fontSource(file), {
               weight: font.weight,
               style: font.style,
-              unicodeRange: fontInfo(file).unicodeRange,
+              unicodeRange: range || "U+0-10FFFF",
             });
             await face.load();
-            return face;
+            return range ? face : null;
           }),
         );
-        faces.forEach((face) => document.fonts.add(face));
+        faces.forEach((face) => {
+          if (face) document.fonts.add(face);
+        });
         loaded.add(key);
       })();
       loading.set(key, pending);

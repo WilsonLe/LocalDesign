@@ -2,7 +2,10 @@ declare module "fontkit" {
   export interface Glyph {
     id: number;
     codePoints: number[];
-    path: { toSVG(): string };
+    path: {
+      toSVG(): string;
+      bbox: { minX: number; minY: number; maxX: number; maxY: number };
+    };
   }
   export function create(bytes: Uint8Array): {
     familyName: string;
@@ -11,6 +14,7 @@ declare module "fontkit" {
     numGlyphs: number;
     unitsPerEm: number;
     getGlyph(id: number): Glyph;
+    glyphForCodePoint(codePoint: number): Glyph;
     layout(
       text: string,
       features?: Record<string, boolean>,

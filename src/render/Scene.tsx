@@ -1,14 +1,16 @@
 import type { CSSProperties, PointerEventHandler } from "react";
 import { ancestors, type DesignDocument, type DesignNode } from "../core/model";
-import { measureText } from "./text";
+import { measureText, textLineOrigin } from "./text";
 import { resolveFont } from "./fonts";
 import { shapeLine } from "./glyphs";
 export function NodeShape({
   node: n,
   doc,
+  glyphPrefix = "",
 }: {
   node: DesignNode;
   doc: DesignDocument;
+  glyphPrefix?: string;
 }) {
   const style = { fill: n.fill, stroke: n.stroke, strokeWidth: n.strokeWidth };
   switch (n.type) {
@@ -40,19 +42,13 @@ export function NodeShape({
           {font.record &&
             lines.map((line, i) => {
               const shaped = shapeLine(n, font.record!, line);
-              const x =
-                n.textAlign === "center"
-                  ? (n.width - shaped.width) / 2
-                  : n.textAlign === "right"
-                    ? n.width - shaped.width
-                    : 0;
-              const baseline = n.fontSize + i * n.fontSize * n.lineHeight;
+              const origin = textLineOrigin(n, shaped.width, i);
               return (
-                <g key={i} transform={`translate(${x} ${baseline})`}>
+                <g key={i} transform={`translate(${origin.x} ${origin.y})`}>
                   {shaped.glyphs.map((glyph, j) => (
                     <use
                       key={j}
-                      href={`#${glyph.id}`}
+                      href={`#${glyphPrefix}${glyph.id}`}
                       transform={`translate(${glyph.x} ${glyph.y}) scale(${glyph.scale} ${-glyph.scale})`}
                       fill={n.fill}
                       stroke={n.stroke}
@@ -83,11 +79,13 @@ export function SceneNode({
   doc,
   onPointerDown,
   interactive = false,
+  glyphPrefix = "",
 }: {
   node: DesignNode;
   doc: DesignDocument;
   onPointerDown?: PointerEventHandler<SVGGElement>;
   interactive?: boolean;
+  glyphPrefix?: string;
 }) {
   if (n.hidden) return null;
   const children = doc.nodes.filter((c) => c.parentId === n.id);
@@ -110,7 +108,7 @@ export function SceneNode({
           </clipPath>
         </defs>
       )}
-      <NodeShape node={n} doc={doc} />
+      <NodeShape node={n} doc={doc} glyphPrefix={glyphPrefix} />
       {interactive && (
         <rect
           width={n.width}
@@ -132,6 +130,7 @@ export function SceneNode({
             doc={doc}
             onPointerDown={onPointerDown}
             interactive={interactive}
+            glyphPrefix={glyphPrefix}
           />
         ))}
       </g>
@@ -144,12 +143,14 @@ export function Scene({
   rootIds,
   interactive = false,
   onPointerDown,
+  glyphPrefix = "",
 }: {
   doc: DesignDocument;
   pageId: string;
   rootIds?: string[];
   interactive?: boolean;
   onPointerDown?: PointerEventHandler<SVGGElement>;
+  glyphPrefix?: string;
 }) {
   const glyphs = new Map<string, string>();
   for (const node of doc.nodes.filter(
@@ -169,7 +170,7 @@ export function Scene({
     <>
       <defs>
         {[...glyphs].map(([id, d]) => (
-          <path key={id} id={id} d={d} />
+          <path key={id} id={`${glyphPrefix}${id}`} d={d} />
         ))}
       </defs>
       {doc.nodes
@@ -183,6 +184,7 @@ export function Scene({
             doc={doc}
             interactive={interactive}
             onPointerDown={onPointerDown}
+            glyphPrefix={glyphPrefix}
           />
         ))}
     </>
