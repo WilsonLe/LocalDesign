@@ -411,6 +411,10 @@ kbd {
   color: #737373;
   flex-shrink: 0;
 }
+.collapse-hit-target {
+  display: flex;
+  flex-shrink: 0;
+}
 .collapse-layer {
   width: 14px;
   min-height: 24px;

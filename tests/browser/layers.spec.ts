@@ -354,3 +354,51 @@ test("groups and clipped/unclipped frames focus their existing visible bounds", 
   await visibleAndClear(page, "outside");
   expect((await inspect(page)).viewport.zoom).toBeLessThan(1);
 });
+
+test("Space activation and disabled collapse hit targets retain button semantics", async ({
+  page,
+}) => {
+  await harness(page);
+  await open(page);
+  await profile(page);
+  await tool(page, "viewport", { x: 0, y: 0, zoom: 1 });
+  await tool(page, "selection", { ids: [] });
+  const before = await inspect(page);
+  const disabled = await page
+    .getByRole("button", { name: "Collapse Rotated target", exact: true })
+    .boundingBox();
+  // A real pointer can land here even though Playwright locator.click rejects disabled buttons.
+  await page.mouse.click(
+    disabled!.x + disabled!.width / 2,
+    disabled!.y + disabled!.height / 2,
+  );
+  expect((await inspect(page)).viewport).toEqual(before.viewport);
+  expect((await inspect(page)).selection).toEqual([]);
+  const row = page.getByRole("button", {
+    name: "Select Rotated target",
+    exact: true,
+  });
+  await row.focus();
+  await row.press("Space");
+  await visibleAndClear(page, "target");
+  expect((await inspect(page)).selection).toEqual(["target"]);
+  await page
+    .getByRole("button", { name: "Select Footer", exact: true })
+    .press("Shift+Space");
+  expect((await inspect(page)).selection).toEqual(["target", "section-3"]);
+  const after = await inspect(page);
+  expect(after.nodes).toEqual(before.nodes);
+  expect(after.revision).toBe(before.revision);
+  expect(after.history).toEqual(before.history);
+  // Space still pans when the canvas has focus.
+  await tool(page, "viewport", { x: 0, y: 0, zoom: 1 });
+  await page.getByTestId("canvas").focus();
+  await page.keyboard.down("Space");
+  const box = (await page.getByTestId("canvas").boundingBox())!;
+  await page.mouse.move(box.x + 100, box.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 160, box.y + 140);
+  await page.mouse.up();
+  await page.keyboard.up("Space");
+  expect((await inspect(page)).viewport).toEqual({ x: 60, y: 40, zoom: 1 });
+});

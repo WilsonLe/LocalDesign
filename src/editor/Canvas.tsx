@@ -80,7 +80,8 @@ export function Canvas({
         }
         if (
           e.code === "Space" &&
-          !/INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement).tagName)
+          (e.target === document.body ||
+            (e.target instanceof Node && svgRef.current?.contains(e.target)))
         ) {
           space.current = true;
           e.preventDefault();

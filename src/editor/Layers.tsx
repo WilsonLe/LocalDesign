@@ -100,29 +100,31 @@ export function Layers({
             if (e.target === e.currentTarget) activate(n.id, e.shiftKey);
           }}
         >
-          <Button
-            className="collapse-layer"
-            aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${n.name}`}
-            disabled={!children.length}
-            onClick={() =>
-              setCollapsed((prev) => {
-                const next = new Set(prev);
-                if (next.has(n.id)) next.delete(n.id);
-                else next.add(n.id);
-                return next;
-              })
-            }
-          >
-            {children.length ? (
-              isCollapsed ? (
-                <ChevronRight size={12} />
+          <span className="collapse-hit-target">
+            <Button
+              className="collapse-layer"
+              aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${n.name}`}
+              disabled={!children.length}
+              onClick={() =>
+                setCollapsed((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(n.id)) next.delete(n.id);
+                  else next.add(n.id);
+                  return next;
+                })
+              }
+            >
+              {children.length ? (
+                isCollapsed ? (
+                  <ChevronRight size={12} />
+                ) : (
+                  <ChevronDown size={12} />
+                )
               ) : (
-                <ChevronDown size={12} />
-              )
-            ) : (
-              <span />
-            )}
-          </Button>
+                <span />
+              )}
+            </Button>
+          </span>
           <Button
             className="layer-select"
             aria-label={`Select ${n.name}`}
