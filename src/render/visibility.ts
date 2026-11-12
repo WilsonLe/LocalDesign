@@ -67,7 +67,12 @@ export function visibleNodes(
         stroke * 2,
     };
     // Path data is not constrained to its logical box. Never reject it by that box.
-    if (childVisible || node.type === "path" || intersects(local, paint)) {
+    if (
+      childVisible ||
+      node.type === "path" ||
+      (node.type === "text" && node.stroke !== "none") ||
+      intersects(local, paint)
+    ) {
       visible.add(node.id);
       return true;
     }

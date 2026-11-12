@@ -91,8 +91,10 @@ test("text-heavy multi-screen board renders only the visible area and preserves 
   expect(Number(metrics.elements)).toBeLessThan(15000);
   expect(Math.max(...pan)).toBeLessThan(250);
   expect((await inspect(page)).revision).toBe(before.revision);
-  if (process.env.LOCALDESIGN_PRIVATE_FIXTURE) {
-    for (const zoom of [0.2, 0.05]) {
+  {
+    for (const zoom of process.env.LOCALDESIGN_PRIVATE_FIXTURE
+      ? [0.2, 0.05]
+      : [0.2]) {
       const times = await page.evaluate(async (zoom) => {
         const registry = (window as any).__testSiteTools;
         const times = [];
@@ -109,8 +111,9 @@ test("text-heavy multi-screen board renders only the visible area and preserves 
         return times;
       }, zoom);
       console.log("ZOOM_PERFORMANCE", JSON.stringify({ zoom, times }));
+      expect(Math.max(...times.slice(2))).toBeLessThan(250);
     }
-    return;
+    if (process.env.LOCALDESIGN_PRIVATE_FIXTURE) return;
   }
   await page
     .getByRole("textbox", { name: "Search layers" })
@@ -251,4 +254,122 @@ test("viewport filtering retains overflow ink, nested rotations, arbitrary paths
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Zoom out", exact: true }).click();
   expect((await inspect(page)).revision).toBe(1);
+});
+
+test("compact canvas text preserves outlined glyph pixels, overlaps, alpha and stroke", async ({
+  page,
+}) => {
+  await harness(page);
+  await open(page);
+  const d = await inspect(page);
+  await tool(page, "apply_edits", {
+    expectedDocumentId: d.documentId,
+    expectedRevision: d.revision,
+    requestId: "compact-pixels",
+    commands: [
+      {
+        op: "create",
+        node: {
+          id: "sample-root",
+          type: "group",
+          name: "Samples",
+          pageId: d.pageId,
+          width: 1000,
+          height: 1000,
+          rotation: 8,
+          opacity: 0.8,
+        },
+      },
+      ...[
+        "Portable typography AV fi ffi",
+        "Tiếng Việt á ễ — café",
+        "Overlapping outlines",
+        "Italic overhang fj AV",
+        "Transparent paint",
+        "Outlined text",
+      ].map((text, i) => ({
+        op: "create",
+        node: {
+          id: `sample-${i}`,
+          type: "text",
+          name: `Sample ${i}`,
+          pageId: d.pageId,
+          parentId: "sample-root",
+          x: 20,
+          y: i * 120,
+          width: 900,
+          height: 100,
+          fontSize: 56,
+          text,
+          fill: i === 4 ? "#ffffff80" : "#fff",
+          fontFamily: i === 3 ? "Source Serif 4" : "Inter",
+          fontStyle: i === 3 ? "italic" : "normal",
+          letterSpacing: i === 2 ? -15 : 0,
+          stroke: i === 5 ? "#f00" : "none",
+          strokeWidth: 4,
+        },
+      })),
+    ],
+  });
+  await expect(
+    page.locator('[data-node-id="sample-0"] use').last(),
+  ).toBeAttached();
+  const capture = () =>
+    page.evaluate(() => ({
+      node: document.querySelector('[data-node-id="sample-root"]')!.outerHTML,
+      defs: [...document.querySelectorAll(".canvas defs")]
+        .map((n) => n.outerHTML)
+        .join(""),
+    }));
+  const detailed = await capture();
+  await tool(page, "viewport", { x: 100, y: 100, zoom: 0.2 });
+  await expect(
+    page.locator('[data-node-id="sample-0"] [data-compact-text]').first(),
+  ).toBeAttached();
+  expect(
+    await page.locator('[data-node-id="sample-0"] [data-compact-text]').count(),
+  ).toBeLessThan(5);
+  expect(
+    await page.locator('[data-node-id="sample-5"] use').count(),
+  ).toBeGreaterThan(5);
+  const compact = await capture();
+  const pixels = await page.evaluate(
+    async ({ detailed, compact }) => {
+      const decode = async (part: { node: string; defs: string }) => {
+        const image = new Image();
+        image.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="260" height="200"><g transform="translate(30 10) scale(.2)">${part.defs}${part.node}</g></svg>`)))}`;
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = 260;
+        canvas.height = 200;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(image, 0, 0);
+        return ctx.getImageData(0, 0, 260, 200).data;
+      };
+      const a = await decode(detailed),
+        b = await decode(compact);
+      let error = 0,
+        ink = 0,
+        alphaA = 0,
+        alphaB = 0;
+      for (let i = 0; i < a.length; i++) {
+        error += Math.abs(a[i] - b[i]);
+        if (i % 4 === 3) {
+          alphaA += a[i];
+          alphaB += b[i];
+          if (b[i] > 20) ink++;
+        }
+      }
+      return {
+        error: error / a.length,
+        ink,
+        coverageDelta: Math.abs(alphaA - alphaB) / alphaA,
+      };
+    },
+    { detailed, compact },
+  );
+  expect(pixels.ink).toBeGreaterThan(500);
+  // The browser antialiases baked path coordinates slightly differently from <use> transforms.
+  expect(pixels.error).toBeLessThan(1);
+  expect(pixels.coverageDelta).toBeLessThan(0.01);
 });

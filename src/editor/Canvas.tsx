@@ -459,7 +459,13 @@ export function Canvas({
         </defs>
         <rect width="100%" height="100%" fill="url(#dots)" />
         <g transform={`translate(${v.x} ${v.y}) scale(${v.zoom})`}>
-          <Scene doc={rendered} pageId={pageId} interactive viewBox={viewBox} />
+          <Scene
+            doc={rendered}
+            pageId={pageId}
+            interactive
+            viewBox={viewBox}
+            compactText={v.zoom < 0.3}
+          />
           {rendered.nodes
             .filter(
               (n) =>
