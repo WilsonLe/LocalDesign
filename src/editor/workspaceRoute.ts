@@ -51,7 +51,16 @@ export class WorkspaceNavigation {
     const id = this.workspace.active
       ? this.workspace.engine.document.id
       : undefined;
-    if (id === this.activeId) return;
+    if (id === this.activeId) {
+      if (
+        id &&
+        !this.pending &&
+        this.workspace.status === "saved" &&
+        this.state.error
+      )
+        this.update({ ...this.state, error: "" });
+      return;
+    }
     this.activeId = id;
     if (this.pending || this.state.loading) return;
     history.pushState(null, "", workspacePath(id));
@@ -77,6 +86,9 @@ export class WorkspaceNavigation {
   }
   async navigate(route: WorkspaceRoute, push = true) {
     this.pending?.abort();
+    // Inspector/name drafts commit on blur; flush must include those edits.
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement) focused.blur();
     const controller = new AbortController();
     this.pending = controller;
     this.update({ ...this.state, loading: true, error: "" });

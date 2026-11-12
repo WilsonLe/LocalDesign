@@ -266,6 +266,7 @@ test("failed saves keep the editor and URL through list navigation and browser B
   await page.evaluate(() => (window as any).__restorePut());
   await page.getByRole("button", { name: "Retry save", exact: true }).click();
   await expect(page.locator(".save-state")).toContainText("Saved locally");
+  await expect(page.getByRole("alert")).toHaveCount(0);
   await page.getByRole("button", { name: "Workspaces", exact: true }).click();
   await expect(
     page.getByRole("link", { name: "Unsaved route work", exact: true }),
@@ -359,4 +360,99 @@ test("deleting the final closed workspace leaves a durable empty list", async ({
   expect((await tool(page, "workspace", { action: "list" })).documents).toEqual(
     [],
   );
+});
+
+test("Back saves focused name, page, text and geometry drafts before closing", async ({
+  page,
+}) => {
+  await harness(page);
+  await open(page);
+  await page
+    .getByLabel("Design name", { exact: true })
+    .fill("Pending workspace name");
+  await page.goBack();
+  await expect(
+    page.getByRole("link", { name: "Pending workspace name", exact: true }),
+  ).toBeVisible();
+  await page.goForward();
+  await expect(page.getByLabel("Design name", { exact: true })).toHaveValue(
+    "Pending workspace name",
+  );
+  await page.getByLabel("Page name", { exact: true }).fill("Pending page name");
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "Workspaces", exact: true }),
+  ).toBeVisible();
+  await page.goForward();
+  await expect(page.getByLabel("Page name", { exact: true })).toHaveValue(
+    "Pending page name",
+  );
+  const d = await inspect(page);
+  await edits(page, [
+    {
+      op: "create",
+      node: {
+        id: "pending-text",
+        type: "text",
+        name: "Pending text",
+        pageId: d.pageId,
+        text: "Original saved text",
+        width: 600,
+        height: 200,
+      },
+    },
+  ]);
+  await tool(page, "selection", { ids: ["pending-text"] });
+  await page
+    .getByLabel("Text content", { exact: true })
+    .fill("Pending paragraph before Back");
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "Workspaces", exact: true }),
+  ).toBeVisible();
+  await page.goForward();
+  await expect(page.getByTestId("canvas")).toBeVisible();
+  expect(
+    (await inspect(page)).nodes.find(
+      (n: { id: string }) => n.id === "pending-text",
+    ).text,
+  ).toBe("Pending paragraph before Back");
+  await tool(page, "selection", { ids: ["pending-text"] });
+  await page.getByLabel("X", { exact: true }).fill("78");
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "Workspaces", exact: true }),
+  ).toBeVisible();
+  await page.goForward();
+  await expect(page.getByTestId("canvas")).toBeVisible();
+  expect(
+    (await inspect(page)).nodes.find(
+      (n: { id: string }) => n.id === "pending-text",
+    ).x,
+  ).toBe(78);
+});
+
+test("document export dialogs retire on history close and tool-driven switch", async ({
+  page,
+}) => {
+  await harness(page);
+  await open(page);
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "Workspaces", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect((await tool(page, "export_design", { format: "native" })).code).toBe(
+    "NO_DOCUMENT",
+  );
+  await page.goForward();
+  await expect(page.getByTestId("canvas")).toBeVisible();
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await workspaceAction(page, "create", { name: "Another workspace" });
+  await expect(page.getByLabel("Design name", { exact: true })).toHaveValue(
+    "Another workspace",
+  );
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });

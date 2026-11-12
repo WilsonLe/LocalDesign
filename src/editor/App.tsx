@@ -245,6 +245,8 @@ export function App() {
   }, [notice]);
   useEffect(() => {
     const id = doc.id;
+    setModal((current) => (current === "export" ? null : current));
+    setDrawer(null);
     return () => {
       void id;
       artifacts.clear();
@@ -427,6 +429,8 @@ export function App() {
   ) => {
     setBusy(true);
     try {
+      if (!workspace.active)
+        throw new Error("Open a workspace before exporting.");
       const d = engine.document,
         id = d.id,
         blob =
@@ -797,7 +801,7 @@ export function App() {
           e.target.value = "";
         }}
       />
-      {modal === "export" && (
+      {editing && modal === "export" && (
         <Modal title="Take your design with you" onClose={() => setModal(null)}>
           <Button
             className="export-option"
