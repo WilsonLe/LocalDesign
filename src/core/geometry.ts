@@ -46,23 +46,32 @@ export function bounds(d: DesignDocument, nodes: DesignNode[]) {
   };
   nodes.forEach(include);
   if (!visible.length) return { x: 0, y: 0, width: 800, height: 600 };
-  const points = visible.flatMap((n) => {
+  let x = Infinity,
+    y = Infinity,
+    right = -Infinity,
+    bottom = -Infinity;
+  for (const n of visible) {
     const stroke =
       n.type === "frame" || n.stroke === "none" ? 0 : n.strokeWidth / 2;
-    return [
+    const corners = [
       { x: -stroke, y: -stroke },
       { x: n.width + stroke, y: -stroke },
       { x: n.width + stroke, y: n.height + stroke },
       { x: -stroke, y: n.height + stroke },
-    ].map((p) => worldPoint(d, n, p));
-  });
-  const x = Math.min(...points.map((p) => p.x)),
-    y = Math.min(...points.map((p) => p.y));
+    ];
+    for (const corner of corners) {
+      const p = worldPoint(d, n, corner);
+      x = Math.min(x, p.x);
+      y = Math.min(y, p.y);
+      right = Math.max(right, p.x);
+      bottom = Math.max(bottom, p.y);
+    }
+  }
   return {
     x,
     y,
-    width: Math.max(1, Math.max(...points.map((p) => p.x)) - x),
-    height: Math.max(1, Math.max(...points.map((p) => p.y)) - y),
+    width: Math.max(1, right - x),
+    height: Math.max(1, bottom - y),
   };
 }
 export function applyLayouts(d: DesignDocument) {

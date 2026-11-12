@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { zipSync, strToU8 } from "fflate";
+import { MAX_EXPANDED_BYTES } from "../src/core/limits";
 import { nativeImport } from "../src/files/native";
 import { blankDocument, makeNode, uid } from "../src/core/model";
 const archive = (raw: unknown, extra: Record<string, Uint8Array> = {}) =>
@@ -64,7 +65,7 @@ it("rejects declared archive expansion before decompression", () => {
     view = new DataView(b.buffer);
   for (let i = 0; i < b.length - 28; i++) {
     if (view.getUint32(i, true) === 0x02014b50) {
-      view.setUint32(i + 24, 81_000_000, true);
+      view.setUint32(i + 24, MAX_EXPANDED_BYTES + 1, true);
       break;
     }
   }

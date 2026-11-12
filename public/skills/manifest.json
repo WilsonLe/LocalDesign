@@ -1,5 +1,5 @@
 {
-  "bundleVersion": "1.0.1",
+  "bundleVersion": "1.0.2",
   "maxResponseBytes": 48000,
   "source": {
     "url": "https://github.com/WilsonLe/agentic-workflows",
@@ -17,10 +17,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.0.1",
+      "version": "1.0.2",
       "path": "getting-started.md",
-      "sha256": "00d3544b30b61ee0089264716246da7a421031376a1cb4d8e589c78ea7828417",
-      "bytes": 11475,
+      "sha256": "e0206b8eed52c32fa0b12528ef659cacca30bd30385931bcfd11024768d85e77",
+      "bytes": 11648,
       "originalSkillIds": []
     },
     {
@@ -32,13 +32,11 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.0.1",
+      "version": "1.0.2",
       "path": "ui-design.md",
-      "sha256": "f54e6a8ea676f978714f228343dfa2f866b2a2137fa9bc46eb8527496a38107e",
-      "bytes": 13538,
-      "originalSkillIds": [
-        "ui-design"
-      ]
+      "sha256": "a64cbebe73afdbd7345582a46fae066976d6c3aadc68e75fdda72e9caf317f6b",
+      "bytes": 13711,
+      "originalSkillIds": ["ui-design"]
     },
     {
       "id": "typography",
@@ -49,13 +47,11 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.0.1",
+      "version": "1.0.2",
       "path": "typography.md",
-      "sha256": "61d976412ae5cacae86d2789e0cd1e4e961f8bf789d7f48ee21a4581995eae37",
-      "bytes": 13495,
-      "originalSkillIds": [
-        "typography"
-      ]
+      "sha256": "524100d179e39702c93b63dcc22358159c21c9f1837620e55e5879cbf2f08372",
+      "bytes": 13668,
+      "originalSkillIds": ["typography"]
     }
   ],
   "sourceInventory": [
@@ -396,5 +392,5 @@
       "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
     }
   ],
-  "adaptationNotes": "Bundle 1.0.1 adds LocalDesign-specific built-in browser preference, observed fallback reasons and browser-local working-copy preservation to every package; upstream source inventory and license remain unchanged."
+  "adaptationNotes": "Bundle 1.0.2 aligns count and native-file resource ceilings with large single-document projects; source provenance, browser preference and validation requirements remain unchanged."
 }

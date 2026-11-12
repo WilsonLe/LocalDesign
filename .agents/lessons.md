@@ -37,3 +37,7 @@ Trigger: the user clarified that the built-in browser preference must guide user
 ## 2026-11-12 — Derive deployed skill identity from the manifest
 
 Trigger: PR #5 pre-merge inspection found the Pages workflow hardcoded skill bundle 1.0.0 while the reviewed manifest had advanced to 1.0.1. Correction: the release-identity command reads application and skill versions from their owning manifests. Evidence: `tests/skills.test.ts` executes the actual workflow command with distinct fixture versions and checks the generated release.json. Scope: Pages release metadata; no document schema change. Verify deployed release.json against the merged SHA and manifest; on resume do not treat an old hardcoded release label as proof of the served bundle.
+
+## 2026-11-12 — Keep project capacity in one owner
+
+Trigger: the Silebot set was split into 14 documents to work around 4,000-node/100-page/100-asset limits; combining it also exposed the independent 220-entry archive cap and 30 MB portable budget. Evidence: issue #7, `tests/large-document.test.ts` and the large-document browser journey. Correction: count, archive and byte limits share `src/core/limits.ts`, and all ingress, command, clipboard and catalog consumers use those values. Preserve finite resource, image, path and atomic replacement safeguards. Verify large native import/edit/save/export/reopen and rejection recovery; do not claim that a higher schema ceiling establishes performance on every device.

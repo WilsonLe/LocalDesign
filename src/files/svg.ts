@@ -6,6 +6,7 @@ import {
   type DesignNode,
 } from "../core/model";
 import { CommandSchema, type Command } from "../core/commands";
+import { MAX_NODES } from "../core/limits";
 // Import a deliberately narrow safe SVG subset; never insert imported markup into the DOM.
 export function svgImport(source: string): {
   document: DesignDocument;
@@ -273,7 +274,11 @@ export function svgImport(source: string): {
     }
     CommandSchema.parse({ op: "create", node } satisfies Command);
     doc.nodes.push(node);
-    requireThat(doc.nodes.length <= 4000, "SIZE_LIMIT", "Too many SVG nodes.");
+    requireThat(
+      doc.nodes.length <= MAX_NODES,
+      "SIZE_LIMIT",
+      "Too many SVG nodes.",
+    );
     for (const child of Array.from(el.children))
       parse(child, node.id, common, family);
   };
