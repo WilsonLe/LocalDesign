@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "source": {
+    "url": "https://github.com/WilsonLe/agentic-workflows",
+    "commit": "e29fcb3f80371841d529eaea047fa13619378563",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2026 Wilson Le"
+  },
+  "adaptations": {
+    "development": "standard-development-workflow",
+    "diagnosis": "engineering-diagnosis",
+    "review": "engineering-review",
+    "ui-design": "ui-design",
+    "improvement": "agent-instruction-design"
+  },
+  "scope": "Repository development. Runtime design skills are separately versioned in public/skills/manifest.json.",
+  "excluded": "Host plugin setup, orchestration schemas, accounts, runtime tools and cross-plugin references; required methods embedded in these focused adaptations."
+}
