@@ -75,8 +75,7 @@ function computeMeasurement(
   for (const paragraph of n.text.normalize("NFC").split("\n")) {
     prepare(paragraph);
     let line = "";
-    const chars = [...graphemes.segment(paragraph)].map((part) => part.segment);
-    for (const [index, char] of chars.entries()) {
+    for (const { segment: char } of graphemes.segment(paragraph)) {
       if (line && width(line + char) > n.width) {
         const split = line.lastIndexOf(" ");
         if (split > line.length * 0.4) {
@@ -86,7 +85,9 @@ function computeMeasurement(
           lines.push(line);
           line = char;
         }
-        prepare(line + chars.slice(index + 1).join(""));
+        // Re-shaping the remaining paragraph at each short wrap is quadratic.
+        // Further lines keep exact standalone widths; bulk reuse covers the first.
+        prepare("");
       } else line += char;
     }
     lines.push(line);

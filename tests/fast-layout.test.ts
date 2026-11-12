@@ -125,6 +125,22 @@ it("keeps exhaustive grapheme wrapping at narrow boundaries and with negative tr
     );
     const doc = blankDocument();
     doc.fonts = [record];
+    if (choice.id === "bundle-inter-400-normal") {
+      const node = makeNode("text", doc.pages[0].id, {
+        text: "ab".repeat(10000),
+        fontId: choice.id,
+        fontSize: 17.3,
+        width: 1,
+        height: 1,
+      });
+      const start = performance.now();
+      const measured = measureText(node, doc);
+      expect(performance.now() - start).toBeLessThan(1500);
+      expect(measured.lines).toEqual(
+        Array.from({ length: 20000 }, (_, i) => (i % 2 ? "b" : "a")),
+      );
+      expect(measured.overflow).toBe(true);
+    }
     for (const letterSpacing of [-2, 0, 1.25]) {
       const rawWidth = (text: string) => {
         const segments: { face: number; text: string }[] = [];
