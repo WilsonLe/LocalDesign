@@ -185,14 +185,6 @@ export function Inspector({
               }
             />
           </Section>
-          <div className="inspector-empty">
-            <div className="empty-selection" />
-            <p>Make room for an idea.</p>
-            <span>
-              Select a layer to see its properties, or use the tools to start
-              drawing.
-            </span>
-          </div>
         </>
       ) : (
         <>
@@ -358,9 +350,7 @@ export function Inspector({
                 value={n.text}
                 onChange={(text) => patch({ text })}
               />
-              <p className="font-name">
-                Inter <span>Bundled · OFL</span>
-              </p>
+              <p className="font-name">Inter</p>
               <div className="property-grid">
                 {numeric("fontSize", n.fontSize, "Size", 1, 1)}
                 <label className="field">
@@ -421,10 +411,6 @@ export function Inspector({
                 value={n.path}
                 onChange={(path) => patch({ path })}
               />
-              <p className="muted">
-                SVG path coordinates are local. Resizing its bounds does not
-                scale its path data.
-              </p>
             </Section>
           )}
           {n.type === "frame" && (
@@ -576,10 +562,6 @@ export function Inspector({
           </Section>
         </>
       )}
-      <div className="inspector-footer">
-        <span className="local-dot" />
-        Your designs stay in this browser.
-      </div>
     </div>
   );
 }

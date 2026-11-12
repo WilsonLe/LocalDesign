@@ -500,19 +500,8 @@ export function Canvas({
         <div className="canvas-empty">
           <div className="empty-cross">+</div>
           <h1>A little space for your next idea.</h1>
-          <p>Draw a frame, add a shape, or import a design.</p>
-          <span>
-            F for frame <i>·</i> R for rectangle <i>·</i> T for text
-          </span>
         </div>
       )}
-      <div className="canvas-hint">
-        {tool === "select"
-          ? "Drag to select · Space to pan · ⌘/Ctrl + scroll to zoom"
-          : tool === "hand"
-            ? "Drag to pan the canvas"
-            : `Click or drag to add ${tool === "ellipse" ? "an" : "a"} ${tool}`}
-      </div>
     </div>
   );
 }

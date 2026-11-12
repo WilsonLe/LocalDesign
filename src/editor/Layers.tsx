@@ -135,7 +135,6 @@ export function Layers({
         </div>
         <div>
           <strong>Local workspace</strong>
-          <span>No account. Just your ideas.</span>
         </div>
       </div>
       <section className="pages-section">
@@ -208,19 +207,9 @@ export function Layers({
         {!doc.nodes.some((n) => n.pageId === pageId) && (
           <div className="layers-empty">
             <LayersIcon size={23} />
-            <p>Your layers live here</p>
-            <span>
-              Add something to the canvas
-              <br />
-              and make it yours.
-            </span>
+            <p>No layers</p>
           </div>
         )}
-      </div>
-      <div className="layers-footer">
-        <span className="local-dot" />
-        <span>Browser local</span>
-        <span className="version">v0.1</span>
       </div>
     </div>
   );

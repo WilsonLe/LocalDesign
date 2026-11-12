@@ -21,3 +21,7 @@ Trigger: independent PR #2 pass 2 held image decoding across tool retirement and
 ## 2026-11-12 — Carry an explicit review-budget extension through the task
 
 User correction during PR #2: “yes, stop asking, review as many as you deem necessary.” This explicitly extends the default review-pass ceiling for this implementation and its in-scope fixes, merge and Pages delivery. Record that authority in the PR and continue proportionate review/fix verification without asking for the same review decision again. This is current-task authority, not permission for unrelated publication or global memory changes. Future tasks use their own user instructions and the review skill's default.
+
+## 2026-11-12 — Remove explanatory UI meta text
+
+User correction in PR #2: remove all small description text, including the browser-storage paragraph. Removed helper paragraphs, taglines, format descriptions and decorative footer metadata across canvas, panels and dialogs; retained labels, state, actionable errors and explicit help/connection instructions. The UI skill owns this project direction. Verify the built empty/editor/dialog states and export controls after copy changes; avoid reintroducing helper copy in future UI work.

@@ -36,7 +36,6 @@ import {
   Undo2,
   X,
   Plug,
-  ShieldCheck,
   Copy,
   Scissors,
   ClipboardPaste,
@@ -595,7 +594,6 @@ export function App() {
           )}
           <div className="canvas-top-label">
             <span>{doc.pages.find((p) => p.id === engine.pageId)?.name}</span>
-            <span className="canvas-mode">Design canvas</span>
           </div>
           <div
             className="floating-tools"
@@ -697,10 +695,6 @@ export function App() {
       />
       {modal === "workspace" && (
         <Modal title="Your local workspace" onClose={() => setModal(null)}>
-          <p className="modal-intro">
-            Stored in this browser. Export a portable file to keep a backup or
-            move between devices.
-          </p>
           <Button
             className="primary wide"
             disabled={!ready}
@@ -728,10 +722,6 @@ export function App() {
                   <FolderOpen size={18} />
                   <div>
                     <strong>{d.name}</strong>
-                    <span>
-                      {d.pages} {d.pages === 1 ? "page" : "pages"} · {d.nodes}{" "}
-                      layers
-                    </span>
                   </div>
                   {d.id === doc.id && (
                     <span className="current-label">Current</span>
@@ -764,10 +754,6 @@ export function App() {
       )}
       {modal === "export" && (
         <Modal title="Take your design with you" onClose={() => setModal(null)}>
-          <p className="modal-intro">
-            Native files keep your pages, editable layers, embedded images and
-            bundled fonts together.
-          </p>
           <Button
             className="export-option"
             disabled={busy}
@@ -776,7 +762,6 @@ export function App() {
             <div className="file-type">LD</div>
             <div>
               <strong>LocalDesign file</strong>
-              <span>All pages · editable · .localdesign</span>
             </div>
             <ArrowDownToLine size={16} />
           </Button>
@@ -786,7 +771,6 @@ export function App() {
                 ? `${selection.length} layers selected`
                 : "Current page"}
             </span>
-            <span>Image exports</span>
           </div>
           <div className="button-row">
             <Button
@@ -795,7 +779,6 @@ export function App() {
               onClick={() => exportFile("svg", selection.length > 0)}
             >
               <strong>SVG</strong>
-              <span>Scalable vector</span>
             </Button>
             <Button
               className="export-format"
@@ -803,13 +786,8 @@ export function App() {
               onClick={() => exportFile("png", selection.length > 0)}
             >
               <strong>PNG</strong>
-              <span>Ready to share</span>
             </Button>
           </div>
-          <p className="muted">
-            Image exports use the selected layers, or the whole current page
-            when nothing is selected. Designs are never uploaded by LocalDesign.
-          </p>
         </Modal>
       )}
       {modal === "agent" && (
@@ -829,11 +807,6 @@ export function App() {
                     ? "Tool registration failed"
                     : "WebMCP is unavailable in this browser"}
               </strong>
-              <span>
-                {connection === "connected"
-                  ? "Your agent can discover tools on this page."
-                  : "Open this app in a browser host that exposes document.modelContext.registerTool."}
-              </span>
             </div>
           </div>
           <ol className="agent-steps">
@@ -847,15 +820,6 @@ export function App() {
               <code>localdesign_get_skill</code>, then describe your design.
             </li>
           </ol>
-          <p className="modal-intro">
-            The agent uses the same document and undo history as you. No server,
-            account, API key or built-in chat is needed.
-          </p>
-          <p className="muted">
-            LocalDesign does not upload designs. Content deliberately read by an
-            external agent is handled by that agent/provider. Registering tools
-            alone does not prove a particular host can discover them.
-          </p>
           <a
             href={`${import.meta.env.BASE_URL}skills/getting-started.md`}
             target="_blank"
@@ -911,12 +875,6 @@ export function App() {
               Paste
             </Button>
           </div>
-          <p className="muted">
-            Shapes snap to a 4 px grid while dragging. Hold Alt for free
-            movement. Rotate with the round handle; hold Shift for 15° steps.
-            Use the inspector for precise keyboard editing. Native file export
-            is your portable backup.
-          </p>
           <div className="skill-browser">
             <label>
               Bundled design guides
@@ -933,10 +891,6 @@ export function App() {
             </label>
             <pre>{getSkill(skill).instructions}</pre>
           </div>
-          <p className="privacy">
-            <ShieldCheck size={14} />
-            No design uploads. No account. MIT licensed.
-          </p>
         </Modal>
       )}
     </div>
