@@ -41,7 +41,7 @@ import {
   ClipboardPaste,
 } from "lucide-react";
 import { DesignEngine } from "../core/engine";
-import { makeNode, roots, uid } from "../core/model";
+import { makeNode, roots, uid, type DesignNode } from "../core/model";
 import type { Command } from "../core/commands";
 import { bounds } from "../core/geometry";
 import { Workspace } from "../storage/workspace";
@@ -138,26 +138,55 @@ export function App() {
     }
   };
   const run = (commands: Command[]) => perform(() => engine.dispatch(commands));
-  const fit = (selected = false) => {
-    const d = engine.document,
-      b = bounds(
-        d,
-        selected
-          ? roots(d, engine.selection)
-          : d.nodes.filter(
-              (n) => n.pageId === engine.pageId && !n.parentId && !n.hidden,
-            ),
-      ),
-      box = canvasWrap.current!.getBoundingClientRect(),
+  const frameNodes = (nodes: DesignNode[], maxZoom: number) => {
+    const area = canvasWrap.current;
+    if (!area) return;
+    const box = area.getBoundingClientRect();
+    // Reserve the actual floating controls' bands, including responsive offsets.
+    let top = 24,
+      bottom = box.height - 24;
+    for (const overlay of area.querySelectorAll<HTMLElement>(
+      ".canvas-top-label, .floating-tools, .zoom-controls, .help-button",
+    )) {
+      const r = overlay.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      if (overlay.classList.contains("canvas-top-label"))
+        top = Math.max(top, r.bottom - box.top + 16);
+      else bottom = Math.min(bottom, r.top - box.top - 16);
+    }
+    const b = bounds(engine.document, nodes),
+      width = Math.max(1, box.width - 48),
+      height = Math.max(1, bottom - top),
       zoom = Math.max(
         0.05,
-        Math.min(2, (box.width - 120) / b.width, (box.height - 160) / b.height),
+        Math.min(maxZoom, width / b.width, height / b.height),
       );
     engine.setViewport({
       zoom,
-      x: (box.width - b.width * zoom) / 2 - b.x * zoom,
-      y: (box.height - b.height * zoom) / 2 - b.y * zoom,
+      x: box.width / 2 - (b.x + b.width / 2) * zoom,
+      y: top + height / 2 - (b.y + b.height / 2) * zoom,
     });
+  };
+  const fit = (selected = false) => {
+    const d = engine.document;
+    frameNodes(
+      selected
+        ? roots(d, engine.selection)
+        : d.nodes.filter(
+            (n) => n.pageId === engine.pageId && !n.parentId && !n.hidden,
+          ),
+      2,
+    );
+  };
+  const focusLayer = (id: string) => {
+    const node = engine.document.nodes.find((n) => n.id === id);
+    if (!node) return;
+    // Hidden layers remain hidden, but their geometry can still be located.
+    frameNodes([{ ...node, hidden: false }], engine.viewport.zoom);
+    if (drawer === "layers") {
+      setDrawer(null);
+      canvasWrap.current?.querySelector<SVGSVGElement>(".canvas")?.focus();
+    }
   };
   useEffect(() => {
     let cancelled = false;
@@ -577,7 +606,12 @@ export function App() {
           >
             <X size={18} />
           </Button>
-          <Layers engine={engine} snapshot={snapshot} onError={setNotice} />
+          <Layers
+            engine={engine}
+            snapshot={snapshot}
+            onError={setNotice}
+            onFocusLayer={focusLayer}
+          />
         </aside>
         <div ref={canvasWrap} className="canvas-area">
           {ready ? (

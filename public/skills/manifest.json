@@ -1,5 +1,5 @@
 {
-  "bundleVersion": "1.0.2",
+  "bundleVersion": "1.0.3",
   "maxResponseBytes": 48000,
   "source": {
     "url": "https://github.com/WilsonLe/agentic-workflows",
@@ -17,10 +17,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.0.2",
+      "version": "1.0.3",
       "path": "getting-started.md",
-      "sha256": "e0206b8eed52c32fa0b12528ef659cacca30bd30385931bcfd11024768d85e77",
-      "bytes": 11648,
+      "sha256": "da17dc8fe5cdaba46de7de95757b8a79dc335ea647d11c6670db49984e6de2f9",
+      "bytes": 13458,
       "originalSkillIds": []
     },
     {
@@ -32,11 +32,13 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.0.2",
+      "version": "1.0.3",
       "path": "ui-design.md",
-      "sha256": "a64cbebe73afdbd7345582a46fae066976d6c3aadc68e75fdda72e9caf317f6b",
-      "bytes": 13711,
-      "originalSkillIds": ["ui-design"]
+      "sha256": "11f88847e52c17b5386add5c195a20297904fa90eb4ae3cf15b4ed5bb86cbdd9",
+      "bytes": 15521,
+      "originalSkillIds": [
+        "ui-design"
+      ]
     },
     {
       "id": "typography",
@@ -47,11 +49,13 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.0.2",
+      "version": "1.0.3",
       "path": "typography.md",
-      "sha256": "524100d179e39702c93b63dcc22358159c21c9f1837620e55e5879cbf2f08372",
-      "bytes": 13668,
-      "originalSkillIds": ["typography"]
+      "sha256": "c97b9d2cb979457a06854509ed1440c0925844bad23362a8f7277d3eb8d1bb5e",
+      "bytes": 15478,
+      "originalSkillIds": [
+        "typography"
+      ]
     }
   ],
   "sourceInventory": [

@@ -1,6 +1,6 @@
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -18,15 +18,18 @@ import {
 } from "lucide-react";
 import type { DesignEngine, Snapshot } from "../core/engine";
 import { ancestors, uid, type DesignNode } from "../core/model";
+import { worldPoint } from "../core/geometry";
 import type { Command } from "../core/commands";
 export function Layers({
   engine,
   snapshot,
   onError,
+  onFocusLayer,
 }: {
   engine: DesignEngine;
   snapshot: Snapshot;
   onError: (s: string) => void;
+  onFocusLayer: (id: string) => void;
 }) {
   const [query, setQuery] = useState(""),
     [collapsed, setCollapsed] = useState(new Set<string>());
@@ -46,9 +49,39 @@ export function Layers({
         c.name.toLowerCase().includes(query.toLowerCase()) &&
         ancestors(doc, c).some((p) => p.id === n.id),
     );
+  // Display reading order only: never reorder scene nodes (paint/layout order).
+  const childrenByParent = useMemo(() => {
+    const childrenByParent = new Map<string | null, DesignNode[]>();
+    const positions = new Map<string, { x: number; y: number }>();
+    for (const node of doc.nodes) {
+      if (node.pageId !== pageId) continue;
+      const key = node.parentId ?? null;
+      const siblings = childrenByParent.get(key) ?? [];
+      siblings.push(node);
+      childrenByParent.set(key, siblings);
+      positions.set(node.id, worldPoint(doc, node));
+    }
+    for (const siblings of childrenByParent.values())
+      siblings.sort((a, b) => {
+        const p = positions.get(a.id)!,
+          q = positions.get(b.id)!;
+        return p.y - q.y || p.x - q.x;
+      });
+    return childrenByParent;
+  }, [doc, pageId]);
+  const activate = (id: string, shift: boolean) => {
+    engine.select(
+      shift
+        ? selection.includes(id)
+          ? selection.filter((selected) => selected !== id)
+          : [...selection, id]
+        : [id],
+    );
+    onFocusLayer(id);
+  };
   const row = (n: DesignNode, depth = 0) => {
     if (!visible(n)) return null;
-    const children = doc.nodes.filter((c) => c.parentId === n.id),
+    const children = childrenByParent.get(n.id) ?? [],
       isCollapsed = collapsed.has(n.id) && !query;
     const Icon =
       n.type === "frame"
@@ -63,6 +96,9 @@ export function Layers({
         <div
           className={`layer-row ${selection.includes(n.id) ? "selected" : ""} ${n.hidden ? "hidden-layer" : ""}`}
           style={{ paddingLeft: 10 + depth * 14 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) activate(n.id, e.shiftKey);
+          }}
         >
           <Button
             className="collapse-layer"
@@ -91,15 +127,7 @@ export function Layers({
             className="layer-select"
             aria-label={`Select ${n.name}`}
             aria-pressed={selection.includes(n.id)}
-            onClick={(e) =>
-              engine.select(
-                e.shiftKey
-                  ? selection.includes(n.id)
-                    ? selection.filter((id) => id !== n.id)
-                    : [...selection, n.id]
-                  : [n.id],
-              )
-            }
+            onClick={(e) => activate(n.id, e.shiftKey)}
           >
             <Icon size={13} />
             <span>{n.name}</span>
@@ -123,7 +151,7 @@ export function Layers({
             {n.hidden ? <EyeOff size={12} /> : <Eye size={12} />}
           </Button>
         </div>
-        {!isCollapsed && [...children].reverse().map((c) => row(c, depth + 1))}
+        {!isCollapsed && children.map((c) => row(c, depth + 1))}
       </div>
     );
   };
@@ -192,10 +220,7 @@ export function Layers({
         <kbd>⌕</kbd>
       </label>
       <div className="layer-list">
-        {[...doc.nodes]
-          .reverse()
-          .filter((n) => n.pageId === pageId && !n.parentId)
-          .map((n) => row(n))}
+        {(childrenByParent.get(null) ?? []).map((n) => row(n))}
         {!doc.nodes.some((n) => n.pageId === pageId) && (
           <div className="layers-empty">
             <LayersIcon size={23} />
