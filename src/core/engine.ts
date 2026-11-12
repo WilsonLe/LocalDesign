@@ -1,4 +1,5 @@
 import { indexNodes } from "./tree";
+import { detachToken, resolveTokens } from "./tokens";
 import {
   CommandSchema,
   EditSchema,
@@ -181,6 +182,7 @@ export class DesignEngine {
     // Transaction-owned references: refresh at the boundary, maintain structural edits below.
     const byId = new Map(next.nodes.map((n) => [n.id, n]));
     for (const c of r.commands) this.apply(next, c, created, byId);
+    resolveTokens(next);
     applyLayouts(next);
     validateDocument(next);
     if (dryRun)
@@ -285,6 +287,41 @@ export class DesignEngine {
       }
     };
     switch (c.op) {
+      case "token_set": {
+        const index = d.tokens.findIndex((token) => token.id === c.token.id);
+        if (index < 0) {
+          d.tokens.push(structuredClone(c.token));
+          created.push(c.token.id);
+        } else d.tokens[index] = structuredClone(c.token);
+        break;
+      }
+      case "token_delete":
+        detachToken(d, c.id, c.detach);
+        break;
+      case "token_bind":
+        for (const id of c.ids) {
+          const node = get(id);
+          if (c.tokenId === null) delete node.bindings[c.property];
+          else {
+            node.bindings[c.property] = c.tokenId;
+            if (c.property === "fontFamily" || c.property === "fontWeight")
+              node.fontId = null;
+          }
+        }
+        break;
+      case "token_themes_set": {
+        d.tokenThemes = structuredClone(c.themes);
+        d.activeTokenTheme = c.activeThemeId;
+        const allowed = new Set(c.themes.map((theme) => theme.id));
+        for (const node of d.nodes)
+          if (node.tokenTheme && !allowed.has(node.tokenTheme))
+            node.tokenTheme = null;
+        for (const token of d.tokens)
+          token.themes = Object.fromEntries(
+            Object.entries(token.themes).filter(([id]) => allowed.has(id)),
+          );
+        break;
+      }
       case "guideline_set": {
         const index = d.guidelines.findIndex((g) => g.id === c.guideline.id);
         if (index < 0) {
@@ -378,7 +415,16 @@ export class DesignEngine {
         break;
       }
       case "update":
-        for (const id of c.ids) Object.assign(get(id), c.patch);
+        for (const id of c.ids) {
+          const node = get(id);
+          for (const property of Object.keys(node.bindings))
+            if (
+              property in c.patch ||
+              (property.startsWith("layout.") && c.patch.layout)
+            )
+              delete node.bindings[property as keyof typeof node.bindings];
+          Object.assign(node, c.patch);
+        }
         break;
       case "delete": {
         const remove = new Set(

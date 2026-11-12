@@ -21,3 +21,5 @@ export const MAX_FONT_BYTES = 12_000_000;
 export const MAX_GUIDELINES = 50;
 export const MAX_DECISIONS = 200;
 export const MAX_REFERENCES = 100;
+export const MAX_TOKENS = 500;
+export const MAX_TOKEN_THEMES = 12;

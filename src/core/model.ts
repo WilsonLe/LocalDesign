@@ -11,6 +11,8 @@ import {
   MAX_GUIDELINES,
   MAX_DECISIONS,
   MAX_REFERENCES,
+  MAX_TOKENS,
+  MAX_TOKEN_THEMES,
 } from "./limits";
 import {
   DocumentFonts,
@@ -20,6 +22,7 @@ import {
 } from "../fonts/schema";
 import { portableFont, validateFontRecord } from "../fonts/data";
 import { z } from "zod";
+import { resolveTokens } from "./tokens";
 export const uid = () => crypto.randomUUID();
 export const Id = z
   .string()
@@ -41,6 +44,23 @@ export const Layout = z
     align: z.enum(["start", "center", "end"]).default("start"),
   })
   .strict();
+export const TokenProperty = z.enum([
+  "fill",
+  "stroke",
+  "strokeWidth",
+  "opacity",
+  "radius",
+  "width",
+  "height",
+  "fontFamily",
+  "fontWeight",
+  "fontSize",
+  "lineHeight",
+  "letterSpacing",
+  "layout.gap",
+  "layout.padding",
+]);
+export type TokenPropertyName = z.infer<typeof TokenProperty>;
 export const NodeSchema = z
   .object({
     id: Id,
@@ -91,6 +111,8 @@ export const NodeSchema = z
       padding: 24,
       align: "start",
     }),
+    bindings: z.partialRecord(TokenProperty, Id).default({}),
+    tokenTheme: Id.nullable().default(null),
   })
   .strict();
 export type DesignNode = z.infer<typeof NodeSchema>;
@@ -142,6 +164,39 @@ export const ReferenceSchema = z
     sourceRevision: z.number().int().min(0).optional(),
   })
   .strict();
+export const TokenValueSchema = z.union([
+  z.string().max(200),
+  z.number().finite(),
+  z.object({ tokenId: Id }).strict(),
+]);
+export const TokenSchema = z
+  .object({
+    id: Id,
+    name: z
+      .string()
+      .min(1)
+      .max(80)
+      .regex(/^[A-Za-z][\w-]*$/),
+    type: z.enum([
+      "color",
+      "spacing",
+      "radius",
+      "opacity",
+      "dimension",
+      "fontFamily",
+      "fontWeight",
+      "fontSize",
+      "lineHeight",
+      "letterSpacing",
+    ]),
+    value: TokenValueSchema,
+    themes: z.record(Id, TokenValueSchema).default({}),
+    description: z.string().max(500).default(""),
+  })
+  .strict();
+export const TokenThemeSchema = z
+  .object({ id: Id, name: z.string().min(1).max(80) })
+  .strict();
 export const DocumentSchema = z
   .object({
     schemaVersion: z.literal(3),
@@ -155,6 +210,9 @@ export const DocumentSchema = z
     guidelines: z.array(GuidelineSchema).max(MAX_GUIDELINES).default([]),
     decisions: z.array(DecisionSchema).max(MAX_DECISIONS).default([]),
     references: z.array(ReferenceSchema).max(MAX_REFERENCES).default([]),
+    tokens: z.array(TokenSchema).max(MAX_TOKENS).default([]),
+    tokenThemes: z.array(TokenThemeSchema).max(MAX_TOKEN_THEMES).default([]),
+    activeTokenTheme: Id.nullable().default(null),
   })
   .strict();
 export type DesignDocument = z.infer<typeof DocumentSchema>;
@@ -172,6 +230,9 @@ export function blankDocument(name = "Untitled design"): DesignDocument {
     guidelines: [],
     decisions: [],
     references: [],
+    tokens: [],
+    tokenThemes: [],
+    activeTokenTheme: null,
   };
 }
 export function makeNode(
@@ -227,6 +288,8 @@ export function validateDocument(input: unknown): DesignDocument {
     ...d.guidelines,
     ...d.decisions,
     ...d.references,
+    ...d.tokens,
+    ...d.tokenThemes,
   ]) {
     requireThat(!ids.has(item.id), "DUPLICATE_ID", `Duplicate ID: ${item.id}`);
     ids.add(item.id);
@@ -318,6 +381,7 @@ export function validateDocument(input: unknown): DesignDocument {
       p = parent;
     }
   }
+  resolveTokens(d);
   const portable = {
     ...d,
     assets: d.assets.map((a) => ({

@@ -7,8 +7,11 @@ import {
   GuidelineSchema,
   DecisionSchema,
   ReferenceSchema,
+  TokenSchema,
+  TokenThemeSchema,
+  TokenProperty,
 } from "./model";
-import { MAX_PAGES } from "./limits";
+import { MAX_PAGES, MAX_TOKEN_THEMES } from "./limits";
 import { FontSchema } from "../fonts/schema";
 import { MAX_NODES } from "./limits";
 const ids = z.array(Id).min(1).max(MAX_NODES);
@@ -41,9 +44,33 @@ const Patch = z
     path: NodeSchema.shape.path.removeDefault().optional(),
     assetId: NodeSchema.shape.assetId.removeDefault().optional(),
     layout: NodeSchema.shape.layout.removeDefault().optional(),
+    tokenTheme: NodeSchema.shape.tokenTheme.removeDefault().optional(),
   })
   .strict();
 export const CommandSchema = z.discriminatedUnion("op", [
+  z.object({ op: z.literal("token_set"), token: TokenSchema }).strict(),
+  z
+    .object({
+      op: z.literal("token_delete"),
+      id: Id,
+      detach: z.boolean().default(false),
+    })
+    .strict(),
+  z
+    .object({
+      op: z.literal("token_bind"),
+      ids,
+      property: TokenProperty,
+      tokenId: Id.nullable(),
+    })
+    .strict(),
+  z
+    .object({
+      op: z.literal("token_themes_set"),
+      themes: z.array(TokenThemeSchema).max(MAX_TOKEN_THEMES),
+      activeThemeId: Id.nullable(),
+    })
+    .strict(),
   z
     .object({ op: z.literal("guideline_set"), guideline: GuidelineSchema })
     .strict(),

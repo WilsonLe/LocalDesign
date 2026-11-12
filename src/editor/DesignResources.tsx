@@ -10,6 +10,8 @@ import { bounds } from "../core/geometry";
 import { pngExport } from "../files/export";
 import { validateRasterAssets } from "../files/raster";
 import { base64 } from "../render/fonts";
+import { TokenResources } from "./TokenResources";
+const resourceTabs = ["context", "pages", "tokens"] as const;
 
 export function DesignResources({
   engine,
@@ -20,7 +22,7 @@ export function DesignResources({
   document: DesignDocument;
   onError: (message: string) => void;
 }) {
-  const [tab, setTab] = useState<"context" | "pages">("context");
+  const [tab, setTab] = useState<"context" | "pages" | "tokens">("context");
   const [guideId, setGuideId] = useState("");
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
@@ -99,19 +101,59 @@ export function DesignResources({
         role="tablist"
         aria-label="Design resources"
       >
-        {(["context", "pages"] as const).map((value) => (
+        {resourceTabs.map((value) => (
           <Button
             key={value}
             role="tab"
+            id={`resource-tab-${value}`}
+            aria-controls={`resource-panel-${value}`}
+            tabIndex={tab === value ? 0 : -1}
             aria-selected={tab === value}
             onClick={() => setTab(value)}
+            onKeyDown={(event) => {
+              const index = resourceTabs.indexOf(value);
+              const next =
+                event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? resourceTabs.length - 1
+                    : event.key === "ArrowRight"
+                      ? (index + 1) % resourceTabs.length
+                      : event.key === "ArrowLeft"
+                        ? (index + resourceTabs.length - 1) %
+                          resourceTabs.length
+                        : -1;
+              if (next < 0) return;
+              event.preventDefault();
+              setTab(resourceTabs[next]);
+              document
+                .getElementById(`resource-tab-${resourceTabs[next]}`)
+                ?.focus();
+            }}
           >
-            {value === "context" ? "Context" : "Pages"}
+            {value === "context"
+              ? "Context"
+              : value === "tokens"
+                ? "Tokens"
+                : "Pages"}
           </Button>
         ))}
       </div>
-      {tab === "context" ? (
-        <div role="tabpanel" aria-label="Context" className="resource-sections">
+      {tab === "tokens" ? (
+        <div
+          role="tabpanel"
+          id="resource-panel-tokens"
+          aria-labelledby="resource-tab-tokens"
+        >
+          <TokenResources engine={engine} document={doc} onError={onError} />
+        </div>
+      ) : tab === "context" ? (
+        <div
+          role="tabpanel"
+          id="resource-panel-context"
+          aria-labelledby="resource-tab-context"
+          className="resource-sections"
+        >
           <section>
             <h3>Guidelines</h3>
             <form
@@ -323,7 +365,12 @@ export function DesignResources({
           </section>
         </div>
       ) : (
-        <div role="tabpanel" aria-label="Pages" className="resource-sections">
+        <div
+          role="tabpanel"
+          id="resource-panel-pages"
+          aria-labelledby="resource-tab-pages"
+          className="resource-sections"
+        >
           <section>
             <h3>Page order</h3>
             <ol className="resource-records">
