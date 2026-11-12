@@ -1,4 +1,13 @@
-import { readFileSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+} from "node:fs";
+import { execFileSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, it } from "vitest";
 import { getSkill, listSkills, bundleVersion } from "../src/skills/catalog";
 import { EditSchema } from "../src/core/commands";
@@ -62,4 +71,38 @@ it("each package references actual page tools, with no undeclared host operation
   const before = workspace.engine.getSnapshot();
   await skill.execute({ id: "getting-started" });
   expect(workspace.engine.getSnapshot()).toBe(before);
+});
+
+it("Pages release identity follows manifest versions rather than hardcoded release values", () => {
+  const workflow = readFileSync(".github/workflows/pages.yml", "utf8");
+  const command = workflow.match(
+    /name: Write immutable release identity\n\s+run: node -e '([^']+)'/,
+  )?.[1];
+  expect(command).toBeTruthy();
+  const fixture = mkdtempSync(join(tmpdir(), "localdesign-release-"));
+  try {
+    mkdirSync(join(fixture, "dist"));
+    mkdirSync(join(fixture, "public/skills"), { recursive: true });
+    writeFileSync(
+      join(fixture, "package.json"),
+      JSON.stringify({ version: "2.3.4" }),
+    );
+    writeFileSync(
+      join(fixture, "public/skills/manifest.json"),
+      JSON.stringify({ bundleVersion: "5.6.7" }),
+    );
+    execFileSync(process.execPath, ["-e", command!], {
+      cwd: fixture,
+      env: { ...process.env, GITHUB_SHA: "test-reviewed-sha" },
+    });
+    expect(
+      JSON.parse(readFileSync(join(fixture, "dist/release.json"), "utf8")),
+    ).toEqual({
+      sha: "test-reviewed-sha",
+      version: "2.3.4",
+      skillBundleVersion: "5.6.7",
+    });
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
 });

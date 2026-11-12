@@ -22,7 +22,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run check
       - name: Write immutable release identity
-        run: node -e 'require("fs").writeFileSync("dist/release.json", JSON.stringify({sha:process.env.GITHUB_SHA,version:"0.1.0",skillBundleVersion:"1.0.0"}))'
+        run: node -e 'require("fs").writeFileSync("dist/release.json", JSON.stringify({sha:process.env.GITHUB_SHA,version:JSON.parse(require("fs").readFileSync("package.json","utf8")).version,skillBundleVersion:JSON.parse(require("fs").readFileSync("public/skills/manifest.json","utf8")).bundleVersion}))'
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
