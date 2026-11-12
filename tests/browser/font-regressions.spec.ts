@@ -2,7 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { harness, open, tool, inspect, edits } from "./helpers";
 
-async function exported(page: Page, format: "png" | "svg", ids: string[]) {
+async function exported(
+  page: Page,
+  format: "png" | "svg" | "native",
+  ids: string[],
+) {
   const file = await tool(page, "export_design", { format, ids });
   expect(file.isError, file.message).not.toBe(true);
   const parts: Buffer[] = [];
@@ -364,6 +368,53 @@ test("family and selected-type previews use the document's glyphs and subset pre
   await expect(
     page.getByLabel("Font source", { exact: true }).locator("option:checked"),
   ).toContainText("SourceSerif4-Regular.otf");
+  await edits(page, [
+    {
+      op: "create",
+      node: {
+        id: "automatic-type",
+        name: "Automatic source",
+        type: "text",
+        pageId: d.pageId,
+        parentId: "sample-frame",
+        x: 12,
+        y: 100,
+        text: "Tiếng Việt: Thiết kế và kiểu chữ",
+        fontFamily: "Source Serif 4",
+        fontSize: 29,
+        width: 550,
+        height: 80,
+      },
+    },
+  ]);
+  const beforeReopen = await inspect(page),
+    png = await exported(page, "png", ["sample-frame"]),
+    native = await exported(page, "native", ["sample-frame"]);
+  expect(
+    beforeReopen.textMetrics.find((m: any) => m.id === "automatic-type").fontId,
+  ).toBe("bundle-source-serif-4-400-normal");
+  const prepared = await tool(page, "import_files", {
+    action: "prepare",
+    name: "same-family-sources.localdesign",
+    base64: native.toString("base64"),
+  });
+  expect(prepared.isError, prepared.message).not.toBe(true);
+  const reopened = await tool(page, "import_files", {
+    action: "commit",
+    artifactId: prepared.importId,
+    guard: {
+      expectedDocumentId: beforeReopen.documentId,
+      expectedRevision: beforeReopen.revision,
+      requestId: crypto.randomUUID(),
+    },
+  });
+  expect(reopened.isError, reopened.message).not.toBe(true);
+  const afterReopen = await inspect(page);
+  expect(afterReopen.nodes).toEqual(beforeReopen.nodes);
+  expect(afterReopen.textMetrics).toEqual(beforeReopen.textMetrics);
+  expect((await exported(page, "png", ["sample-frame"])).equals(png)).toBe(
+    true,
+  );
 });
 
 test("tight Vietnamese wrapping keeps NFC and NFD graphemes together without rewriting text", async ({

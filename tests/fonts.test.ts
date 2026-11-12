@@ -264,6 +264,14 @@ it("native v2 embeds the actual local face, notices and requested/mapped identit
   const reopened = nativeImport(file);
   expect(reopened.fonts).toEqual(doc.fonts);
   expect(reopened.nodes).toEqual(doc.nodes);
+  const wrongOrder = {
+    ...entries,
+    "fonts/order.json": strToU8(JSON.stringify(["missing-font"])),
+  };
+  expect(() => nativeImport(zipSync(wrongOrder))).toThrow(/Font order/);
+  const withoutOrder = { ...entries };
+  delete withoutOrder["fonts/order.json"];
+  expect(nativeImport(zipSync(withoutOrder)).fonts).toEqual(doc.fonts);
   const missing = { ...entries };
   delete missing[raw.fonts[0].files[0].data];
   expect(() => nativeImport(zipSync(missing))).toThrow(/Missing/);

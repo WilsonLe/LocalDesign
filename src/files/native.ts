@@ -16,6 +16,7 @@ import {
   MAX_EXPANDED_BYTES,
   MAX_DOCUMENT_BYTES,
   MAX_FONT_FILE_BYTES,
+  MAX_DOCUMENT_FONTS,
   MAX_ASSETS,
   MAX_ARCHIVE_ENTRIES,
   FONT_ARCHIVE_RESERVE,
@@ -43,6 +44,10 @@ export async function nativeExport(doc: DesignDocument): Promise<Blob> {
       file.data = path;
     }
   const bundled = portable.fonts.filter((f) => f.source === "bundled");
+  if (portable.fonts.length)
+    files["fonts/order.json"] = strToU8(
+      JSON.stringify(portable.fonts.map((f) => f.id)),
+    );
   portable.fonts = portable.fonts.filter((f) => f.source !== "bundled");
   if (bundled.length)
     files["fonts/catalog.json"] = strToU8(JSON.stringify(bundled));
@@ -167,7 +172,8 @@ export function nativeImport(
     a.data = `data:${a.mime};base64,${base64(data)}`;
   }
   requireThat(
-    d.fonts === undefined || (Array.isArray(d.fonts) && d.fonts.length <= 66),
+    d.fonts === undefined ||
+      (Array.isArray(d.fonts) && d.fonts.length <= MAX_DOCUMENT_FONTS),
     "INVALID_FONT",
     "Invalid font catalog.",
   );
@@ -200,6 +206,29 @@ export function nativeImport(
     }
   }
   const result = validateDocument(d);
+  if (d.schemaVersion === 2 && files["fonts/order.json"]) {
+    requireThat(
+      files["fonts/order.json"].length <= MAX_DOCUMENT_FONTS * 104 + 2,
+      "INVALID_FONT",
+      "Font order is too large.",
+    );
+    let order: unknown;
+    try {
+      order = JSON.parse(strFromU8(files["fonts/order.json"]));
+    } catch {
+      throw new DesignError("INVALID_FONT", "Invalid font order.");
+    }
+    const fonts = new Map(result.fonts.map((f) => [f.id, f]));
+    requireThat(
+      Array.isArray(order) &&
+        order.length === result.fonts.length &&
+        new Set(order).size === order.length &&
+        order.every((id) => typeof id === "string" && fonts.has(id)),
+      "INVALID_FONT",
+      "Font order must include each catalog face exactly once.",
+    );
+    result.fonts = order.map((id) => fonts.get(id)!);
+  }
   if (!preserveIdentity) {
     result.id = uid();
     result.revision = 0;
