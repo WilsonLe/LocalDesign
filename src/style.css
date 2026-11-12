@@ -811,6 +811,44 @@ kbd {
   margin-bottom: 15px;
   color: #171717;
 }
+.type-preview {
+  padding: 10px 0;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+.font-modal {
+  max-height: 85dvh;
+  overflow-y: auto;
+}
+.font-previews {
+  display: grid;
+  gap: 12px;
+  margin-block: 16px;
+}
+.font-preview {
+  display: grid;
+  gap: 4px;
+}
+.font-sample {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  color: var(--foreground);
+}
+.font-sample use {
+  fill: currentColor;
+}
+.font-permission {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-block: 12px;
+}
+.font-warning-list {
+  display: grid;
+  gap: 12px;
+  margin-block: 12px;
+}
 .font-name span {
   font-size: 8px;
   color: #737373;

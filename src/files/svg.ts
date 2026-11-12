@@ -6,6 +6,7 @@ import {
   type DesignNode,
 } from "../core/model";
 import { CommandSchema, type Command } from "../core/commands";
+import { resolveFont } from "../render/fonts";
 import { MAX_NODES } from "../core/limits";
 // Import a deliberately narrow safe SVG subset; never insert imported markup into the DOM.
 export function svgImport(source: string): {
@@ -65,6 +66,9 @@ export function svgImport(source: string): {
     "font-family",
     "font-size",
     "font-weight",
+    "font-style",
+    "letter-spacing",
+    "line-height",
     "text-anchor",
     "transform",
     "id",
@@ -120,18 +124,8 @@ export function svgImport(source: string): {
     const tag = el.localName;
     if (tag === "title" || tag === "desc") return;
     const family = el.getAttribute("font-family") ?? inheritedFamily;
-    if (family && family !== "Inter")
-      warnings.push(
-        `Font “${family}” substituted with bundled Inter. Verify wrapping.`,
-      );
     const rawWeight = el.getAttribute("font-weight");
-    if (
-      rawWeight &&
-      !["400", "600", "700", "normal", "bold"].includes(rawWeight)
-    )
-      warnings.push(
-        `Font weight ${rawWeight} substituted with bundled Inter Regular. Verify text.`,
-      );
+    const rawStyle = el.getAttribute("font-style");
     const anchor = el.getAttribute("text-anchor");
     const common: Partial<DesignNode> = {
       ...inherited,
@@ -141,13 +135,19 @@ export function svgImport(source: string): {
       strokeWidth: num(el, "stroke-width", inherited.strokeWidth ?? 1),
       opacity: num(el, "opacity", 1),
       fontSize: num(el, "font-size", inherited.fontSize ?? 16),
+      fontFamily: family ?? inherited.fontFamily ?? "Inter",
       fontWeight: rawWeight
-        ? rawWeight === "700" || rawWeight === "bold"
+        ? rawWeight === "bold"
           ? "700"
-          : rawWeight === "600"
-            ? "600"
-            : "400"
+          : rawWeight === "normal"
+            ? "400"
+            : rawWeight
         : (inherited.fontWeight ?? "400"),
+      fontStyle: rawStyle
+        ? (rawStyle as DesignNode["fontStyle"])
+        : (inherited.fontStyle ?? "normal"),
+      letterSpacing: num(el, "letter-spacing", inherited.letterSpacing ?? 0),
+      lineHeight: num(el, "line-height", inherited.lineHeight ?? 1.3),
       textAlign: anchor
         ? anchor === "middle"
           ? "center"
@@ -251,6 +251,8 @@ export function svgImport(source: string): {
         width: 500,
         height: size * 2,
       });
+      const font = resolveFont(node, doc);
+      if (font.warning) warnings.push(`${node.id}: ${font.warning}`);
     }
     const t = el.getAttribute("transform");
     if (t) {

@@ -56,6 +56,7 @@ import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
 import { Layers } from "./Layers";
 import { copySelection, pasteSelection } from "./clipboard";
+import { blocksCanvasShortcuts } from "./shortcuts";
 const engine = new DesignEngine(),
   workspace = new Workspace(engine),
   artifacts = new Artifacts();
@@ -236,12 +237,7 @@ export function App() {
   }, [doc.id]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (
-        modal ||
-        /INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement).tagName) ||
-        (e.target as HTMLElement).isContentEditable
-      )
-        return;
+      if (modal || blocksCanvasShortcuts(e.target)) return;
       const mod = e.metaKey || e.ctrlKey,
         lower = e.key.toLowerCase();
       const action = (fn: () => unknown | Promise<unknown>) => {

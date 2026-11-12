@@ -479,6 +479,16 @@ export class DesignEngine {
       case "rename":
         d.name = c.name;
         break;
+      case "font_add": {
+        const old = d.fonts.find((f) => f.id === c.font.id);
+        requireThat(
+          !old || JSON.stringify(old) === JSON.stringify(c.font),
+          "DUPLICATE_ID",
+          "Font ID already has different bytes or provenance.",
+        );
+        if (!old) d.fonts.push(structuredClone(c.font));
+        break;
+      }
       default:
         throw new DesignError("UNKNOWN_COMMAND", "Unsupported command.");
     }

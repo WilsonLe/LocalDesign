@@ -21,6 +21,7 @@ import {
   type Point,
 } from "../core/geometry";
 import { Scene } from "../render/Scene";
+import { blocksCanvasShortcuts } from "./shortcuts";
 export type Tool =
   | "select"
   | "hand"
@@ -73,6 +74,7 @@ export function Canvas({
   const rendered = preview ?? doc;
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+        if (blocksCanvasShortcuts(e.target)) return;
         if (e.key === "Escape") {
           gesture.current = null;
           setPreview(null);

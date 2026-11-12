@@ -1,4 +1,5 @@
 import { ancestors, type DesignDocument, type DesignNode } from "./model";
+import { measureText } from "../render/text";
 export type Point = { x: number; y: number };
 export function transform(p: Point, n: DesignNode, inverse = false): Point {
   const a = ((n.rotation * Math.PI) / 180) * (inverse ? -1 : 1);
@@ -53,11 +54,16 @@ export function bounds(d: DesignDocument, nodes: DesignNode[]) {
   for (const n of visible) {
     const stroke =
       n.type === "frame" || n.stroke === "none" ? 0 : n.strokeWidth / 2;
+    const ink = n.type === "text" ? measureText(n, d).inkBounds : null;
+    const localLeft = Math.min(0, ink?.x ?? 0),
+      localTop = Math.min(0, ink?.y ?? 0),
+      localRight = Math.max(n.width, ink ? ink.x + ink.width : n.width),
+      localBottom = Math.max(n.height, ink ? ink.y + ink.height : n.height);
     const corners = [
-      { x: -stroke, y: -stroke },
-      { x: n.width + stroke, y: -stroke },
-      { x: n.width + stroke, y: n.height + stroke },
-      { x: -stroke, y: n.height + stroke },
+      { x: localLeft - stroke, y: localTop - stroke },
+      { x: localRight + stroke, y: localTop - stroke },
+      { x: localRight + stroke, y: localBottom + stroke },
+      { x: localLeft - stroke, y: localBottom + stroke },
     ];
     for (const corner of corners) {
       const p = worldPoint(d, n, corner);

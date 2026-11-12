@@ -1,0 +1,66 @@
+{
+  "bundle-inter-400-normal": {
+    "filesHash": "0d6a343f1c116399770824782876c0f0cf02d3ac17d70d91b3b64717b6338554",
+    "licenseHash": "bfe1e5d7dd50372dc9a580b1e31ce9bdaa5541a39b1ccf4874fdad2bfb92c89e"
+  },
+  "bundle-inter-400-italic": {
+    "filesHash": "a4a74828023082a9843a868b3dd72360beb6a45aae010cfed7388853dfe1e46d",
+    "licenseHash": "bfe1e5d7dd50372dc9a580b1e31ce9bdaa5541a39b1ccf4874fdad2bfb92c89e"
+  },
+  "bundle-inter-600-normal": {
+    "filesHash": "d7b0acbc14018800a65a298d484f8fb04dc0a30490ba63f147fbf12852e889ef",
+    "licenseHash": "bfe1e5d7dd50372dc9a580b1e31ce9bdaa5541a39b1ccf4874fdad2bfb92c89e"
+  },
+  "bundle-inter-600-italic": {
+    "filesHash": "f35760edefdb35bc4a29348fc6128a2c0c4cbbf57908d7ff7ec3a74afbbb9fce",
+    "licenseHash": "bfe1e5d7dd50372dc9a580b1e31ce9bdaa5541a39b1ccf4874fdad2bfb92c89e"
+  },
+  "bundle-inter-700-normal": {
+    "filesHash": "25cf168d7a28b4866d68c530dcdb0e2480bf52310f116d75d0bb2bacd4cdad02",
+    "licenseHash": "bfe1e5d7dd50372dc9a580b1e31ce9bdaa5541a39b1ccf4874fdad2bfb92c89e"
+  },
+  "bundle-inter-700-italic": {
+    "filesHash": "a070bbd10917c7fc135359b410c1b5c258849ca240753c30b3a208eb1c1f3ad6",
+    "licenseHash": "bfe1e5d7dd50372dc9a580b1e31ce9bdaa5541a39b1ccf4874fdad2bfb92c89e"
+  },
+  "bundle-source-serif-4-400-normal": {
+    "filesHash": "3ffb54b65d2327dae2cb48ea566a7acd5526b4252f2540a949b622ff93efe4ce",
+    "licenseHash": "34a3c71092da00762d3ab1e065f58cf00e7f09f869c75f55e90e3e55eac33302"
+  },
+  "bundle-source-serif-4-400-italic": {
+    "filesHash": "838f018da4663812edfdf34ac107af2f0759898cefc280c2ba13a3a314e31e56",
+    "licenseHash": "34a3c71092da00762d3ab1e065f58cf00e7f09f869c75f55e90e3e55eac33302"
+  },
+  "bundle-source-serif-4-600-normal": {
+    "filesHash": "0f385273890e0d0ee5223f8a65c05019598981a10b0ca5513325e22e5f1dda44",
+    "licenseHash": "34a3c71092da00762d3ab1e065f58cf00e7f09f869c75f55e90e3e55eac33302"
+  },
+  "bundle-source-serif-4-600-italic": {
+    "filesHash": "1ad13ec26e159649ed07b555cd7b2cd39fe863d2997a41056c5a72db616c8293",
+    "licenseHash": "34a3c71092da00762d3ab1e065f58cf00e7f09f869c75f55e90e3e55eac33302"
+  },
+  "bundle-source-serif-4-700-normal": {
+    "filesHash": "20b0f50f5b7c7609e6edfa7580d81d955200b5dbc826ad92c3abdaca2d30848a",
+    "licenseHash": "34a3c71092da00762d3ab1e065f58cf00e7f09f869c75f55e90e3e55eac33302"
+  },
+  "bundle-source-serif-4-700-italic": {
+    "filesHash": "6da6a5aab4282628fa7084898da3bc11fe0da89def8834fd25b09d011db44506",
+    "licenseHash": "34a3c71092da00762d3ab1e065f58cf00e7f09f869c75f55e90e3e55eac33302"
+  },
+  "bundle-ibm-plex-mono-400-normal": {
+    "filesHash": "ada704e98a3887fdef28671d827449104b44e0ef3ddfcb96c61b2c6e47dd2a65",
+    "licenseHash": "7c08ae0a6363ca0352d9d6ba7acd663bc7a1974441b05bffdca9f000b535ba0a"
+  },
+  "bundle-ibm-plex-mono-400-italic": {
+    "filesHash": "963dd2fcba1d611f8da8b134918aa11a6b009ab8f4d07a4e564fff76e17713fd",
+    "licenseHash": "7c08ae0a6363ca0352d9d6ba7acd663bc7a1974441b05bffdca9f000b535ba0a"
+  },
+  "bundle-ibm-plex-mono-700-normal": {
+    "filesHash": "e1537f3ca2dc722178c38e0d3d77fa68346abbb39b877820bcebdcb9b03d9144",
+    "licenseHash": "7c08ae0a6363ca0352d9d6ba7acd663bc7a1974441b05bffdca9f000b535ba0a"
+  },
+  "bundle-ibm-plex-mono-700-italic": {
+    "filesHash": "a919a3f23bf28f1f16f0c11b837d56bb24f699bdb7732f9ea683f3ba5aed54af",
+    "licenseHash": "7c08ae0a6363ca0352d9d6ba7acd663bc7a1974441b05bffdca9f000b535ba0a"
+  }
+}

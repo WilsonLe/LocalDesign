@@ -9,6 +9,7 @@ import {
   type DesignDocument,
 } from "../core/model";
 import { DesignEngine } from "../core/engine";
+import { fontsReady } from "../render/fonts";
 const db = () =>
   openDB("localdesign-v1", 1, {
     upgrade(db) {
@@ -53,8 +54,10 @@ export class Workspace {
         active = await store.get("settings", "active"),
         saved = active ? await store.get("documents", active) : null;
       if (saved) {
+        const next = validateDocument(saved);
+        await fontsReady(next);
         this.savedBases.set(saved.id, JSON.stringify(saved));
-        this.engine.replace(validateDocument(saved));
+        this.engine.replace(next);
       } else await this.persist(this.engine.document);
       this.status = "saved";
     } catch (e) {
@@ -178,6 +181,9 @@ export class Workspace {
     await this.flush();
     const store = await db(),
       d = await store.get("documents", id);
+    requireThat(d, "MISSING_DOCUMENT", "Unknown document.");
+    const next = validateDocument(d);
+    await fontsReady(next);
     requireThat(
       this.engine.document === expected,
       "STALE_REVISION",
@@ -186,7 +192,7 @@ export class Workspace {
     requireThat(d, "MISSING_DOCUMENT", "Unknown document.");
     assertNotAborted(signal);
     this.savedBases.set(d.id, JSON.stringify(d));
-    this.engine.replace(validateDocument(d));
+    this.engine.replace(next);
     await this.flush();
     return this.engine.document;
   }
@@ -194,6 +200,7 @@ export class Workspace {
     const next = validateDocument(d),
       expected = this.engine.document;
     await this.flush();
+    await fontsReady(next);
     requireThat(
       this.engine.document === expected,
       "STALE_REVISION",

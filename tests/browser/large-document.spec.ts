@@ -81,6 +81,7 @@ test("one large editable project imports, saves, edits and exports without split
     .poll(async () => page.locator(".save-state").innerText())
     .toContain("Saved locally");
   await page.reload();
+  await expect(page.getByTestId("canvas")).toBeVisible();
   await expect
     .poll(async () => (await inspect(page)).nodes[0]?.name)
     .toBe("Edited in combined workspace");

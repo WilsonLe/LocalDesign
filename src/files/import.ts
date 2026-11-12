@@ -5,7 +5,7 @@ import {
   uid,
   validateDocument,
 } from "../core/model";
-import { base64 } from "../render/fonts";
+import { base64, fontsReady, fontWarnings } from "../render/fonts";
 import { imageMime, MAX_FILE_BYTES, nativeImport } from "./native";
 import { validateRasterAssets } from "./raster";
 import { svgImport } from "./svg";
@@ -19,7 +19,13 @@ export async function importFile(file: File) {
   if (file.name.toLowerCase().endsWith(".localdesign")) {
     const doc = nativeImport(bytes);
     await validateRasterAssets(doc.assets);
-    return { document: doc, warnings: [] };
+    await fontsReady(doc);
+    return {
+      document: doc,
+      warnings: fontWarnings(doc)
+        .slice(0, 100)
+        .map((w) => `${w.nodeId}: ${w.message}`),
+    };
   }
   if (file.name.toLowerCase().endsWith(".svg"))
     return svgImport(await file.text());

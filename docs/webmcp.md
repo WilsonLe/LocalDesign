@@ -6,25 +6,26 @@ Open the deployed app in a browser host that supports `document.modelContext.reg
 
 Ask the external agent: “Discover this page's tools, call localdesign_list_skills, read getting-started using localdesign_get_skill, then help me design …”. Runtime tool names may have a browser-generated suffix: use exactly the names returned by the host's discovery API. Guides refer to canonical names. The served instructions include the complete tool loop, model, boundaries, recovery and examples. UI design and typography packages require no prior plugin knowledge or network checkout.
 
-| Human action                                                    | Tool operation                                              |
-| --------------------------------------------------------------- | ----------------------------------------------------------- |
-| Draw frame, shape, text, path or image                          | `apply_edits` create, plus asset_add for image data         |
-| Move, resize, rotate, fill/stroke, text, lock/hide, auto layout | `apply_edits` update                                        |
-| Duplicate, delete, hierarchy, alignment/distribution/order      | same-named commands in apply_edits                          |
-| Pages, background, document rename                              | page_create/update/delete, rename                           |
-| Copy/paste                                                      | inspect nodes and create copies with new IDs/assets         |
-| Undo/redo                                                       | history with revision guard                                 |
-| Selection/page switch, pan/zoom/fit                             | selection, viewport (no revision/history)                   |
-| Local document management                                       | workspace status/list/create/open/delete/save_copy          |
-| Import                                                          | import_files prepare/commit, or visible browser picker      |
-| Preview / native / SVG / PNG export                             | export_design, then artifact metadata/read/download/release |
-| Design guidance                                                 | list_skills, get_skill                                      |
+| Human action                                                    | Tool operation                                                                    |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Draw frame, shape, text, path or image                          | `apply_edits` create, plus asset_add for image data                               |
+| Move, resize, rotate, fill/stroke, text, lock/hide, auto layout | `apply_edits` update                                                              |
+| Duplicate, delete, hierarchy, alignment/distribution/order      | same-named commands in apply_edits                                                |
+| Pages, background, document rename                              | page_create/update/delete, rename                                                 |
+| Copy/paste                                                      | inspect nodes and create copies with new IDs/assets                               |
+| Undo/redo                                                       | history with revision guard                                                       |
+| Selection/page switch, pan/zoom/fit                             | selection, viewport (no revision/history)                                         |
+| Local document management                                       | workspace status/list/create/open/delete/save_copy                                |
+| Import                                                          | import_files prepare/commit, or visible browser picker                            |
+| Preview / native / SVG / PNG export                             | export_design, then artifact metadata/read/download/release                       |
+| Font files and typography                                       | import_font; apply_edits font_add/update (fontFamily/fontWeight/fontStyle/fontId) |
+| Design guidance                                                 | list_skills, get_skill                                                            |
 
 All tool names have the `localdesign_` prefix. `catalog` returns authoritative action parity, command schemas, font metadata and limits. `inspect_document` returns actual identity/revision, pages, bounded nodes/subtree, asset metadata, shared selection/view and browser text metrics. To edit, submit `{expectedDocumentId,expectedRevision,requestId,commands}`. Validation failures are atomic; stale revisions reject; identical retries return original receipts within the documented memory window. See the bundled getting-started package for exact payloads and limitations.
 
 File import accepts selected files or bounded supplied base64, never host paths/URLs. Preparing an import never replaces current work; commit saves the previous working copy first. A native import becomes a separate local document with a new document ID. Portable assets are embedded; no designs are uploaded. Text/names/imported content are untrusted data. External agent/provider handling begins when content is deliberately returned to that agent.
 
-Artifacts expire after 15 minutes, document switch or page close; maximum 12 retained. Release them when done. PNG preview uses the same renderer as export. Text metrics flag overflow and unsupported-script fallback. Bundled Inter is 400/600/700 Latin, Latin extended and Vietnamese; custom fonts and complex-script fidelity are not supported in v0.1.
+Artifacts expire after 15 minutes, document switch or page close; maximum 12 retained. Release them when done. Canvas, SVG, PNG and preview share embedded-font glyph outlines and shaping metrics. Native text remains editable; SVG text renders as outlines, with font bytes and license metadata embedded. Text metrics flag overflow and unsupported-script fallback. Catalog lists actual sans/serif/mono faces and available weight/style pairs, document faces, licenses and portability. `import_font` accepts authorized static TTF/OTF/WOFF/WOFF2 base64 with name, license, redistributionAllowed:true and the same three guard fields as edits. Decoding and embedding restrictions validate before font_add commits (4 MB/file, 12 MB/48 local faces per document). Assign family/weight/style through update, clearing fontId when changing the request. Set fontId to choose a particular source, including a local face sharing a bundled family/weight/style; the UI exposes the same Font source choice. To preserve an imported request, set fontId to a catalog face as an explicit replacement; null clears it. Inspection returns requestedFont/resolvedFont/fontStatus/missingGlyphs/portable/fallbackWarning per text layer, including local inkBounds separately from logical text boxes; export responses include fontWarnings. Font mismatch and missing glyphs are independent of overflow. System fonts are never read or embedded. Native v2 files retain editable requests, mappings, actual embedded bytes and license/provenance; v1 Inter-only files migrate. Missing glyphs use explicit placeholders; color/bitmap fonts are unsupported. Complex-script shaping fidelity still needs visual verification.
 
 Verification evidence distinguishes controlled modelContext contract tests, actual desktop built-in-browser discovery/execution, local preview checks, hosted CI and live Pages runtime. See [verification](verification.md).
 

@@ -1,5 +1,5 @@
 {
-  "bundleVersion": "1.0.3",
+  "bundleVersion": "1.1.0",
   "maxResponseBytes": 48000,
   "source": {
     "url": "https://github.com/WilsonLe/agentic-workflows",
@@ -17,10 +17,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.0.3",
+      "version": "1.1.0",
       "path": "getting-started.md",
-      "sha256": "da17dc8fe5cdaba46de7de95757b8a79dc335ea647d11c6670db49984e6de2f9",
-      "bytes": 13458,
+      "sha256": "cd15c5cbe30af9d15cd2d0a9f591cdd6372d05e5404b939b2a4abecaec34d720",
+      "bytes": 15556,
       "originalSkillIds": []
     },
     {
@@ -32,10 +32,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.0.3",
+      "version": "1.1.0",
       "path": "ui-design.md",
-      "sha256": "11f88847e52c17b5386add5c195a20297904fa90eb4ae3cf15b4ed5bb86cbdd9",
-      "bytes": 15521,
+      "sha256": "4bce5934ca224dc72c5aae3a08e263b99141184f296f8698b71282708dfba4dd",
+      "bytes": 17619,
       "originalSkillIds": [
         "ui-design"
       ]
@@ -49,10 +49,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.0.3",
+      "version": "1.1.0",
       "path": "typography.md",
-      "sha256": "c97b9d2cb979457a06854509ed1440c0925844bad23362a8f7277d3eb8d1bb5e",
-      "bytes": 15478,
+      "sha256": "fe9db519df469d757b34cbc40446603b5b6fc0f05464c5a1607940bf1cabd167",
+      "bytes": 18147,
       "originalSkillIds": [
         "typography"
       ]
@@ -396,5 +396,5 @@
       "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
     }
   ],
-  "adaptationNotes": "Bundle 1.0.2 aligns count and native-file resource ceilings with large single-document projects; source provenance, browser preference and validation requirements remain unchanged."
+  "adaptationNotes": "Bundle 1.1.0 adds LocalDesign font catalog/assignment, licensed local font ingress, preserved requested identity and explicit mapping, glyph/portability warnings, schema-v2 native files and pixel/reopen evidence. Preserves large-document resource ceilings and semantic Layers guidance from main. Upstream provenance and browser preference remain unchanged."
 }

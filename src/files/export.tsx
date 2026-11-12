@@ -2,13 +2,18 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { bounds } from "../core/geometry";
 import { roots, requireThat, type DesignDocument } from "../core/model";
 import { Scene } from "../render/Scene";
-import { base64, fontBytes, fontCSS, fontsReady } from "../render/fonts";
+import {
+  exportFonts,
+  fontCSS,
+  fontsReady,
+  fontWarnings,
+} from "../render/fonts";
 export async function svgExport(
   doc: DesignDocument,
   pageId: string,
   ids?: string[],
 ): Promise<Blob> {
-  await fontsReady();
+  await fontsReady(doc);
   const selected = ids?.length
     ? roots(doc, ids)
     : doc.nodes.filter((n) => n.pageId === pageId && !n.parentId && !n.hidden);
@@ -52,8 +57,8 @@ export async function svgExport(
           ),
       }
     : doc;
-  const data = await fontBytes();
-  const css = fontCSS(data.map((b) => `data:font/woff2;base64,${base64(b)}`));
+  const records = exportFonts(sub);
+  const css = fontCSS(records);
   return new Blob(
     [
       '<?xml version="1.0" encoding="UTF-8"?>',
@@ -67,6 +72,15 @@ export async function svgExport(
           <defs>
             <style>{css}</style>
           </defs>
+          <metadata>
+            {JSON.stringify({
+              fonts: records.map(({ files, ...meta }) => ({
+                ...meta,
+                fileCount: files.length,
+              })),
+              warnings: fontWarnings(sub),
+            })}
+          </metadata>
           <Scene doc={sub} pageId={pageId} />
         </svg>,
       ),

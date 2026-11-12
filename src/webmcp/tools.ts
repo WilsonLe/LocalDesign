@@ -21,7 +21,19 @@ import {
 } from "../core/model";
 import { bounds } from "../core/geometry";
 import { Workspace } from "../storage/workspace";
-import { fontCatalog, fontsReady } from "../render/fonts";
+import {
+  fontCatalog,
+  fontsReady,
+  fontLimitations,
+  fontWarnings,
+  validateFontFaces,
+} from "../render/fonts";
+import { localFont } from "../fonts/data";
+import {
+  MAX_FONT_FILE_BYTES,
+  MAX_FONT_BYTES,
+  MAX_DOCUMENT_FONTS,
+} from "../core/limits";
 import { measureText } from "../render/text";
 import { importFile } from "../files/import";
 import { nativeExport } from "../files/native";
@@ -56,6 +68,8 @@ export const actionParity = {
   "import/image files": "localdesign_import_files",
   "native/SVG/PNG/preview": "localdesign_export_design + localdesign_artifact",
   "fonts/metrics": "localdesign_catalog + localdesign_inspect_document",
+  "font files/assignment/replacement":
+    "localdesign_import_font + localdesign_apply_edits:font_add,update (fontFamily,fontWeight,fontStyle,fontId)",
   "skills/help": "localdesign_list_skills + localdesign_get_skill",
 };
 type ToolState = {
@@ -164,7 +178,7 @@ export function createTools(
         documentId: engine.document.id,
         revision: engine.document.revision,
         storage: workspace.status,
-        fontLimit: fontCatalog.limitations,
+        fontLimit: fontLimitations,
       });
       if (input.action === "status") return status();
       if (input.action === "list") {
@@ -243,9 +257,14 @@ export function createTools(
       .strict(),
     true,
     async (input, signal) => {
-      await fontsReady();
-      assertNotAborted(signal);
       const d = engine.document;
+      await fontsReady(d);
+      assertNotAborted(signal);
+      requireThat(
+        d === engine.document,
+        "STALE_REVISION",
+        "Document changed while loading fonts. Inspect again.",
+      );
       if (input.rootId)
         requireThat(
           d.nodes.some((n) => n.id === input.rootId),
@@ -276,12 +295,13 @@ export function createTools(
           ...a,
           encodedBytes: data.length,
         })),
+        fonts: fontCatalog(d),
         selection: engine.selection,
         pageId: engine.pageId,
         viewport: engine.viewport,
         textMetrics: nodes
           .filter((n) => n.type === "text")
-          .map((n) => ({ id: n.id, ...measureText(n) })),
+          .map((n) => ({ id: n.id, ...measureText(n, d) })),
         history: {
           canUndo: engine.getSnapshot().canUndo,
           canRedo: engine.getSnapshot().canRedo,
@@ -297,7 +317,8 @@ export function createTools(
     () => ({
       apiVersion: "1.0",
       commandSchema: z.toJSONSchema(CommandSchema, { io: "input" }),
-      fonts: [fontCatalog],
+      fonts: fontCatalog(engine.document),
+      fontLimitations,
       actionParity,
       limits: {
         nodes: MAX_NODES,
@@ -310,12 +331,15 @@ export function createTools(
         documentMetadataBytes: MAX_DOCUMENT_BYTES,
         portableContentBytes: MAX_PORTABLE_BYTES,
         archiveExpandedBytes: MAX_EXPANDED_BYTES,
+        fontFileBytes: MAX_FONT_FILE_BYTES,
+        localFontBytes: MAX_FONT_BYTES,
+        documentFontFaces: MAX_DOCUMENT_FONTS,
         skillResponseBytes: 48000,
       },
       unsupported: [
         "native Figma files",
         "arbitrary SVG CSS/filters/gradients",
-        "custom fonts",
+        "variable fonts and font collections",
         "vector booleans",
         "components/variants",
         "collaboration",
@@ -329,8 +353,12 @@ export function createTools(
     EditSchema,
     true,
     async (input, signal) => {
+      await fontsReady(engine.document);
       await validateRasterAssets(
         input.commands.flatMap((c) => (c.op === "asset_add" ? [c.asset] : [])),
+      );
+      await validateFontFaces(
+        input.commands.flatMap((c) => (c.op === "font_add" ? [c.font] : [])),
       );
       assertNotAborted(signal);
       return engine.edit(input, true);
@@ -347,8 +375,12 @@ export function createTools(
         "WORKSPACE_BUSY",
         "Wait for the workspace operation.",
       );
+      await fontsReady(engine.document);
       await validateRasterAssets(
         input.commands.flatMap((c) => (c.op === "asset_add" ? [c.asset] : [])),
+      );
+      await validateFontFaces(
+        input.commands.flatMap((c) => (c.op === "font_add" ? [c.font] : [])),
       );
       assertNotAborted(signal);
       requireThat(
@@ -357,6 +389,50 @@ export function createTools(
         "Wait for the workspace operation.",
       );
       return engine.edit(input);
+    },
+  );
+  add(
+    "import_font",
+    "Add a browser-local static TTF/OTF/WOFF/WOFF2 face to the active document through font_add. Supply authorized bytes (never a host path), license/permission and redistributionAllowed:true. Parses actual family/weight/style and validates browser decoding before the guarded atomic edit; no upload or font download. Inspect catalog for the new stable ID, then update text fontFamily/weight/style or fontId for a replacement that retains the original request.",
+    GuardSchema.extend({
+      name: z.string().min(1).max(200),
+      base64: z
+        .string()
+        .min(4)
+        .max(Math.ceil(MAX_FONT_FILE_BYTES / 3) * 4)
+        .regex(/^[A-Za-z0-9+/]+={0,2}$/),
+      license: z.string().trim().min(1).max(4000),
+      redistributionAllowed: z.literal(true),
+    }).strict(),
+    false,
+    async (input, signal) => {
+      requireThat(
+        !shared.workspaceBusy,
+        "WORKSPACE_BUSY",
+        "Wait for the workspace operation.",
+      );
+      const font = localFont(
+        Uint8Array.from(atob(input.base64), (c) => c.charCodeAt(0)),
+        input.name,
+        input.license,
+      );
+      await validateFontFaces([font]);
+      assertNotAborted(signal);
+      requireThat(
+        !shared.workspaceBusy,
+        "WORKSPACE_BUSY",
+        "Wait for the workspace operation.",
+      );
+      const receipt = engine.edit({
+        expectedDocumentId: input.expectedDocumentId,
+        expectedRevision: input.expectedRevision,
+        requestId: input.requestId,
+        commands: [{ op: "font_add", font }],
+      });
+      return {
+        ...receipt,
+        font: fontCatalog(engine.document).find((f) => f.id === font.id),
+      };
     },
   );
   add(
@@ -570,11 +646,15 @@ export function createTools(
         "DISPOSED",
         "Document changed during export.",
       );
-      return artifacts.add(
-        blob,
-        `${doc.name.replace(/[^\w -]/g, "_")}.${input.format === "native" ? "localdesign" : input.format === "svg" ? "svg" : "png"}`,
-        doc.revision,
-      );
+      return {
+        ...artifacts.add(
+          blob,
+          `${doc.name.replace(/[^\w -]/g, "_")}.${input.format === "native" ? "localdesign" : input.format === "svg" ? "svg" : "png"}`,
+          doc.revision,
+        ),
+        fontWarnings: fontWarnings(doc).slice(0, 100),
+        fontWarningCount: fontWarnings(doc).length,
+      };
     },
   );
   add(

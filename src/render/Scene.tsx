@@ -1,12 +1,16 @@
 import type { CSSProperties, PointerEventHandler } from "react";
-import type { DesignDocument, DesignNode } from "../core/model";
-import { measureText } from "./text";
+import { ancestors, type DesignDocument, type DesignNode } from "../core/model";
+import { measureText, textLineOrigin } from "./text";
+import { resolveFont } from "./fonts";
+import { shapeLine } from "./glyphs";
 export function NodeShape({
   node: n,
   doc,
+  glyphPrefix = "",
 }: {
   node: DesignNode;
   doc: DesignDocument;
+  glyphPrefix?: string;
 }) {
   const style = { fill: n.fill, stroke: n.stroke, strokeWidth: n.strokeWidth };
   switch (n.type) {
@@ -30,41 +34,31 @@ export function NodeShape({
     case "path":
       return <path d={n.path} {...style} />;
     case "text": {
-      const { lines } = measureText(n);
+      const { lines } = measureText(n, doc);
+      const font = resolveFont(n, doc);
       return (
-        <text
-          fill={n.fill}
-          stroke={n.stroke}
-          strokeWidth={n.strokeWidth}
-          fontFamily="Inter"
-          fontSize={n.fontSize}
-          fontWeight={n.fontWeight}
-          letterSpacing={n.letterSpacing}
-          textAnchor={
-            n.textAlign === "center"
-              ? "middle"
-              : n.textAlign === "right"
-                ? "end"
-                : "start"
-          }
-          xmlSpace="preserve"
-        >
-          {lines.map((line, i) => (
-            <tspan
-              key={i}
-              x={
-                n.textAlign === "center"
-                  ? n.width / 2
-                  : n.textAlign === "right"
-                    ? n.width
-                    : 0
-              }
-              y={n.fontSize + i * n.fontSize * n.lineHeight}
-            >
-              {line || " "}
-            </tspan>
-          ))}
-        </text>
+        <g aria-label={n.text} data-font-id={font.id}>
+          <title>{n.text}</title>
+          {font.record &&
+            lines.map((line, i) => {
+              const shaped = shapeLine(n, font.record!, line);
+              const origin = textLineOrigin(n, shaped.width, i);
+              return (
+                <g key={i} transform={`translate(${origin.x} ${origin.y})`}>
+                  {shaped.glyphs.map((glyph, j) => (
+                    <use
+                      key={j}
+                      href={`#${glyphPrefix}${glyph.id}`}
+                      transform={`translate(${glyph.x} ${glyph.y}) scale(${glyph.scale} ${-glyph.scale})`}
+                      fill={n.fill}
+                      stroke={n.stroke}
+                      strokeWidth={n.strokeWidth / glyph.scale}
+                    />
+                  ))}
+                </g>
+              );
+            })}
+        </g>
       );
     }
     case "image":
@@ -85,11 +79,13 @@ export function SceneNode({
   doc,
   onPointerDown,
   interactive = false,
+  glyphPrefix = "",
 }: {
   node: DesignNode;
   doc: DesignDocument;
   onPointerDown?: PointerEventHandler<SVGGElement>;
   interactive?: boolean;
+  glyphPrefix?: string;
 }) {
   if (n.hidden) return null;
   const children = doc.nodes.filter((c) => c.parentId === n.id);
@@ -112,7 +108,7 @@ export function SceneNode({
           </clipPath>
         </defs>
       )}
-      <NodeShape node={n} doc={doc} />
+      <NodeShape node={n} doc={doc} glyphPrefix={glyphPrefix} />
       {interactive && (
         <rect
           width={n.width}
@@ -134,6 +130,7 @@ export function SceneNode({
             doc={doc}
             onPointerDown={onPointerDown}
             interactive={interactive}
+            glyphPrefix={glyphPrefix}
           />
         ))}
       </g>
@@ -146,15 +143,36 @@ export function Scene({
   rootIds,
   interactive = false,
   onPointerDown,
+  glyphPrefix = "",
 }: {
   doc: DesignDocument;
   pageId: string;
   rootIds?: string[];
   interactive?: boolean;
   onPointerDown?: PointerEventHandler<SVGGElement>;
+  glyphPrefix?: string;
 }) {
+  const glyphs = new Map<string, string>();
+  for (const node of doc.nodes.filter(
+    (n) =>
+      n.type === "text" &&
+      n.pageId === pageId &&
+      !n.hidden &&
+      !ancestors(doc, n).some((p) => p.hidden),
+  )) {
+    const font = resolveFont(node, doc);
+    if (font.record)
+      for (const line of measureText(node, doc).lines)
+        for (const glyph of shapeLine(node, font.record, line).glyphs)
+          glyphs.set(glyph.id, glyph.path);
+  }
   return (
     <>
+      <defs>
+        {[...glyphs].map(([id, d]) => (
+          <path key={id} id={`${glyphPrefix}${id}`} d={d} />
+        ))}
+      </defs>
       {doc.nodes
         .filter((n) =>
           rootIds ? rootIds.includes(n.id) : n.pageId === pageId && !n.parentId,
@@ -166,6 +184,7 @@ export function Scene({
             doc={doc}
             interactive={interactive}
             onPointerDown={onPointerDown}
+            glyphPrefix={glyphPrefix}
           />
         ))}
     </>
