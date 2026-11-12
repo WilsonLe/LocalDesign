@@ -5,6 +5,22 @@ import { DesignEngine } from "../src/core/engine";
 import { nativeImport } from "../src/files/native";
 import { MAX_ASSETS, MAX_PAGES, MAX_NODES } from "../src/core/limits";
 import { CommandSchema } from "../src/core/commands";
+import { bounds } from "../src/core/geometry";
+
+it("calculates fit/export bounds for large visible selections without argument spreading", () => {
+  const doc = blankDocument();
+  doc.nodes = Array.from({ length: 40_000 }, (_, i) =>
+    makeNode("rectangle", doc.pages[0].id, {
+      id: `visible-${i}`,
+      width: 1,
+      height: 1,
+      x: 0,
+      y: 0,
+    }),
+  );
+  validateDocument(doc);
+  expect(bounds(doc, doc.nodes)).toEqual({ x: 0, y: 0, width: 1, height: 1 });
+});
 
 it("retains an entire multi-document project, assets and large selections without flattening", () => {
   const doc = blankDocument("Combined project");
