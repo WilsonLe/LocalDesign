@@ -271,12 +271,14 @@ export function createTools(
           "MISSING_NODE",
           "Unknown subtree root.",
         );
+      const subtree = input.rootId
+        ? new Set([
+            input.rootId,
+            ...descendants(d, input.rootId).map((n) => n.id),
+          ])
+        : null;
       const all = input.rootId
-        ? d.nodes.filter(
-            (n) =>
-              n.id === input.rootId ||
-              descendants(d, input.rootId!).some((c) => c.id === n.id),
-          )
+        ? d.nodes.filter((n) => subtree!.has(n.id))
         : d.nodes;
       const nodes = all.slice(input.offset, input.offset + input.limit);
       return {

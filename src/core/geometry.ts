@@ -1,3 +1,4 @@
+import { indexNodes, type NodeIndex } from "./tree";
 import { ancestors, type DesignDocument, type DesignNode } from "./model";
 import { measureText } from "../render/text";
 export type Point = { x: number; y: number };
@@ -14,9 +15,10 @@ export function worldPoint(
   d: DesignDocument,
   n: DesignNode,
   p: Point = { x: 0, y: 0 },
+  index?: NodeIndex,
 ): Point {
   let q = transform(p, n);
-  for (const parent of ancestors(d, n)) q = transform(q, parent);
+  for (const parent of ancestors(d, n, index?.byId)) q = transform(q, parent);
   return q;
 }
 export function localPoint(
@@ -33,7 +35,11 @@ export function localPoint(
 export function worldRotation(d: DesignDocument, n: DesignNode) {
   return n.rotation + ancestors(d, n).reduce((s, n) => s + n.rotation, 0);
 }
-export function bounds(d: DesignDocument, nodes: DesignNode[]) {
+export function bounds(
+  d: DesignDocument,
+  nodes: DesignNode[],
+  index = indexNodes(d),
+) {
   if (!nodes.length) return { x: 0, y: 0, width: 800, height: 600 };
   const visible: DesignNode[] = [];
   const visited = new Set<string>();
@@ -42,8 +48,7 @@ export function bounds(d: DesignDocument, nodes: DesignNode[]) {
     visited.add(n.id);
     if (n.type !== "group") visible.push(n);
     if (n.type === "group" || (n.type === "frame" && !n.clip))
-      for (const child of d.nodes.filter((c) => c.parentId === n.id))
-        include(child);
+      for (const child of index.children.get(n.id) ?? []) include(child);
   };
   nodes.forEach(include);
   if (!visible.length) return { x: 0, y: 0, width: 800, height: 600 };
@@ -66,7 +71,7 @@ export function bounds(d: DesignDocument, nodes: DesignNode[]) {
       { x: localLeft - stroke, y: localBottom + stroke },
     ];
     for (const corner of corners) {
-      const p = worldPoint(d, n, corner);
+      const p = worldPoint(d, n, corner, index);
       x = Math.min(x, p.x);
       y = Math.min(y, p.y);
       right = Math.max(right, p.x);
@@ -81,14 +86,18 @@ export function bounds(d: DesignDocument, nodes: DesignNode[]) {
   };
 }
 export function applyLayouts(d: DesignDocument) {
+  const index = indexNodes(d);
   const containers = d.nodes
     .filter((n) => n.type === "frame" && n.layout.direction !== "none")
-    .sort((a, b) => ancestors(d, b).length - ancestors(d, a).length);
+    .sort(
+      (a, b) =>
+        ancestors(d, b, index.byId).length - ancestors(d, a, index.byId).length,
+    );
   for (const frame of containers) {
     const { direction, gap, padding, align } = frame.layout;
     let offset = padding;
-    for (const n of d.nodes.filter(
-      (n) => n.parentId === frame.id && !n.hidden,
+    for (const n of (index.children.get(frame.id) ?? []).filter(
+      (n) => !n.hidden,
     )) {
       const horizontal = direction === "horizontal";
       const space = (horizontal ? frame.height : frame.width) - padding * 2;

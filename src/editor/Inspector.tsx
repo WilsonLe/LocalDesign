@@ -2,7 +2,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { NativeSelect } from "../components/ui/native-select";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AlignCenter,
   AlignLeft,
@@ -100,16 +100,22 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
     </section>
   );
 }
-export function Inspector({
+export const Inspector = memo(function Inspector({
+  ready,
   engine,
-  snapshot,
+  document: doc,
+  pageId,
+  selection,
   onError,
 }: {
+  ready: boolean;
   engine: DesignEngine;
-  snapshot: Snapshot;
+  document: Snapshot["document"];
+  pageId: string;
+  selection: string[];
   onError: (m: string) => void;
 }) {
-  const { document: doc, selection, pageId } = snapshot;
+  const snapshot = { document: doc, selection };
   const nodes = doc.nodes.filter((n) => selection.includes(n.id)),
     n = nodes[0],
     page = doc.pages.find((p) => p.id === pageId)!;
@@ -147,7 +153,7 @@ export function Inspector({
     />
   );
   return (
-    <div className="inspector">
+    <div className="inspector" aria-busy={!ready}>
       <div className="panel-heading">
         <strong>Design</strong>
         <span>
@@ -556,4 +562,4 @@ export function Inspector({
       )}
     </div>
   );
-}
+});

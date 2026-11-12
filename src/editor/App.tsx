@@ -4,6 +4,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { NativeSelect } from "../components/ui/native-select";
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -139,7 +140,7 @@ export function App() {
     }
   };
   const run = (commands: Command[]) => perform(() => engine.dispatch(commands));
-  const frameNodes = (nodes: DesignNode[], maxZoom: number) => {
+  const frameNodes = useCallback((nodes: DesignNode[], maxZoom: number) => {
     const area = canvasWrap.current;
     if (!area) return;
     const box = area.getBoundingClientRect();
@@ -167,7 +168,7 @@ export function App() {
       x: box.width / 2 - (b.x + b.width / 2) * zoom,
       y: top + height / 2 - (b.y + b.height / 2) * zoom,
     });
-  };
+  }, []);
   const fit = (selected = false) => {
     const d = engine.document;
     frameNodes(
@@ -179,16 +180,19 @@ export function App() {
       2,
     );
   };
-  const focusLayer = (id: string) => {
-    const node = engine.document.nodes.find((n) => n.id === id);
-    if (!node) return;
-    // Hidden layers remain hidden, but their geometry can still be located.
-    frameNodes([{ ...node, hidden: false }], engine.viewport.zoom);
-    if (drawer === "layers") {
-      setDrawer(null);
-      canvasWrap.current?.querySelector<SVGSVGElement>(".canvas")?.focus();
-    }
-  };
+  const focusLayer = useCallback(
+    (id: string) => {
+      const node = engine.document.nodes.find((n) => n.id === id);
+      if (!node) return;
+      // Hidden layers remain hidden, but their geometry can still be located.
+      frameNodes([{ ...node, hidden: false }], engine.viewport.zoom);
+      if (drawer === "layers") {
+        setDrawer(null);
+        canvasWrap.current?.querySelector<SVGSVGElement>(".canvas")?.focus();
+      }
+    },
+    [drawer, frameNodes],
+  );
   useEffect(() => {
     let cancelled = false;
     const unsub = workspace.subscribe(() => setStorage(workspace.status));
@@ -604,7 +608,9 @@ export function App() {
           </Button>
           <Layers
             engine={engine}
-            snapshot={snapshot}
+            document={doc}
+            pageId={snapshot.pageId}
+            selection={selection}
             onError={setNotice}
             onFocusLayer={focusLayer}
           />
@@ -688,7 +694,14 @@ export function App() {
           >
             <X size={18} />
           </Button>
-          <Inspector engine={engine} snapshot={snapshot} onError={setNotice} />
+          <Inspector
+            ready={ready}
+            engine={engine}
+            document={doc}
+            pageId={snapshot.pageId}
+            selection={selection}
+            onError={setNotice}
+          />
         </aside>
       </main>
       {notice && (

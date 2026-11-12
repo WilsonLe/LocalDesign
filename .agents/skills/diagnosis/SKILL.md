@@ -7,6 +7,8 @@ description: Use whenever fixing a bug, repeated test failure, broken import/exp
 
 Reproduce the actual user symptom with a minimal disposable fixture. Trace the full path from UI/tool input through schema, command owner, layout, renderer/storage/export to the affected consumer. Record observed values separately from hypotheses. Inventory materially different causes: stale document/revision, locked/hidden ancestor, geometry/parent transforms, async document switch, font readiness, quota, invalid archives or unsupported SVG, optional WebMCP and asset paths.
 
+For slowness, measure the built app with a disposable representative node/page/text distribution before and after. Trace repeated traversal, text shaping, mounted controls and gesture clones separately from capacity limits; check async readiness invalidation and index reuse across outer loops; verify offscreen navigation, saved edits and output after optimization.
+
 Read current callers/invariants before patching. Find the earliest failed prerequisite; do not mask it with a later fallback or weaken checks. Change the smallest owner that fixes the cause, preserving atomic failure and current user work. Check sibling consumers that share that owner. Add a regression test for the supported failing scenario; a helper-only assertion does not prove visible behavior.
 
 Run focused tests and the consumer-boundary journey for the original symptom and distinct relevant branches. A screenshot establishes appearance, not saved data or interoperability. For external failures distinguish measured failure, unavailable channel and unverified root cause. Resume at the failed prerequisite and preserve task-owned evidence. Use development for delivery and improvement for lessons.

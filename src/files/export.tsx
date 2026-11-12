@@ -1,3 +1,4 @@
+import { indexNodes } from "../core/tree";
 import { renderToStaticMarkup } from "react-dom/server";
 import { bounds } from "../core/geometry";
 import { roots, requireThat, type DesignDocument } from "../core/model";
@@ -30,12 +31,14 @@ export async function svgExport(
   );
   // Selected nested layers retain their world transform by rendering the full ancestry with other branches removed.
   const wanted = new Set<string>();
+  const selectedIds = new Set(selected.map((n) => n.id));
+  const { byId } = indexNodes(doc);
   for (const n of selected) {
     wanted.add(n.id);
     let p = n.parentId;
     while (p) {
       wanted.add(p);
-      p = doc.nodes.find((n) => n.id === p)?.parentId ?? null;
+      p = byId.get(p)?.parentId ?? null;
     }
   }
   const sub = ids?.length
@@ -45,13 +48,13 @@ export async function svgExport(
           .filter((n) => {
             let p: typeof n | undefined = n;
             while (p) {
-              if (selected.some((s) => s.id === p!.id)) return true;
-              p = doc.nodes.find((x) => x.id === p!.parentId);
+              if (selectedIds.has(p.id)) return true;
+              p = p.parentId ? byId.get(p.parentId) : undefined;
             }
             return wanted.has(n.id);
           })
           .map((n) =>
-            wanted.has(n.id) && !selected.some((s) => s.id === n.id)
+            wanted.has(n.id) && !selectedIds.has(n.id)
               ? { ...n, fill: "none", stroke: "none", clip: false, opacity: 1 }
               : n,
           ),

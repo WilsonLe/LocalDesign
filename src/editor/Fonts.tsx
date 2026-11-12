@@ -72,7 +72,7 @@ export function FontManager({
   snapshot,
 }: {
   engine: DesignEngine;
-  snapshot: Snapshot;
+  snapshot: Pick<Snapshot, "document" | "selection">;
 }) {
   const [open, setOpen] = useState(false),
     [license, setLicense] = useState(""),
@@ -226,7 +226,7 @@ export function FontControls({
   onError,
 }: {
   engine: DesignEngine;
-  snapshot: Snapshot;
+  snapshot: Pick<Snapshot, "document" | "selection">;
   node: DesignNode;
   onError: (message: string) => void;
 }) {

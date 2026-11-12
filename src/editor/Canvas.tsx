@@ -1,3 +1,4 @@
+import { indexNodes } from "../core/tree";
 import {
   useEffect,
   useRef,
@@ -209,7 +210,13 @@ export function Canvas({
       });
       return;
     }
-    const next = structuredClone(g.doc),
+    const changed = new Set(
+      g.mode === "move" ? g.nodes.map((n) => n.id) : g.node ? [g.node.id] : [],
+    );
+    const next = {
+        ...g.doc,
+        nodes: g.doc.nodes.map((n) => (changed.has(n.id) ? { ...n } : n)),
+      },
       dx = q.x - g.start.x,
       dy = q.y - g.start.y;
     const snap = (n: number) => (e.altKey ? n : Math.round(n / 4) * 4);
@@ -289,10 +296,11 @@ export function Canvas({
     gesture.current = null;
     try {
       if (g.mode === "marquee" && marquee) {
+        const index = indexNodes(doc);
         const hits = doc.nodes
           .filter((n) => n.pageId === pageId && !n.parentId && !n.hidden)
           .filter((n) => {
-            const b = bounds(doc, [n]);
+            const b = bounds(doc, [n], index);
             return (
               b.x >= marquee.x &&
               b.y >= marquee.y &&

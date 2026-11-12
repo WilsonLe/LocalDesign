@@ -96,3 +96,25 @@ it("retains finite resource ceilings above the old limits", () => {
     nativeImport(zipSync({ "document.json": strToU8(JSON.stringify(raw)) })),
   ).toThrow(/asset catalog/);
 });
+
+it("creates a full 500-command batch in an existing 20,000-node workspace", () => {
+  const doc = blankDocument();
+  const page = doc.pages[0].id;
+  const template = makeNode("rectangle", page);
+  doc.nodes = Array.from({ length: 20_000 }, (_, i) => ({
+    ...template,
+    id: `existing-${i}`,
+  }));
+  const engine = new DesignEngine(doc);
+  const result = engine.dispatch(
+    Array.from({ length: 500 }, (_, i) => ({
+      op: "create" as const,
+      node: { ...template, id: `created-${i}` },
+    })),
+  );
+  expect(result.createdIds).toHaveLength(500);
+  expect(engine.document.nodes).toHaveLength(20_500);
+  expect(engine.document.revision).toBe(1);
+  engine.history("undo", engine.guard());
+  expect(engine.document.nodes).toEqual(doc.nodes);
+}, 10_000);
