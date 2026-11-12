@@ -24,4 +24,8 @@ User correction during PR #2: “yes, stop asking, review as many as you deem ne
 
 ## 2026-11-12 — Remove explanatory UI meta text
 
-User correction in PR #2: remove all small description text, including the browser-storage paragraph. Removed helper paragraphs, taglines, format descriptions and decorative footer metadata across canvas, panels and dialogs; retained labels, state, actionable errors and explicit help/connection instructions. The UI skill owns this project direction. Verify the built empty/editor/dialog states and export controls after copy changes; avoid reintroducing helper copy in future UI work.
+User correction in PR #2: remove all small description text, including the browser-storage paragraph. Removed helper paragraphs, taglines, format descriptions and decorative footer metadata across canvas, panels and dialogs; removed the entire workspace branding section above Pages after the user’s explicit follow-up; retained labels, state, actionable errors and explicit help/connection instructions. The UI skill owns this project direction. Verify the built empty/editor/dialog states and export controls after copy changes; avoid reintroducing helper copy in future UI work.
+
+## 2026-11-12 — Drawer actions need their own space
+
+Removing the workspace branding block exposed a mobile overlap: the absolute Close layers control intercepted Add page. Independent PR #3 review reproduced the normal click failure at 390 × 844. Reserve heading space for drawer dismissal independently of decorative sections; the existing narrow-screen browser journey now clicks Add page and verifies Page 2 before closing. Recheck real hit targets whenever removing adjacent header content.

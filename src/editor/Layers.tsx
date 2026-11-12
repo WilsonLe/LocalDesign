@@ -129,14 +129,6 @@ export function Layers({
   };
   return (
     <div className="layers">
-      <div className="project-label">
-        <div className="project-icon">
-          <Frame size={16} />
-        </div>
-        <div>
-          <strong>Local workspace</strong>
-        </div>
-      </div>
       <section className="pages-section">
         <div className="section-heading">
           <h2>Pages</h2>
