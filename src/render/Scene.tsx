@@ -1,6 +1,8 @@
 import type { CSSProperties, PointerEventHandler } from "react";
-import type { DesignDocument, DesignNode } from "../core/model";
+import { ancestors, type DesignDocument, type DesignNode } from "../core/model";
 import { measureText } from "./text";
+import { resolveFont } from "./fonts";
+import { shapeLine } from "./glyphs";
 export function NodeShape({
   node: n,
   doc,
@@ -30,41 +32,37 @@ export function NodeShape({
     case "path":
       return <path d={n.path} {...style} />;
     case "text": {
-      const { lines } = measureText(n);
+      const { lines } = measureText(n, doc);
+      const font = resolveFont(n, doc);
       return (
-        <text
-          fill={n.fill}
-          stroke={n.stroke}
-          strokeWidth={n.strokeWidth}
-          fontFamily="Inter"
-          fontSize={n.fontSize}
-          fontWeight={n.fontWeight}
-          letterSpacing={n.letterSpacing}
-          textAnchor={
-            n.textAlign === "center"
-              ? "middle"
-              : n.textAlign === "right"
-                ? "end"
-                : "start"
-          }
-          xmlSpace="preserve"
-        >
-          {lines.map((line, i) => (
-            <tspan
-              key={i}
-              x={
+        <g aria-label={n.text} data-font-id={font.id}>
+          <title>{n.text}</title>
+          {font.record &&
+            lines.map((line, i) => {
+              const shaped = shapeLine(n, font.record!, line);
+              const x =
                 n.textAlign === "center"
-                  ? n.width / 2
+                  ? (n.width - shaped.width) / 2
                   : n.textAlign === "right"
-                    ? n.width
-                    : 0
-              }
-              y={n.fontSize + i * n.fontSize * n.lineHeight}
-            >
-              {line || " "}
-            </tspan>
-          ))}
-        </text>
+                    ? n.width - shaped.width
+                    : 0;
+              const baseline = n.fontSize + i * n.fontSize * n.lineHeight;
+              return (
+                <g key={i} transform={`translate(${x} ${baseline})`}>
+                  {shaped.glyphs.map((glyph, j) => (
+                    <use
+                      key={j}
+                      href={`#${glyph.id}`}
+                      transform={`translate(${glyph.x} ${glyph.y}) scale(${glyph.scale} ${-glyph.scale})`}
+                      fill={n.fill}
+                      stroke={n.stroke}
+                      strokeWidth={n.strokeWidth / glyph.scale}
+                    />
+                  ))}
+                </g>
+              );
+            })}
+        </g>
       );
     }
     case "image":
@@ -153,8 +151,27 @@ export function Scene({
   interactive?: boolean;
   onPointerDown?: PointerEventHandler<SVGGElement>;
 }) {
+  const glyphs = new Map<string, string>();
+  for (const node of doc.nodes.filter(
+    (n) =>
+      n.type === "text" &&
+      n.pageId === pageId &&
+      !n.hidden &&
+      !ancestors(doc, n).some((p) => p.hidden),
+  )) {
+    const font = resolveFont(node, doc);
+    if (font.record)
+      for (const line of measureText(node, doc).lines)
+        for (const glyph of shapeLine(node, font.record, line).glyphs)
+          glyphs.set(glyph.id, glyph.path);
+  }
   return (
     <>
+      <defs>
+        {[...glyphs].map(([id, d]) => (
+          <path key={id} id={id} d={d} />
+        ))}
+      </defs>
       {doc.nodes
         .filter((n) =>
           rootIds ? rootIds.includes(n.id) : n.pageId === pageId && !n.parentId,

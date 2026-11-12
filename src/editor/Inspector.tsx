@@ -18,6 +18,7 @@ import type { DesignEngine, Snapshot } from "../core/engine";
 import type { Command } from "../core/commands";
 import { uid, type DesignNode } from "../core/model";
 import { measureText } from "../render/text";
+import { FontControls, FontManager } from "./Fonts";
 function Field({
   label,
   value,
@@ -185,6 +186,7 @@ export function Inspector({
               }
             />
           </Section>
+          <FontManager engine={engine} snapshot={snapshot} />
         </>
       ) : (
         <>
@@ -350,24 +352,14 @@ export function Inspector({
                 value={n.text}
                 onChange={(text) => patch({ text })}
               />
-              <p className="font-name">Inter</p>
+              <FontControls
+                engine={engine}
+                snapshot={snapshot}
+                node={n}
+                onError={onError}
+              />
               <div className="property-grid">
                 {numeric("fontSize", n.fontSize, "Size", 1, 1)}
-                <label className="field">
-                  <span>Style</span>
-                  <NativeSelect
-                    value={n.fontWeight}
-                    onChange={(e) =>
-                      patch({
-                        fontWeight: e.target.value as DesignNode["fontWeight"],
-                      })
-                    }
-                  >
-                    <option value="400">Regular</option>
-                    <option value="600">Semibold</option>
-                    <option value="700">Bold</option>
-                  </NativeSelect>
-                </label>
                 {numeric(
                   "lineHeight",
                   n.lineHeight,
@@ -393,14 +385,14 @@ export function Inspector({
                   <option>right</option>
                 </NativeSelect>
               </label>
-              {measureText(n).overflow && (
+              {measureText(n, doc).overflow && (
                 <p className="warning">
                   Text overflows this box. Increase its height or adjust type
                   size.
                 </p>
               )}
-              {measureText(n).fallbackWarning && (
-                <p className="warning">{measureText(n).fallbackWarning}</p>
+              {measureText(n, doc).fallbackWarning && (
+                <p className="warning">{measureText(n, doc).fallbackWarning}</p>
               )}
             </Section>
           )}

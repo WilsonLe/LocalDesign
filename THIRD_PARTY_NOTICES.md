@@ -26,10 +26,18 @@ SOFTWARE.
 
 ## Inter
 
-Inter by Rasmus Andersson, distributed via @fontsource/inter 5.3.0, SIL Open Font License 1.1. Full font license: public/fonts-OFL.txt. Bundled static 400/600/700 Latin/Latin extended/Vietnamese WOFF2 subsets. Other scripts are not guaranteed.
+Inter by Rasmus Andersson, distributed via @fontsource/inter 5.3.0, SIL Open Font License 1.1. Full font license: public/fonts-OFL.txt. Bundled static 400/600/700 normal/italic Latin/Latin extended/Vietnamese WOFF2 subsets. Other scripts are not guaranteed.
 
 Other npm dependencies retain their packaged licenses in the lockfile-resolved distributions.
 
 ## LocalCut shadcn/Base UI component and theme adaptation
 
 `src/components/ui/button.tsx`, `input.tsx`, `textarea.tsx` and `src/theme.css` adapt the corresponding generated shadcn base-vega components and neutral tokens from https://github.com/WilsonLe/LocalCut at `4e30e849d12ee845d5d3d5b3dd6db78a953632c1`. Copyright (c) 2026 Wilson Le and LocalCut contributors, MIT; the complete notice ships in `public/notices/LocalCut-MIT.txt`. Dialog/native-select wrappers use Base UI and the same shadcn component ownership pattern. LocalDesign keeps disabled actions visible and uses its own supported editor geometry. Its monochrome rounded-square drafting mark follows the same line-art treatment as LocalCut’s scissors mark. The shadcn CLI is not a runtime/build requirement for these checked-in components. Pinned Base UI, Tailwind, class-variance-authority and cn dependencies retain their packaged licenses.
+
+## Source Serif 4 and IBM Plex Mono
+
+Source Serif 4 by Adobe, via @fontsource/source-serif-4 5.3.1, and IBM Plex Mono by IBM, via @fontsource/ibm-plex-mono 5.3.0, SIL OFL 1.1. Full licenses: public/source-serif-4-OFL.txt and public/ibm-plex-mono-OFL.txt. Source Serif 4 includes 400/600/700 normal/italic; IBM Plex Mono includes 400/700 normal/italic; Latin/extended Latin/Vietnamese subsets. Static upstream OTF/TTF test fixtures retain their OFL notices and source pointers in tests/fixtures/fonts/README.md.
+
+## Font parsing and identity
+
+Fontkit 3.0.0 by Devon Govett, MIT (https://github.com/foliojs/fontkit); static TTF/OTF/WOFF/WOFF2 readers and glyph shaping/outlines are used; input collections, variable and color fonts are rejected. Full MIT notice: public/fontkit-LICENSE.txt. @noble/hashes 2.4.0 by Paul Miller, MIT (https://github.com/paulmillr/noble-hashes), supplies SHA-256 content identity. Full MIT notice: public/noble-hashes-LICENSE.txt. Package licenses are retained in their distributions.

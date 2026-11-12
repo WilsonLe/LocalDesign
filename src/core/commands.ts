@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AssetSchema, Id, NodeSchema, PageSchema } from "./model";
+import { FontSchema } from "../fonts/schema";
 const ids = z.array(Id).min(1).max(4000);
 // Remove creation defaults before making patches optional; Zod applies defaults inside optional fields.
 const Patch = z
@@ -20,6 +21,8 @@ const Patch = z
     clip: NodeSchema.shape.clip.removeDefault().optional(),
     text: NodeSchema.shape.text.removeDefault().optional(),
     fontFamily: NodeSchema.shape.fontFamily.removeDefault().optional(),
+    fontId: NodeSchema.shape.fontId.removeDefault().optional(),
+    fontStyle: NodeSchema.shape.fontStyle.removeDefault().optional(),
     fontSize: NodeSchema.shape.fontSize.removeDefault().optional(),
     fontWeight: NodeSchema.shape.fontWeight.removeDefault().optional(),
     lineHeight: NodeSchema.shape.lineHeight.removeDefault().optional(),
@@ -83,6 +86,7 @@ export const CommandSchema = z.discriminatedUnion("op", [
     .strict(),
   z.object({ op: z.literal("page_delete"), id: Id }).strict(),
   z.object({ op: z.literal("asset_add"), asset: AssetSchema }).strict(),
+  z.object({ op: z.literal("font_add"), font: FontSchema }).strict(),
   z
     .object({ op: z.literal("rename"), name: z.string().min(1).max(200) })
     .strict(),

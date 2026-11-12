@@ -213,6 +213,9 @@ test("pagehide retires site tools and restoration registers a fresh document-bou
 }) => {
   await harness(page);
   await open(page);
+  const discoveredNames = await page.evaluate(() =>
+    [...(window as any).__testSiteTools.keys()].sort(),
+  );
   await page.evaluate(() => {
     const tools = (window as any).__testSiteTools;
     (window as any).__oldInspect = tools.get("localdesign_inspect_document");
@@ -233,7 +236,9 @@ test("pagehide retires site tools and restoration registers a fresh document-bou
     ),
   );
   await expect
-    .poll(async () => page.evaluate(() => (window as any).__testSiteTools.size))
-    .toBe(13);
+    .poll(async () =>
+      page.evaluate(() => [...(window as any).__testSiteTools.keys()].sort()),
+    )
+    .toEqual(discoveredNames);
   expect((await inspect(page)).nodes).toHaveLength(0);
 });

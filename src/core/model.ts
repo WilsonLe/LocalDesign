@@ -1,4 +1,16 @@
-import { MAX_DOCUMENT_BYTES, MAX_PORTABLE_BYTES } from "./limits";
+import {
+  MAX_DOCUMENT_BYTES,
+  MAX_PORTABLE_BYTES,
+  MAX_FONT_BYTES,
+  FONT_ARCHIVE_RESERVE,
+} from "./limits";
+import {
+  DocumentFonts,
+  FontFamily,
+  FontWeight,
+  FontStyle,
+} from "../fonts/schema";
+import { portableFont, validateFontRecord } from "../fonts/data";
 import { z } from "zod";
 export const uid = () => crypto.randomUUID();
 export const Id = z
@@ -51,9 +63,11 @@ export const NodeSchema = z
     locked: z.boolean().default(false),
     clip: z.boolean().default(true),
     text: z.string().max(20000).default("Text"),
-    fontFamily: z.enum(["Inter"]).default("Inter"),
+    fontFamily: FontFamily.default("Inter"),
+    fontId: Id.nullable().default(null),
+    fontStyle: FontStyle.default("normal"),
     fontSize: z.number().min(1).max(2000).default(32),
-    fontWeight: z.enum(["400", "600", "700"]).default("400"),
+    fontWeight: FontWeight.default("400"),
     lineHeight: z.number().min(0.5).max(5).default(1.3),
     letterSpacing: z.number().min(-100).max(500).default(0),
     textAlign: z.enum(["left", "center", "right"]).default("left"),
@@ -96,26 +110,28 @@ export const AssetSchema = z
 export type DesignAsset = z.infer<typeof AssetSchema>;
 export const DocumentSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     id: Id,
     revision: z.number().int().min(0),
     name: z.string().min(1).max(200),
     pages: z.array(PageSchema).min(1).max(100),
     nodes: z.array(NodeSchema).max(4000),
     assets: z.array(AssetSchema).max(100),
+    fonts: DocumentFonts,
   })
   .strict();
 export type DesignDocument = z.infer<typeof DocumentSchema>;
 export type Viewport = { x: number; y: number; zoom: number };
 export function blankDocument(name = "Untitled design"): DesignDocument {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: uid(),
     revision: 0,
     name,
     pages: [{ id: uid(), name: "Page 1", background: "#202020" }],
     nodes: [],
     assets: [],
+    fonts: [],
   };
 }
 export function makeNode(
@@ -156,15 +172,46 @@ export function requireThat(
   if (!condition) throw new DesignError(code, message);
 }
 export function validateDocument(input: unknown): DesignDocument {
-  const d = DocumentSchema.parse(input);
+  const raw = input as { schemaVersion?: number } | null;
+  const d = DocumentSchema.parse(
+    raw?.schemaVersion === 1 ? { ...raw, schemaVersion: 2 } : input,
+  );
   const ids = new Set<string>();
-  for (const item of [...d.pages, ...d.nodes, ...d.assets]) {
+  for (const item of [...d.pages, ...d.nodes, ...d.assets, ...d.fonts]) {
     requireThat(!ids.has(item.id), "DUPLICATE_ID", `Duplicate ID: ${item.id}`);
     ids.add(item.id);
   }
   const pageIds = new Set(d.pages.map((p) => p.id));
   const nodes = new Map(d.nodes.map((n) => [n.id, n]));
   const assets = new Map(d.assets.map((a) => [a.id, a]));
+  let fontBytes = 0;
+  let bundledBytes = 0;
+  for (const font of d.fonts) {
+    const size = font.files.reduce(
+      (sum, f) =>
+        sum +
+        Math.floor((f.data.length * 3) / 4) -
+        (f.data.endsWith("==") ? 2 : f.data.endsWith("=") ? 1 : 0),
+      0,
+    );
+    if (font.source === "bundled") bundledBytes += size;
+    else fontBytes += size;
+  }
+  requireThat(
+    fontBytes <= MAX_FONT_BYTES &&
+      d.fonts.filter((f) => f.source === "local").length <= 48 &&
+      bundledBytes +
+        new TextEncoder().encode(
+          JSON.stringify(
+            d.fonts.filter((f) => f.source === "bundled").map(portableFont),
+          ),
+        ).length <=
+        FONT_ARCHIVE_RESERVE &&
+      d.fonts.filter((f) => f.source === "bundled").length <= 18,
+    "FONT_LIMIT",
+    "Document fonts exceed 48 local faces / 12 MB or the 1 MB bundled-font reserve. Use smaller static font files.",
+  );
+  d.fonts.forEach(validateFontRecord);
   requireThat(
     d.assets.reduce((s, a) => s + a.data.length, 0) < 64_000_000,
     "SIZE_LIMIT",
@@ -215,6 +262,7 @@ export function validateDocument(input: unknown): DesignDocument {
       ...a,
       data: `assets/${a.id}.${a.mime.split("/")[1]}`,
     })),
+    fonts: d.fonts.filter((f) => f.source !== "bundled").map(portableFont),
   };
   const documentBytes = new TextEncoder().encode(
     JSON.stringify(portable),
@@ -233,9 +281,9 @@ export function validateDocument(input: unknown): DesignDocument {
     "Design metadata exceeds the 24 MB editable-file limit. Split this work across local documents.",
   );
   requireThat(
-    documentBytes + assetBytes <= MAX_PORTABLE_BYTES,
+    documentBytes + assetBytes + fontBytes <= MAX_PORTABLE_BYTES,
     "SIZE_LIMIT",
-    "Design content exceeds the 30 MB portable-file budget. Use smaller images or split pages into separate documents.",
+    "Design content exceeds the 30 MB portable-file budget. Use smaller images/fonts or split pages into separate documents.",
   );
   return d;
 }

@@ -8,19 +8,24 @@ import {
   validateDocument,
   type DesignDocument,
 } from "../core/model";
-import { base64, fontBytes, fonts } from "../render/fonts";
+import { base64, exportFonts, fontsReady } from "../render/fonts";
+import { unbase64 } from "../fonts/data";
 export { MAX_FILE_BYTES, MAX_EXPANDED_BYTES } from "../core/limits";
 import {
   MAX_FILE_BYTES,
   MAX_EXPANDED_BYTES,
   MAX_DOCUMENT_BYTES,
+  MAX_FONT_FILE_BYTES,
   FONT_ARCHIVE_RESERVE,
 } from "../core/limits";
 import { validateRasterAssets } from "./raster";
 export async function nativeExport(doc: DesignDocument): Promise<Blob> {
   validateDocument(doc);
   await validateRasterAssets(doc.assets);
+  await fontsReady(doc);
   const portable = structuredClone(doc);
+  portable.fonts = structuredClone(exportFonts(doc));
+  validateDocument(portable);
   const files: Record<string, Uint8Array> = {};
   for (const a of portable.assets) {
     const path = `assets/${a.id}.${a.mime.split("/")[1]}`;
@@ -29,18 +34,17 @@ export async function nativeExport(doc: DesignDocument): Promise<Blob> {
     );
     a.data = path;
   }
-  const bytes = await fontBytes();
-  requireThat(
-    bytes.reduce((s, b) => s + b.length, 0) < FONT_ARCHIVE_RESERVE,
-    "SIZE_LIMIT",
-    "Bundled font budget exceeded.",
-  );
-  for (let i = 0; i < fonts.length; i++)
-    files[`fonts/inter-${fonts[i].subset}-${fonts[i].weight}.woff2`] = bytes[i];
+  for (const font of portable.fonts)
+    for (const [i, file] of font.files.entries()) {
+      const path = `fonts/${font.id}-${i}.${file.format}`;
+      files[path] = unbase64(file.data);
+      file.data = path;
+    }
+  const bundled = portable.fonts.filter((f) => f.source === "bundled");
+  portable.fonts = portable.fonts.filter((f) => f.source !== "bundled");
+  if (bundled.length)
+    files["fonts/catalog.json"] = strToU8(JSON.stringify(bundled));
   files["document.json"] = strToU8(JSON.stringify(portable));
-  files["fonts/OFL.txt"] = strToU8(
-    await (await fetch(`${import.meta.env.BASE_URL}fonts-OFL.txt`)).text(),
-  );
   const archive = zipSync(files, { level: 6 });
   requireThat(
     archive.length <= MAX_FILE_BYTES,
@@ -72,7 +76,7 @@ export function nativeImport(
           Number.isFinite(entry.originalSize) &&
             entry.originalSize >= 0 &&
             total <= MAX_EXPANDED_BYTES &&
-            count <= 220,
+            count <= 300,
           "ARCHIVE_LIMIT",
           "Archive expands beyond 80 MB or has too many entries.",
         );
@@ -112,10 +116,32 @@ export function nativeImport(
   );
   const d = raw as DesignDocument;
   requireThat(
-    d.schemaVersion === 1,
+    [1, 2].includes(d.schemaVersion),
     "UNSUPPORTED_VERSION",
     "This file needs a different version of LocalDesign.",
   );
+  if (d.schemaVersion === 2 && files["fonts/catalog.json"]) {
+    requireThat(
+      files["fonts/catalog.json"].length <= FONT_ARCHIVE_RESERVE,
+      "FONT_LIMIT",
+      "Bundled font catalog is too large.",
+    );
+    let catalog: unknown;
+    try {
+      catalog = JSON.parse(strFromU8(files["fonts/catalog.json"]));
+    } catch {
+      throw new DesignError("INVALID_FONT", "Invalid bundled font catalog.");
+    }
+    requireThat(
+      Array.isArray(catalog) &&
+        catalog.length <= 18 &&
+        catalog.every((f) => f?.source === "bundled") &&
+        (d.fonts === undefined || Array.isArray(d.fonts)),
+      "INVALID_FONT",
+      "Invalid bundled font catalog.",
+    );
+    d.fonts = [...(d.fonts ?? []), ...catalog];
+  }
   requireThat(
     Array.isArray(d.assets) && d.assets.length <= 100,
     "INVALID_ASSETS",
@@ -137,6 +163,39 @@ export function nativeImport(
       "Image bytes do not match their declared MIME.",
     );
     a.data = `data:${a.mime};base64,${base64(data)}`;
+  }
+  requireThat(
+    d.fonts === undefined || (Array.isArray(d.fonts) && d.fonts.length <= 66),
+    "INVALID_FONT",
+    "Invalid font catalog.",
+  );
+  for (const font of d.fonts ?? []) {
+    requireThat(
+      font &&
+        typeof font.id === "string" &&
+        /^[\w-]{1,100}$/.test(font.id) &&
+        Array.isArray(font.files) &&
+        font.files.length >= 1 &&
+        font.files.length <= 3,
+      "INVALID_FONT",
+      "Invalid font record.",
+    );
+    for (const [i, file] of font.files.entries()) {
+      requireThat(
+        file &&
+          ["ttf", "otf", "woff", "woff2"].includes(file.format) &&
+          file.data === `fonts/${font.id}-${i}.${file.format}`,
+        "INVALID_FONT",
+        "Font must reference its own archive entry.",
+      );
+      const data = files[file.data];
+      requireThat(
+        data && data.length <= MAX_FONT_FILE_BYTES,
+        "INVALID_FONT",
+        "Missing or oversized embedded font.",
+      );
+      file.data = base64(data);
+    }
   }
   const result = validateDocument(d);
   if (!preserveIdentity) {
