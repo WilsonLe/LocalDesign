@@ -445,18 +445,21 @@ kbd {
   opacity: 1;
 }
 .layers-empty {
-  padding: 34px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
   text-align: center;
   color: #737373;
 }
 .layers-empty svg {
   color: #e5e5e5;
-  margin-bottom: 12px;
+  flex-shrink: 0;
 }
 .layers-empty p {
   font-size: 11px;
   color: #737373;
-  margin-bottom: 7px;
 }
 .layers-empty span {
   font-size: 10px;
