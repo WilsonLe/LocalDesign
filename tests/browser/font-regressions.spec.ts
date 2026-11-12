@@ -417,6 +417,75 @@ test("family and selected-type previews use the document's glyphs and subset pre
   );
 });
 
+test("native font collection preserves fallback priority independently of first text use", async ({
+  page,
+}) => {
+  await harness(page);
+  await open(page);
+  const d = await inspect(page);
+  await edits(page, [
+    {
+      op: "create",
+      node: {
+        id: "weight-frame",
+        name: "Fallback weight",
+        type: "frame",
+        pageId: d.pageId,
+        width: 620,
+        height: 260,
+        fill: "#ffffff",
+      },
+    },
+    ...["600", "500"].map((fontWeight, i) => ({
+      op: "create",
+      node: {
+        id: `weight-${fontWeight}`,
+        name: `Requested ${fontWeight}`,
+        type: "text",
+        pageId: d.pageId,
+        parentId: "weight-frame",
+        fontFamily: "Inter",
+        fontWeight,
+        fontSize: 72,
+        text: "AVATAR",
+        x: 20,
+        y: 10 + i * 120,
+        width: 580,
+        height: 100,
+        fill: "#111111",
+      },
+    })),
+  ]);
+  const before = await inspect(page),
+    png = await exported(page, "png", ["weight-frame"]),
+    native = await exported(page, "native", ["weight-frame"]);
+  expect(
+    before.textMetrics.find((m: any) => m.id === "weight-500").fontId,
+  ).toBe("bundle-inter-400-normal");
+  const prepared = await tool(page, "import_files", {
+    action: "prepare",
+    name: "weight-priority.localdesign",
+    base64: native.toString("base64"),
+  });
+  expect(prepared.isError, prepared.message).not.toBe(true);
+  const reopened = await tool(page, "import_files", {
+    action: "commit",
+    artifactId: prepared.importId,
+    guard: {
+      expectedDocumentId: before.documentId,
+      expectedRevision: before.revision,
+      requestId: crypto.randomUUID(),
+    },
+  });
+  expect(reopened.isError, reopened.message).not.toBe(true);
+  const after = await inspect(page);
+  expect(after.nodes).toEqual(before.nodes);
+  expect(after.textMetrics).toEqual(before.textMetrics);
+  expect((await exported(page, "png", ["weight-frame"])).equals(png)).toBe(
+    true,
+  );
+});
+
 test("tight Vietnamese wrapping keeps NFC and NFD graphemes together without rewriting text", async ({
   page,
 }) => {

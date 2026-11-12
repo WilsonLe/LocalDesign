@@ -263,7 +263,10 @@ export function exportFonts(doc: DesignDocument) {
     );
     records.set(resolved.id, resolved.record);
   }
-  return [...records.values()];
+  return availableFonts(doc).flatMap(({ id }) => {
+    const record = records.get(id);
+    return record ? [record] : [];
+  });
 }
 export function fontWarnings(doc: DesignDocument) {
   return doc.nodes
