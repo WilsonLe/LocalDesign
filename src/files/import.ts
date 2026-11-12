@@ -8,6 +8,7 @@ import {
 import { base64, fontsReady, fontWarnings } from "../render/fonts";
 import { imageMime, MAX_FILE_BYTES, nativeImport } from "./native";
 import { validateRasterAssets } from "./raster";
+import { MAX_RASTER_PIXELS } from "../core/limits";
 import { svgImport } from "./svg";
 export async function importFile(file: File) {
   requireThat(
@@ -43,7 +44,7 @@ export async function importFile(file: File) {
     requireThat(
       image.width > 0 &&
         image.height > 0 &&
-        image.width * image.height <= 40_000_000,
+        image.width * image.height <= MAX_RASTER_PIXELS,
       "IMAGE_LIMIT",
       "Images must be smaller than 40 million pixels.",
     );

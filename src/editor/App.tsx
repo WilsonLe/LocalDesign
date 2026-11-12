@@ -47,7 +47,7 @@ import { bounds } from "../core/geometry";
 import { Workspace } from "../storage/workspace";
 import { importFile } from "../files/import";
 import { nativeExport } from "../files/native";
-import { pngExport, svgExport } from "../files/export";
+import { rasterExport, svgExport } from "../files/export";
 import { Artifacts } from "../files/artifacts";
 import { fontsReady } from "../render/fonts";
 import { connectWebMCP } from "../webmcp/register";
@@ -59,6 +59,7 @@ import { copySelection, pasteSelection } from "./clipboard";
 import { blocksCanvasShortcuts } from "./shortcuts";
 import { WorkspaceList } from "./WorkspaceList";
 import { DesignResources } from "./DesignResources";
+import { ExportPanel, type ExportRequest } from "./ExportPanel";
 import {
   WorkspaceNavigation,
   readWorkspaceRoute,
@@ -433,39 +434,49 @@ export function App() {
       setBusy(false);
     }
   };
-  const exportFile = async (
-    format: "native" | "svg" | "png",
-    selected = false,
-  ) => {
+  const exportFile = async ({
+    format,
+    ids,
+    options,
+    frameIds,
+  }: ExportRequest) => {
     setBusy(true);
     try {
       if (!workspace.active)
         throw new Error("Open a workspace before exporting.");
       const d = engine.document,
-        id = d.id,
-        blob =
-          format === "native"
-            ? await nativeExport(d)
-            : format === "svg"
-              ? await svgExport(
+        id = d.id;
+      const pdf =
+        format === "pdf"
+          ? await (
+              await import("../files/pdf")
+            ).pdfExport(d, engine.pageId, ids, options, frameIds)
+          : null;
+      const blob =
+        format === "native"
+          ? await nativeExport(d)
+          : format === "svg"
+            ? await svgExport(d, engine.pageId, ids, options)
+            : format === "pdf"
+              ? pdf!.blob
+              : await rasterExport(
                   d,
                   engine.pageId,
-                  selected ? engine.selection : undefined,
-                )
-              : await pngExport(
-                  d,
-                  engine.pageId,
-                  selected ? engine.selection : undefined,
+                  format === "jpeg" ? "jpeg" : "png",
+                  ids,
+                  options,
                 );
       if (id !== engine.document.id)
         throw new Error("Document changed during export. Export again.");
       const a = artifacts.add(
         blob,
-        `${d.name.replace(/[^\w -]/g, "_")}.${format === "native" ? "localdesign" : format}`,
+        `${d.name.replace(/[^\w -]/g, "_")}.${format === "native" ? "localdesign" : format === "jpeg" ? "jpg" : format}`,
         d.revision,
       );
       artifacts.download(a.id);
-      setNotice(`Exported ${a.name}.`);
+      setNotice(
+        `Exported ${a.name}.${pdf?.warnings.length ? ` ${pdf.warnings.join(" ")}` : ""}`,
+      );
       setModal(null);
     } catch (e) {
       report(e);
@@ -822,40 +833,13 @@ export function App() {
       />
       {editing && modal === "export" && (
         <Modal title="Take your design with you" onClose={() => setModal(null)}>
-          <Button
-            className="export-option"
-            disabled={busy}
-            onClick={() => exportFile("native")}
-          >
-            <div className="file-type">LD</div>
-            <div>
-              <strong>LocalDesign file</strong>
-            </div>
-            <ArrowDownToLine size={16} />
-          </Button>
-          <div className="export-scope">
-            <span>
-              {selection.length
-                ? `${selection.length} layers selected`
-                : "Current page"}
-            </span>
-          </div>
-          <div className="button-row">
-            <Button
-              className="export-format"
-              disabled={busy}
-              onClick={() => exportFile("svg", selection.length > 0)}
-            >
-              <strong>SVG</strong>
-            </Button>
-            <Button
-              className="export-format"
-              disabled={busy}
-              onClick={() => exportFile("png", selection.length > 0)}
-            >
-              <strong>PNG</strong>
-            </Button>
-          </div>
+          <ExportPanel
+            document={doc}
+            pageId={snapshot.pageId}
+            selection={selection}
+            busy={busy}
+            onExport={(request) => void exportFile(request)}
+          />
         </Modal>
       )}
       {editing && modal === "resources" && (

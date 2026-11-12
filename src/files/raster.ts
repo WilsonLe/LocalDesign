@@ -1,4 +1,5 @@
 import { imageMime } from "./image-type";
+import { MAX_RASTER_PIXELS } from "../core/limits";
 import { DesignError, requireThat, type DesignAsset } from "../core/model";
 export async function decodeRaster(
   data: string,
@@ -16,7 +17,7 @@ export async function decodeRaster(
   requireThat(
     image.naturalWidth > 0 &&
       image.naturalHeight > 0 &&
-      image.naturalWidth * image.naturalHeight <= 40_000_000,
+      image.naturalWidth * image.naturalHeight <= MAX_RASTER_PIXELS,
     "IMAGE_LIMIT",
     "Images must be smaller than 40 million pixels.",
   );

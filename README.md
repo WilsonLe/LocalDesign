@@ -1,6 +1,6 @@
 # LocalDesign
 
-A browser-local design editor for people and external agents, using LocalCut’s shadcn/Base UI components, neutral theme and monochrome line-art branding. Draw on a canvas, organize layers, edit typography and layout, and export an editable `.localdesign` file, SVG or PNG. No account, backend, model provider or runtime credentials.
+A browser-local design editor for people and external agents, using LocalCut’s shadcn/Base UI components, neutral theme and monochrome line-art branding. Draw on a canvas, organize layers, edit typography and layout, and export an editable `.localdesign` file, SVG, PNG, JPEG or PDF. No account, backend, model provider or runtime credentials.
 
 **Try it:** https://wilsonle.github.io/LocalDesign/
 
@@ -15,6 +15,8 @@ Start a new design with a blank dotted canvas. Choose Frame (F), Rectangle (R), 
 Space-drag or Hand (H) pans; ⌘/Ctrl-scroll zooms. `1` fits the page, `2` fits selection, `0` resets zoom. ⌘/Ctrl Z undoes; Shift Z redoes; D duplicates; G groups (Shift G ungroups); C/X/V copies/cuts/pastes; arrows nudge (Shift moves 10 px). Input fields keep their own normal typing/shortcuts. Pages and Layers scroll independently, keeping layer search and navigation reachable in documents with many pages. Narrow screens expose Pages & layers and Properties drawers. Help lists shortcuts and the complete bundled guides.
 
 The workspace list opens/creates/manages browser-local documents, including deleting a closed workspace. IndexedDB saves working copies; storage errors expose retry, save-a-copy and portable backup actions. Export `.localdesign` to keep a backup or move to another device. Native/SVG/raster imports validate before opening as a separate local document, preserving the old working copy. Use Image to add a raster asset to the current design. Unsupported SVG constructs reject with an error; use a flattened PNG where appropriate.
+
+Export options control scale, background and JPEG quality. Selected layers export in isolation by default; Include surrounding artwork crops the original composition around them, retaining overlaps and ancestor clips. JPEG composites transparency on white. PDF can contain 1–100 explicitly ordered frames from any document page. Ordinary PDF pages retain vector outlines; pages with group opacity use the shared PNG renderer at the chosen scale and report a warning to preserve exact compositing. Outputs are limited to 16,384 pixels per axis and raster output to 40 million pixels. Native export always keeps the complete editable document.
 
 Design resources holds named guidelines, decisions and pinned selection snapshots, page ordering/moves, and typed design tokens with aliases, property bindings and themes. These remain browser-local and travel in the native file. Directly editing a bound property detaches that binding; deleting a used token requires an explicit detach action.
 

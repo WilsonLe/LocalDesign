@@ -1219,6 +1219,25 @@ kbd {
   border-bottom: 1px solid var(--border);
   padding-bottom: 10px;
 }
+.export-settings {
+  margin: 12px 0 18px;
+}
+.export-settings summary {
+  cursor: pointer;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.export-settings .export-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.export-settings .export-check input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  min-height: 0;
+}
 .resource-tabs [aria-selected="true"] {
   background: var(--secondary);
   color: var(--foreground);

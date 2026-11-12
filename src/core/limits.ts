@@ -11,6 +11,11 @@ export const MAX_EXPANDED_BYTES = 256_000_000;
 export const MAX_DOCUMENT_BYTES = 64_000_000;
 export const MAX_PORTABLE_BYTES = 120_000_000;
 export const MAX_FILE_BASE64_CHARS = Math.ceil(MAX_FILE_BYTES / 3) * 4;
+export const MAX_RASTER_DATA_CHARS = 28_000_000;
+export const MAX_RASTER_PIXELS = 40_000_000;
+export const MAX_EXPORT_AXIS = 16_384;
+export const MAX_EXPORT_SCALE = 4;
+export const MAX_PDF_PAGES = 100;
 export const MAX_ASSET_DATA_CHARS =
   Math.ceil(MAX_PORTABLE_BYTES / 3) * 4 + MAX_ASSETS * 64;
 export const MAX_CLIPBOARD_CHARS = MAX_DOCUMENT_BYTES + MAX_ASSET_DATA_CHARS;

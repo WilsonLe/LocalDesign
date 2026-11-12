@@ -7,6 +7,11 @@ import {
   MAX_FILE_BYTES,
   MAX_EXPANDED_BYTES,
   MAX_FILE_BASE64_CHARS,
+  MAX_RASTER_DATA_CHARS,
+  MAX_RASTER_PIXELS,
+  MAX_EXPORT_AXIS,
+  MAX_EXPORT_SCALE,
+  MAX_PDF_PAGES,
   MAX_TOKENS,
   MAX_TOKEN_THEMES,
   MAX_GUIDELINES,
@@ -15,6 +20,8 @@ import {
 } from "../core/limits";
 import { validateRasterAssets } from "../files/raster";
 import { z } from "zod";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { EditSchema, GuardSchema, CommandSchema } from "../core/commands";
 import {
   assertNotAborted,
@@ -23,6 +30,8 @@ import {
   requireThat,
   type DesignDocument,
   NodeSchema,
+  Paint,
+  makeNode,
 } from "../core/model";
 import { inspectNodes } from "../core/inspection";
 import { tokenResolver } from "../core/tokens";
@@ -43,8 +52,15 @@ import {
 } from "../core/limits";
 import { measureText } from "../render/text";
 import { importFile } from "../files/import";
-import { nativeExport } from "../files/native";
-import { pngExport, svgExport } from "../files/export";
+import { imageMime, nativeExport } from "../files/native";
+import {
+  pngExport,
+  svgExport,
+  rasterExport,
+  exportBounds,
+  exportDimensions,
+} from "../files/export";
+import { base64 as encodeBase64 } from "../render/fonts";
 import { Artifacts } from "../files/artifacts";
 import { bundleVersion, getSkill, listSkills } from "../skills/catalog";
 export type SiteTool = {
@@ -78,6 +94,9 @@ export const actionParity = {
   "workspace/create/open/close/list/delete/save_copy": "localdesign_workspace",
   "import/image files": "localdesign_import_files",
   "native/SVG/PNG/preview": "localdesign_export_design + localdesign_artifact",
+  "JPEG/PDF/scale/composition crop": "localdesign_export_design",
+  "rendered image response": "localdesign_preview",
+  "local raster asset ingress": "localdesign_import_asset",
   "fonts/metrics": "localdesign_catalog + localdesign_inspect_document",
   "font files/assignment/replacement":
     "localdesign_import_font + localdesign_apply_edits:font_add,update (fontFamily,fontWeight,fontStyle,fontId)",
@@ -510,7 +529,15 @@ export function createTools(
       fonts: fontCatalog(engine.document),
       fontLimitations,
       actionParity,
-      features: { documentContext: true, tokens: true, tokenThemes: true },
+      features: {
+        documentContext: true,
+        tokens: true,
+        tokenThemes: true,
+        imagePreview: true,
+        localRasterIngress: true,
+        exportFormats: ["native", "svg", "png", "jpeg", "pdf"],
+        compositionCrop: true,
+      },
       limits: {
         nodes: MAX_NODES,
         tokens: MAX_TOKENS,
@@ -520,6 +547,11 @@ export function createTools(
         references: MAX_REFERENCES,
         pages: MAX_PAGES,
         assets: MAX_ASSETS,
+        rasterDataChars: MAX_RASTER_DATA_CHARS,
+        rasterPixels: MAX_RASTER_PIXELS,
+        exportAxis: MAX_EXPORT_AXIS,
+        exportScale: MAX_EXPORT_SCALE,
+        pdfPages: MAX_PDF_PAGES,
         commandsPerBatch: 500,
         receiptRetention: 256,
         history: 100,
@@ -814,18 +846,166 @@ export function createTools(
   const pending = new Map<string, DesignDocument>(),
     importReceipts = shared.importReceipts;
   add(
-    "export_design",
-    "Export the current page/selection as SVG/PNG, a PNG preview, or the complete editable .localdesign archive. Returns a local artifact with metadata; use artifact read/download/release. Bundled licensed fonts/assets are embedded. No upload. PNG up to 40 million pixels; SVG up to 16384 on each axis.",
+    "import_asset",
+    "Validate supplied PNG/JPEG/WebP bytes and add a browser-local asset, optionally placing an image layer on an explicit page in the same guarded transaction. No host paths, URLs or uploads. Returns stable asset/node IDs. Use place with pageId to keep ingestion and placement in one history step and identical retries independent of the current view.",
+    GuardSchema.extend({
+      name: z.string().min(1).max(200),
+      base64: z
+        .string()
+        .max(MAX_RASTER_DATA_CHARS - 64)
+        .regex(/^[A-Za-z0-9+/]+={0,2}$/),
+      place: z
+        .object({
+          pageId: Id,
+          x: NodeSchema.shape.x.removeDefault(),
+          y: NodeSchema.shape.y.removeDefault(),
+          width: NodeSchema.shape.width.removeDefault().optional(),
+          height: NodeSchema.shape.height.removeDefault().optional(),
+          parentId: Id.nullable().optional(),
+        })
+        .strict()
+        .optional(),
+    }).strict(),
+    false,
+    async (input, signal) => {
+      const current = engine.document;
+      const bytes = Uint8Array.from(atob(input.base64), (c) => c.charCodeAt(0));
+      const mime = imageMime(bytes);
+      requireThat(
+        mime,
+        "RASTER_REQUIRED",
+        "Supply one PNG, JPEG or WebP image.",
+      );
+      const imported = await importFile(
+        new File([bytes], `${input.name}.${mime.split("/")[1]}`),
+      );
+      requireThat(
+        imported.document.assets.length === 1 &&
+          imported.document.nodes.length === 1 &&
+          imported.document.nodes[0].type === "image",
+        "RASTER_REQUIRED",
+        "Supply one PNG, JPEG or WebP image.",
+      );
+      const asset = imported.document.assets[0];
+      asset.name = input.name;
+      const identity = bytesToHex(
+        sha256(
+          new TextEncoder().encode(
+            `${input.expectedDocumentId}:${input.requestId}`,
+          ),
+        ),
+      ).slice(0, 40);
+      asset.id = `asset-${identity}`;
+      const node = input.place
+        ? makeNode("image", input.place.pageId, {
+            ...input.place,
+            id: `image-${identity}`,
+            name: input.name,
+            assetId: asset.id,
+            width: input.place.width ?? asset.width,
+            height: input.place.height ?? asset.height,
+          })
+        : null;
+      assertNotAborted(signal);
+      requireThat(
+        !shared.workspaceBusy && current.id === engine.document.id,
+        "STALE_REVISION",
+        "Workspace changed while decoding the asset.",
+      );
+      const receipt = engine.edit({
+        expectedDocumentId: input.expectedDocumentId,
+        expectedRevision: input.expectedRevision,
+        requestId: input.requestId,
+        commands: [
+          { op: "asset_add", asset },
+          ...(node ? [{ op: "create" as const, node }] : []),
+        ],
+      });
+      return {
+        ...receipt,
+        asset: {
+          id: asset.id,
+          name: asset.name,
+          mime: asset.mime,
+          width: asset.width,
+          height: asset.height,
+        },
+        nodeId: node?.id ?? null,
+      };
+    },
+  );
+  add(
+    "preview",
+    "Render a page or selected IDs through the shared scene renderer as a bounded PNG image content block, with an expiring local artifact fallback. maxDimension is at most 1024. Inspect the returned image with the host image capability; metadata alone is not a visual review. This read never changes view, selection or document history.",
     z
       .object({
-        format: z.enum(["native", "svg", "png", "preview"]),
         ids: z.array(Id).max(MAX_NODES).optional(),
+        mode: z.enum(["isolated", "composition"]).default("isolated"),
+        maxDimension: z.number().int().min(64).max(1024).default(768),
       })
       .strict(),
     true,
     async (input, signal) => {
       const doc = engine.document,
         page = engine.pageId;
+      await fontsReady(doc);
+      assertNotAborted(signal);
+      const box = exportBounds(doc, page, input.ids),
+        scale = Math.min(
+          1,
+          input.maxDimension / box.width,
+          input.maxDimension / box.height,
+        );
+      const blob = await pngExport(doc, page, input.ids, {
+        scale,
+        composition: input.mode === "composition",
+      });
+      const data = encodeBase64(new Uint8Array(await blob.arrayBuffer()));
+      assertNotAborted(signal);
+      requireThat(
+        doc.id === engine.document.id,
+        "DISPOSED",
+        "Document changed during preview.",
+      );
+      return {
+        documentId: doc.id,
+        revision: doc.revision,
+        artifact: artifacts.add(blob, `${doc.name}.preview.png`, doc.revision),
+        ...exportDimensions(box, scale),
+        fontWarnings: fontWarnings(doc).slice(0, 100),
+        content: [{ type: "image", mimeType: "image/png", data }],
+      };
+    },
+  );
+  add(
+    "export_design",
+    "Export local native/SVG/PNG/JPEG/PDF output. scale controls output size; mode composition crops the original rendered scene around ids, isolated exports only selected branches. background is optional; JPEG composites transparency on white. PDF frameIds creates 1–100 ordered frame pages, including other document pages. Native always preserves the complete editable document. Returns an expiring local artifact; no upload. Raster: 40 million pixels; output axes at most 16384.",
+    z
+      .object({
+        format: z.enum(["native", "svg", "png", "preview", "jpeg", "pdf"]),
+        ids: z.array(Id).max(MAX_NODES).optional(),
+        frameIds: z.array(Id).min(1).max(MAX_PDF_PAGES).optional(),
+        scale: z.number().min(0.01).max(MAX_EXPORT_SCALE).default(1),
+        mode: z.enum(["isolated", "composition"]).default("isolated"),
+        background: Paint.optional(),
+        quality: z.number().min(0.1).max(1).default(0.92),
+      })
+      .strict(),
+    true,
+    async (input, signal) => {
+      const doc = engine.document,
+        page = engine.pageId;
+      requireThat(
+        !input.frameIds || input.format === "pdf",
+        "INVALID_EXPORT",
+        "frameIds is only supported for PDF.",
+      );
+      const options = {
+        scale: input.scale,
+        composition: input.mode === "composition",
+        background: input.background,
+        quality: input.quality,
+      };
       requireThat(
         !input.ids ||
           input.ids.every((id) =>
@@ -834,12 +1014,26 @@ export function createTools(
         "MISSING_NODE",
         "Export IDs must exist on the current page.",
       );
+      const pdf =
+        input.format === "pdf"
+          ? await (
+              await import("../files/pdf")
+            ).pdfExport(doc, page, input.ids, options, input.frameIds)
+          : null;
       const blob =
         input.format === "native"
           ? await nativeExport(doc)
           : input.format === "svg"
-            ? await svgExport(doc, page, input.ids)
-            : await pngExport(doc, page, input.ids);
+            ? await svgExport(doc, page, input.ids, options)
+            : input.format === "pdf"
+              ? pdf!.blob
+              : await rasterExport(
+                  doc,
+                  page,
+                  input.format === "jpeg" ? "jpeg" : "png",
+                  input.ids,
+                  options,
+                );
       requireThat(
         !signal.aborted && doc.id === engine.document.id,
         "DISPOSED",
@@ -848,11 +1042,12 @@ export function createTools(
       return {
         ...artifacts.add(
           blob,
-          `${doc.name.replace(/[^\w -]/g, "_")}.${input.format === "native" ? "localdesign" : input.format === "svg" ? "svg" : "png"}`,
+          `${doc.name.replace(/[^\w -]/g, "_")}.${input.format === "native" ? "localdesign" : input.format === "svg" ? "svg" : input.format === "pdf" ? "pdf" : input.format === "jpeg" ? "jpg" : "png"}`,
           doc.revision,
         ),
         fontWarnings: fontWarnings(doc).slice(0, 100),
         fontWarningCount: fontWarnings(doc).length,
+        warnings: pdf?.warnings ?? [],
       };
     },
   );

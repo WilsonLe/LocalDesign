@@ -45,3 +45,7 @@ Fontkit 3.0.0 by Devon Govett, MIT (https://github.com/foliojs/fontkit); static 
 ## Fast bundled-font shaping
 
 harfbuzzjs 1.6.4 (https://github.com/harfbuzz/harfbuzzjs), MIT, packages the HarfBuzz WASM shaping engine. Full notices ship in public/harfbuzzjs-LICENSE.txt and public/harfbuzz-LICENSE.txt. It operates locally on the existing validated bundled font bytes; Fontkit retains outline parsing and the fallback shaping path.
+
+## Local vector PDF export
+
+jsPDF 4.2.1 (https://github.com/parallax/jsPDF) and svg2pdf.js 2.9.0 (https://github.com/yWorks/svg2pdf.js), MIT, convert LocalDesign's own outlined SVG into local PDF pages. They are loaded only for PDF output; design content is not sent to a service. Font outlines and scene geometry still come from the shared renderer. Full notices ship in public/jspdf-LICENSE.txt and public/svg2pdf-LICENSE.txt; transitive packages retain their packaged notices.

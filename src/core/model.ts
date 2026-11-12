@@ -6,6 +6,7 @@ import {
   MAX_PAGES,
   MAX_ASSETS,
   MAX_ASSET_DATA_CHARS,
+  MAX_RASTER_DATA_CHARS,
   MAX_FONT_BYTES,
   FONT_ARCHIVE_RESERVE,
   MAX_GUIDELINES,
@@ -131,7 +132,7 @@ export const AssetSchema = z
     mime: z.enum(["image/png", "image/jpeg", "image/webp"]),
     data: z
       .string()
-      .max(28_000_000)
+      .max(MAX_RASTER_DATA_CHARS)
       .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/),
     width: dimension,
     height: dimension,
