@@ -27,3 +27,5 @@ File import accepts selected files or bounded supplied base64, never host paths/
 Artifacts expire after 15 minutes, document switch or page close; maximum 12 retained. Release them when done. PNG preview uses the same renderer as export. Text metrics flag overflow and unsupported-script fallback. Bundled Inter is 400/600/700 Latin, Latin extended and Vietnamese; custom fonts and complex-script fidelity are not supported in v0.1.
 
 Verification evidence distinguishes controlled modelContext contract tests, actual desktop built-in-browser discovery/execution, local preview checks, hosted CI and live Pages runtime. See [verification](verification.md).
+
+The catalog reports the same centralized resource ceilings used by the document, native import, selection/export and command schemas: 100,000 nodes, 1,000 pages, 10,000 assets, 64 MB metadata, 120 MB portable content, 128 MB compressed imports and 256 MB archive expansion. These resource ceilings do not require splitting a supported project across workspace entries. Import preparation is still validated before replacement, including archive path/signature/image checks.

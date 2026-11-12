@@ -1,4 +1,13 @@
-import { MAX_DOCUMENT_BYTES, MAX_PORTABLE_BYTES } from "../core/limits";
+import {
+  MAX_DOCUMENT_BYTES,
+  MAX_PORTABLE_BYTES,
+  MAX_NODES,
+  MAX_PAGES,
+  MAX_ASSETS,
+  MAX_FILE_BYTES,
+  MAX_EXPANDED_BYTES,
+  MAX_FILE_BASE64_CHARS,
+} from "../core/limits";
 import { validateRasterAssets } from "../files/raster";
 import { z } from "zod";
 import { EditSchema, GuardSchema, CommandSchema } from "../core/commands";
@@ -291,15 +300,16 @@ export function createTools(
       fonts: [fontCatalog],
       actionParity,
       limits: {
-        nodes: 4000,
-        pages: 100,
+        nodes: MAX_NODES,
+        pages: MAX_PAGES,
+        assets: MAX_ASSETS,
         commandsPerBatch: 500,
         receiptRetention: 256,
         history: 100,
-        importBytes: 32_000_000,
+        importBytes: MAX_FILE_BYTES,
         documentMetadataBytes: MAX_DOCUMENT_BYTES,
         portableContentBytes: MAX_PORTABLE_BYTES,
-        archiveExpandedBytes: 80_000_000,
+        archiveExpandedBytes: MAX_EXPANDED_BYTES,
         skillResponseBytes: 48000,
       },
       unsupported: [
@@ -353,7 +363,10 @@ export function createTools(
     "selection",
     "Read or set shared selected node IDs and active page. No history/revision change. Omit ids to read; [] clears selection.",
     z
-      .object({ ids: z.array(Id).max(4000).optional(), pageId: Id.optional() })
+      .object({
+        ids: z.array(Id).max(MAX_NODES).optional(),
+        pageId: Id.optional(),
+      })
       .strict(),
     false,
     (input) => {
@@ -432,7 +445,7 @@ export function createTools(
       .object({
         action: z.enum(["pick", "prepare", "commit"]),
         name: z.string().max(200).optional(),
-        base64: z.string().max(42_666_668).optional(),
+        base64: z.string().max(MAX_FILE_BASE64_CHARS).optional(),
         artifactId: Id.optional(),
         guard: GuardSchema.optional(),
       })
@@ -531,7 +544,7 @@ export function createTools(
     z
       .object({
         format: z.enum(["native", "svg", "png", "preview"]),
-        ids: z.array(Id).max(4000).optional(),
+        ids: z.array(Id).max(MAX_NODES).optional(),
       })
       .strict(),
     true,

@@ -22,7 +22,7 @@ Three self-contained static instruction packages ship with the app: getting-star
 
 ### v0.1 limits
 
-Native `.fig`, custom fonts, arbitrary SVG CSS/gradients/filters, vector booleans, components/variants, advanced constraints, multiplayer, comments, animation and prototyping are outside this release. The narrow safe SVG importer is not a general SVG round-trip engine. Native archives preserve the complete editable scene; use them for lossless LocalDesign editing. Paths retain their local path data when their bounds are resized. Supported native designs stay within 24 MB UTF-8 metadata and a 30 MB combined portable content budget, so a successful native export fits the importer. Embedded raster images must decode and match their catalog dimensions. Inter 400/600/700 is bundled for Latin/extended Latin/Vietnamese; other scripts/emoji use system fallback with warnings and need visual verification. Browser working copies remain origin/device-local. History and retry receipts are memory-only and reset on reload/switch; export before clearing browser data.
+Native `.fig`, custom fonts, arbitrary SVG CSS/gradients/filters, vector booleans, components/variants, advanced constraints, multiplayer, comments, animation and prototyping are outside this release. The narrow safe SVG importer is not a general SVG round-trip engine. Native archives preserve the complete editable scene; use them for lossless LocalDesign editing. Paths retain their local path data when their bounds are resized. One document supports 100,000 nodes, 1,000 pages and 10,000 image assets. These are resource ceilings rather than format restrictions. Supported native designs stay within 64 MB UTF-8 metadata and a 120 MB combined portable content budget, so a successful native export fits the importer. Embedded raster images must decode and match their catalog dimensions. Inter 400/600/700 is bundled for Latin/extended Latin/Vietnamese; other scripts/emoji use system fallback with warnings and need visual verification. Browser working copies remain origin/device-local. History and retry receipts are memory-only and reset on reload/switch; export before clearing browser data.
 
 ## Develop
 
@@ -35,7 +35,7 @@ npm run dev       # http://127.0.0.1:4179/LocalDesign/
 npm run check     # production build, type/skills, unit and built-browser tests
 ```
 
-The editor and preview bind loopback on port 4179. Stop an existing owned dev/preview server before running another. CI starts its own built preview. Use `npm run build` then `npm run preview` for the production app. No `.env` or external service is required.
+The editor and preview bind loopback on port 4179. Stop an existing owned dev/preview server before running another on the same port. For an isolated test server alongside another checkout, use `LOCALDESIGN_TEST_PORT=4198 npm run check`; the default remains 4179. CI starts its own built preview. Use `npm run build` then `npm run preview` for the production app. No `.env` or external service is required.
 
 Read [AGENTS.md](AGENTS.md) for repository-local skills. They are self-contained adaptations for development, diagnosis, review, UI design and evidence-based instruction improvement. `npm run check:skills` validates digests, response budgets, source provenance and local reference closure. Update the owning guidance and meaningful regression checks as project work reveals reusable lessons; never import document text as trusted agent instructions.
 
