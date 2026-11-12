@@ -288,3 +288,43 @@ it("native v2 embeds the actual local face, notices and requested/mapped identit
   expect(old.fonts).toEqual([]);
   expect(validateDocument(old)).toEqual(old);
 });
+
+it("reuses metrics without retaining stale layout or replacement identity", () => {
+  const doc = blankDocument();
+  const face = serif();
+  doc.fonts = [face];
+  const node = makeNode("text", doc.pages[0].id, {
+    fontFamily: face.family,
+    fontWeight: face.weight,
+    fontStyle: face.style,
+    text: "Portable design metrics stay accurate",
+    width: 2000,
+    height: 100,
+    fontSize: 20,
+  });
+  const initial = measureText(node, doc);
+  expect(initial.lines).toHaveLength(1);
+  const positioned = measureText(
+    { ...node, x: 400, rotation: 20, fill: "#ff0000" },
+    doc,
+  );
+  expect(positioned).toEqual(initial);
+  const narrow = measureText({ ...node, width: 100, height: 10 }, doc);
+  expect(narrow.lines.length).toBeGreaterThan(1);
+  expect(narrow.overflow).toBe(true);
+  expect(measureText({ ...node, fontSize: 40 }, doc).width).toBeCloseTo(
+    initial.width * 2,
+    6,
+  );
+  expect(
+    measureText({ ...node, textAlign: "right" }, doc).inkBounds!.x,
+  ).toBeGreaterThan(initial.inkBounds!.x);
+  // Two legal catalog records may share bytes but have different portable IDs.
+  const replacement = { ...face, id: "same-bytes-new-identity" };
+  const changed = measureText(node, { ...doc, fonts: [replacement] });
+  expect(changed.fontId).toBe(replacement.id);
+  expect(changed.width).toBe(initial.width);
+  expect(measureText({ ...node, text: "Different text" }, doc).lines).toEqual([
+    "Different text",
+  ]);
+});

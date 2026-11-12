@@ -1,6 +1,8 @@
+import { WindowedList } from "./WindowedList";
+import { indexNodes } from "../core/tree";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -20,20 +22,23 @@ import type { DesignEngine, Snapshot } from "../core/engine";
 import { ancestors, uid, type DesignNode } from "../core/model";
 import { worldPoint } from "../core/geometry";
 import type { Command } from "../core/commands";
-export function Layers({
+export const Layers = memo(function Layers({
   engine,
-  snapshot,
+  document: doc,
+  pageId,
+  selection,
   onError,
   onFocusLayer,
 }: {
   engine: DesignEngine;
-  snapshot: Snapshot;
+  document: Snapshot["document"];
+  pageId: string;
+  selection: string[];
   onError: (s: string) => void;
   onFocusLayer: (id: string) => void;
 }) {
   const [query, setQuery] = useState(""),
     [collapsed, setCollapsed] = useState(new Set<string>());
-  const { document: doc, pageId, selection } = snapshot;
   const activePage = useRef<HTMLDivElement>(null);
   useEffect(() => {
     activePage.current?.scrollIntoView({ block: "nearest" });
@@ -45,14 +50,7 @@ export function Layers({
       onError(e instanceof Error ? e.message : String(e));
     }
   };
-  const visible = (n: DesignNode) =>
-    !query ||
-    n.name.toLowerCase().includes(query.toLowerCase()) ||
-    doc.nodes.some(
-      (c) =>
-        c.name.toLowerCase().includes(query.toLowerCase()) &&
-        ancestors(doc, c).some((p) => p.id === n.id),
-    );
+  const index = useMemo(() => indexNodes(doc), [doc.nodes]);
   // Display reading order only: never reorder scene nodes (paint/layout order).
   const childrenByParent = useMemo(() => {
     const childrenByParent = new Map<string | null, DesignNode[]>();
@@ -63,7 +61,7 @@ export function Layers({
       const siblings = childrenByParent.get(key) ?? [];
       siblings.push(node);
       childrenByParent.set(key, siblings);
-      positions.set(node.id, worldPoint(doc, node));
+      positions.set(node.id, worldPoint(doc, node, undefined, index));
     }
     for (const siblings of childrenByParent.values())
       siblings.sort((a, b) => {
@@ -72,7 +70,31 @@ export function Layers({
         return p.y - q.y || p.x - q.x;
       });
     return childrenByParent;
-  }, [doc, pageId]);
+  }, [doc, pageId, index]);
+  const rows = useMemo(() => {
+    const matches = new Set<string>();
+    const term = query.toLowerCase();
+    if (term)
+      for (const node of doc.nodes) {
+        if (node.pageId === pageId && node.name.toLowerCase().includes(term)) {
+          matches.add(node.id);
+          for (const parent of ancestors(doc, node, index.byId))
+            matches.add(parent.id);
+        }
+      }
+    const result: { node: DesignNode; depth: number }[] = [];
+    const visit = (parentId: string | null, depth: number) => {
+      for (const node of childrenByParent.get(parentId) ?? []) {
+        if (term && !matches.has(node.id)) continue;
+        result.push({ node, depth });
+        if (term || !collapsed.has(node.id)) visit(node.id, depth + 1);
+      }
+    };
+    visit(null, 0);
+    return result;
+  }, [doc, pageId, query, collapsed, childrenByParent, index]);
+  const rowIds = useMemo(() => rows.map(({ node }) => node.id), [rows]);
+  const selected = new Set(selection);
   const activate = (id: string, shift: boolean) => {
     engine.select(
       shift
@@ -84,7 +106,6 @@ export function Layers({
     onFocusLayer(id);
   };
   const row = (n: DesignNode, depth = 0) => {
-    if (!visible(n)) return null;
     const children = childrenByParent.get(n.id) ?? [],
       isCollapsed = collapsed.has(n.id) && !query;
     const Icon =
@@ -98,7 +119,7 @@ export function Layers({
     return (
       <div key={n.id}>
         <div
-          className={`layer-row ${selection.includes(n.id) ? "selected" : ""} ${n.hidden ? "hidden-layer" : ""}`}
+          className={`layer-row ${selected.has(n.id) ? "selected" : ""} ${n.hidden ? "hidden-layer" : ""}`}
           style={{ paddingLeft: 10 + depth * 14 }}
           onClick={(e) => {
             if (e.target === e.currentTarget) activate(n.id, e.shiftKey);
@@ -132,7 +153,7 @@ export function Layers({
           <Button
             className="layer-select"
             aria-label={`Select ${n.name}`}
-            aria-pressed={selection.includes(n.id)}
+            aria-pressed={selected.has(n.id)}
             onClick={(e) => activate(n.id, e.shiftKey)}
           >
             <Icon size={13} />
@@ -157,7 +178,6 @@ export function Layers({
             {n.hidden ? <EyeOff size={12} /> : <Eye size={12} />}
           </Button>
         </div>
-        {!isCollapsed && children.map((c) => row(c, depth + 1))}
       </div>
     );
   };
@@ -228,15 +248,22 @@ export function Layers({
         />
         <kbd>⌕</kbd>
       </label>
-      <div className="layer-list">
-        {(childrenByParent.get(null) ?? []).map((n) => row(n))}
-        {!doc.nodes.some((n) => n.pageId === pageId) && (
-          <div className="layers-empty">
-            <LayersIcon size={23} />
-            <p>No layers</p>
-          </div>
-        )}
-      </div>
+      {rows.length ? (
+        <WindowedList
+          key={`${doc.id}:${pageId}:${query}`}
+          ids={rowIds}
+          renderRow={(i) => row(rows[i].node, rows[i].depth)}
+        />
+      ) : (
+        <div className="layer-list">
+          {!doc.nodes.some((n) => n.pageId === pageId) && (
+            <div className="layers-empty">
+              <LayersIcon size={23} />
+              <p>No layers</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
-}
+});

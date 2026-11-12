@@ -1,94 +1,114 @@
-import type { CSSProperties, PointerEventHandler } from "react";
+import {
+  memo,
+  useMemo,
+  type CSSProperties,
+  type PointerEventHandler,
+} from "react";
+import { indexNodes, type NodeIndex } from "../core/tree";
 import { ancestors, type DesignDocument, type DesignNode } from "../core/model";
 import { measureText, textLineOrigin } from "./text";
 import { resolveFont } from "./fonts";
 import { shapeLine } from "./glyphs";
-export function NodeShape({
-  node: n,
-  doc,
-  glyphPrefix = "",
-}: {
-  node: DesignNode;
-  doc: DesignDocument;
-  glyphPrefix?: string;
-}) {
-  const style = { fill: n.fill, stroke: n.stroke, strokeWidth: n.strokeWidth };
-  switch (n.type) {
-    case "rectangle":
-    case "frame":
-      return (
-        <rect width={n.width} height={n.height} rx={n.radius} {...style} />
-      );
-    case "ellipse":
-      return (
-        <ellipse
-          cx={n.width / 2}
-          cy={n.height / 2}
-          rx={n.width / 2}
-          ry={n.height / 2}
-          {...style}
-        />
-      );
-    case "line":
-      return <line x1={0} y1={0} x2={n.width} y2={n.height} {...style} />;
-    case "path":
-      return <path d={n.path} {...style} />;
-    case "text": {
-      const { lines } = measureText(n, doc);
-      const font = resolveFont(n, doc);
-      return (
-        <g aria-label={n.text} data-font-id={font.id}>
-          <title>{n.text}</title>
-          {font.record &&
-            lines.map((line, i) => {
-              const shaped = shapeLine(n, font.record!, line);
-              const origin = textLineOrigin(n, shaped.width, i);
-              return (
-                <g key={i} transform={`translate(${origin.x} ${origin.y})`}>
-                  {shaped.glyphs.map((glyph, j) => (
-                    <use
-                      key={j}
-                      href={`#${glyphPrefix}${glyph.id}`}
-                      transform={`translate(${glyph.x} ${glyph.y}) scale(${glyph.scale} ${-glyph.scale})`}
-                      fill={n.fill}
-                      stroke={n.stroke}
-                      strokeWidth={n.strokeWidth / glyph.scale}
-                    />
-                  ))}
-                </g>
-              );
-            })}
-        </g>
-      );
+export const NodeShape = memo(
+  function NodeShape({
+    node: n,
+    doc,
+    glyphPrefix = "",
+  }: {
+    node: DesignNode;
+    doc: DesignDocument;
+    glyphPrefix?: string;
+  }) {
+    const style = {
+      fill: n.fill,
+      stroke: n.stroke,
+      strokeWidth: n.strokeWidth,
+    };
+    switch (n.type) {
+      case "rectangle":
+      case "frame":
+        return (
+          <rect width={n.width} height={n.height} rx={n.radius} {...style} />
+        );
+      case "ellipse":
+        return (
+          <ellipse
+            cx={n.width / 2}
+            cy={n.height / 2}
+            rx={n.width / 2}
+            ry={n.height / 2}
+            {...style}
+          />
+        );
+      case "line":
+        return <line x1={0} y1={0} x2={n.width} y2={n.height} {...style} />;
+      case "path":
+        return <path d={n.path} {...style} />;
+      case "text": {
+        const { lines } = measureText(n, doc);
+        const font = resolveFont(n, doc);
+        return (
+          <g aria-label={n.text} data-font-id={font.id}>
+            <title>{n.text}</title>
+            {font.record &&
+              lines.map((line, i) => {
+                const shaped = shapeLine(n, font.record!, line);
+                const origin = textLineOrigin(n, shaped.width, i);
+                return (
+                  <g key={i} transform={`translate(${origin.x} ${origin.y})`}>
+                    {shaped.glyphs.map((glyph, j) => (
+                      <use
+                        key={j}
+                        href={`#${glyphPrefix}${glyph.id}`}
+                        transform={`translate(${glyph.x} ${glyph.y}) scale(${glyph.scale} ${-glyph.scale})`}
+                        fill={n.fill}
+                        stroke={n.stroke}
+                        strokeWidth={n.strokeWidth / glyph.scale}
+                      />
+                    ))}
+                  </g>
+                );
+              })}
+          </g>
+        );
+      }
+      case "image":
+        return (
+          <image
+            href={doc.assets.find((a) => a.id === n.assetId)?.data}
+            width={n.width}
+            height={n.height}
+            preserveAspectRatio="xMidYMid slice"
+          />
+        );
+      case "group":
+        return null;
     }
-    case "image":
-      return (
-        <image
-          href={doc.assets.find((a) => a.id === n.assetId)?.data}
-          width={n.width}
-          height={n.height}
-          preserveAspectRatio="xMidYMid slice"
-        />
-      );
-    case "group":
-      return null;
-  }
-}
+  },
+  (previous, next) =>
+    previous.node === next.node &&
+    previous.doc.assets === next.doc.assets &&
+    previous.doc.fonts === next.doc.fonts &&
+    previous.glyphPrefix === next.glyphPrefix,
+);
+
 export function SceneNode({
   node: n,
   doc,
   onPointerDown,
   interactive = false,
   glyphPrefix = "",
+  index,
 }: {
   node: DesignNode;
   doc: DesignDocument;
+  index: NodeIndex;
   onPointerDown?: PointerEventHandler<SVGGElement>;
   interactive?: boolean;
   glyphPrefix?: string;
 }) {
   if (n.hidden) return null;
-  const children = doc.nodes.filter((c) => c.parentId === n.id);
+  const children = index.children.get(n.id) ?? [];
   return (
     <g
       data-node-id={interactive ? n.id : undefined}
@@ -127,6 +147,7 @@ export function SceneNode({
           <SceneNode
             key={child.id}
             node={child}
+            index={index}
             doc={doc}
             onPointerDown={onPointerDown}
             interactive={interactive}
@@ -137,7 +158,7 @@ export function SceneNode({
     </g>
   );
 }
-export function Scene({
+export const Scene = memo(function Scene({
   doc,
   pageId,
   rootIds,
@@ -152,13 +173,14 @@ export function Scene({
   onPointerDown?: PointerEventHandler<SVGGElement>;
   glyphPrefix?: string;
 }) {
+  const index = useMemo(() => indexNodes(doc), [doc.nodes]);
   const glyphs = new Map<string, string>();
   for (const node of doc.nodes.filter(
     (n) =>
       n.type === "text" &&
       n.pageId === pageId &&
       !n.hidden &&
-      !ancestors(doc, n).some((p) => p.hidden),
+      !ancestors(doc, n, index.byId).some((p) => p.hidden),
   )) {
     const font = resolveFont(node, doc);
     if (font.record)
@@ -181,6 +203,7 @@ export function Scene({
           <SceneNode
             key={n.id}
             node={n}
+            index={index}
             doc={doc}
             interactive={interactive}
             onPointerDown={onPointerDown}
@@ -189,4 +212,4 @@ export function Scene({
         ))}
     </>
   );
-}
+});

@@ -1,5 +1,6 @@
 import type { DesignDocument, DesignNode } from "../core/model";
 import { resolveFont } from "./fonts";
+import { fontKey } from "../fonts/data";
 import { shapeLine } from "./glyphs";
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 export function textLineOrigin(n: DesignNode, width: number, index: number) {
@@ -13,8 +14,49 @@ export function textLineOrigin(n: DesignNode, width: number, index: number) {
     y: n.fontSize + index * n.fontSize * n.lineHeight,
   };
 }
-export function measureText(n: DesignNode, doc?: DesignDocument) {
+type Measurement = ReturnType<typeof computeMeasurement>;
+const measurements = new Map<string, Measurement>();
+let retainedCharacters = 0;
+export function measureText(n: DesignNode, doc?: DesignDocument): Measurement {
   const font = resolveFont(n, doc);
+  // Position, rotation and paint do not change wrapping or glyph metrics.
+  // Include resolved bytes and request identity so replacement/readiness cannot go stale.
+  const key = JSON.stringify([
+    n.text,
+    n.width,
+    n.height,
+    n.fontSize,
+    n.lineHeight,
+    n.letterSpacing,
+    n.textAlign,
+    font.requested,
+    font.id,
+    font.family,
+    font.weight,
+    font.style,
+    font.record ? fontKey(font.record) : null,
+    font.status,
+    font.warning,
+  ]);
+  const old = measurements.get(key);
+  if (old) return old;
+  const result = computeMeasurement(n, font);
+  while (
+    measurements.size &&
+    (measurements.size >= 2048 || retainedCharacters + key.length > 1_000_000)
+  ) {
+    const first = measurements.keys().next().value!;
+    retainedCharacters -= first.length;
+    measurements.delete(first);
+  }
+  measurements.set(key, result);
+  retainedCharacters += key.length;
+  return result;
+}
+function computeMeasurement(
+  n: DesignNode,
+  font: ReturnType<typeof resolveFont>,
+) {
   const width = (text: string) =>
     font.record
       ? shapeLine(n, font.record, text).width

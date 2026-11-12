@@ -1,3 +1,4 @@
+import { indexNodes } from "./tree";
 import {
   CommandSchema,
   EditSchema,
@@ -108,10 +109,9 @@ export class DesignEngine {
       "MISSING_PAGE",
       "Unknown page.",
     );
+    const { byId } = indexNodes(this.doc);
     requireThat(
-      ids.every((id) =>
-        this.doc.nodes.some((n) => n.id === id && n.pageId === pageId),
-      ),
+      ids.every((id) => byId.get(id)?.pageId === pageId),
       "MISSING_NODE",
       "Selection contains unknown nodes or nodes on another page.",
     );
@@ -222,14 +222,16 @@ export class DesignEngine {
   private reconcile() {
     if (!this.doc.pages.some((p) => p.id === this.pageId))
       this.pageId = this.doc.pages[0].id;
-    this.selection = this.selection.filter((id) =>
-      this.doc.nodes.some((n) => n.id === id && n.pageId === this.pageId),
+    const { byId } = indexNodes(this.doc);
+    this.selection = this.selection.filter(
+      (id) => byId.get(id)?.pageId === this.pageId,
     );
   }
   private apply(d: DesignDocument, raw: Command, created: string[]) {
     const c = CommandSchema.parse(raw);
+    const { byId } = indexNodes(d);
     const get = (id: string) => {
-      const n = d.nodes.find((n) => n.id === id);
+      const n = byId.get(id);
       requireThat(n, "MISSING_NODE", `Unknown node: ${id}`);
       return n;
     };
@@ -239,7 +241,9 @@ export class DesignEngine {
       requireThat(
         c.ids
           .map(get)
-          .every((n) => !n.locked && !ancestors(d, n).some((p) => p.locked)) ||
+          .every(
+            (n) => !n.locked && !ancestors(d, n, byId).some((p) => p.locked),
+          ) ||
           (c.op === "update" &&
             Object.keys(c.patch).every((k) => k === "locked")),
         "LOCKED_NODE",
@@ -252,7 +256,7 @@ export class DesignEngine {
         !p ||
           (["group", "frame"].includes(p.type) &&
             !p.locked &&
-            !ancestors(d, p).some((n) => n.locked)),
+            !ancestors(d, p, byId).some((n) => n.locked)),
         "INVALID_PARENT",
         "Destination must be an unlocked frame/group.",
       );
@@ -279,7 +283,7 @@ export class DesignEngine {
         if (c.node.parentId) {
           const p = get(c.node.parentId);
           requireThat(
-            !p.locked && !ancestors(d, p).some((n) => n.locked),
+            !p.locked && !ancestors(d, p, byId).some((n) => n.locked),
             "LOCKED_NODE",
             "Unlock the destination parent first.",
           );
@@ -359,6 +363,7 @@ export class DesignEngine {
         });
         const index = Math.max(...selected.map((n) => d.nodes.indexOf(n)));
         d.nodes.splice(index + 1, 0, group);
+        byId.set(group.id, group);
         for (const n of selected) moveParent(n, group.id);
         created.push(group.id);
         break;

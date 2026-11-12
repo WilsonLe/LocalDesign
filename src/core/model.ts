@@ -1,3 +1,4 @@
+import { indexNodes } from "./tree";
 import {
   MAX_DOCUMENT_BYTES,
   MAX_PORTABLE_BYTES,
@@ -293,8 +294,9 @@ export function validateDocument(input: unknown): DesignDocument {
 }
 export function descendants(d: DesignDocument, id: string): DesignNode[] {
   const out: DesignNode[] = [];
+  const { children } = indexNodes(d);
   const visit = (p: string) => {
-    for (const n of d.nodes.filter((n) => n.parentId === p)) {
+    for (const n of children.get(p) ?? []) {
       out.push(n);
       visit(n.id);
     }
@@ -303,17 +305,24 @@ export function descendants(d: DesignDocument, id: string): DesignNode[] {
   return out;
 }
 export function roots(d: DesignDocument, ids: string[]) {
+  if (!ids.length) return [];
   const selected = new Set(ids);
+  const { byId } = indexNodes(d);
   return d.nodes.filter(
     (n) =>
-      selected.has(n.id) && !ancestors(d, n).some((p) => selected.has(p.id)),
+      selected.has(n.id) &&
+      !ancestors(d, n, byId).some((p) => selected.has(p.id)),
   );
 }
-export function ancestors(d: DesignDocument, n: DesignNode): DesignNode[] {
+export function ancestors(
+  d: DesignDocument,
+  n: DesignNode,
+  byId?: ReadonlyMap<string, DesignNode>,
+): DesignNode[] {
   const out: DesignNode[] = [];
   let p = n.parentId;
   while (p) {
-    const node = d.nodes.find((n) => n.id === p);
+    const node = byId ? byId.get(p) : d.nodes.find((n) => n.id === p);
     if (!node) break;
     out.push(node);
     p = node.parentId;
