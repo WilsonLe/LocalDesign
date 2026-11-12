@@ -1,6 +1,6 @@
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -34,6 +34,10 @@ export function Layers({
   const [query, setQuery] = useState(""),
     [collapsed, setCollapsed] = useState(new Set<string>());
   const { document: doc, pageId, selection } = snapshot;
+  const activePage = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    activePage.current?.scrollIntoView({ block: "nearest" });
+  }, [pageId]);
   const run = (commands: Command[]) => {
     try {
       engine.dispatch(commands);
@@ -183,29 +187,32 @@ export function Layers({
             <Plus size={14} />
           </Button>
         </div>
-        {doc.pages.map((p) => (
-          <div
-            className={`page-row ${p.id === pageId ? "active" : ""}`}
-            key={p.id}
-          >
-            <Button
-              aria-pressed={p.id === pageId}
-              onClick={() => engine.select([], p.id)}
+        <div className="page-list">
+          {doc.pages.map((p) => (
+            <div
+              className={`page-row ${p.id === pageId ? "active" : ""}`}
+              key={p.id}
+              ref={p.id === pageId ? activePage : undefined}
             >
-              <span className="page-indicator" />
-              {p.name}
-            </Button>
-            {doc.pages.length > 1 && (
               <Button
-                aria-label={`Delete ${p.name}`}
-                title="Delete page and its layers (undo available)"
-                onClick={() => run([{ op: "page_delete", id: p.id }])}
+                aria-pressed={p.id === pageId}
+                onClick={() => engine.select([], p.id)}
               >
-                <Trash2 size={12} />
+                <span className="page-indicator" />
+                {p.name}
               </Button>
-            )}
-          </div>
-        ))}
+              {doc.pages.length > 1 && (
+                <Button
+                  aria-label={`Delete ${p.name}`}
+                  title="Delete page and its layers (undo available)"
+                  onClick={() => run([{ op: "page_delete", id: p.id }])}
+                >
+                  <Trash2 size={12} />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
       </section>
       <div className="section-heading layers-heading">
         <h2>Layers</h2>
