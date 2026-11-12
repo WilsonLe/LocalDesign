@@ -11,7 +11,7 @@ Build a coverage map: engine/schema/history/concurrency; geometry/layout; render
 
 Trace concrete scenarios through consumer outcomes and challenge test fixtures. Report findings only with supported trigger, violated contract, consequence, precise source location, evidence, and smallest correction. Separate requested behavior from engineering quality, supported findings from needs-validation leads and rejected claims. Deduplicate by root cause. Use P1 for substantial reachable loss/essential failure, P2 for bounded concrete defects/required contract failures, P3 for minor defects. Optional taste is not a blocker.
 
-Return candidate IDs, request, coverage map, findings/dispositions or no actionable findings, exact reviewer checks/results, unavailable evidence, drift, documentation impact and residual limits. Do not infer approval. Caller controls one bounded cycle and at most two passes; final-state review must cover material fixes.
+Return candidate IDs, request, coverage map, findings/dispositions or no actionable findings, exact reviewer checks/results, unavailable evidence, drift, documentation impact and residual limits. Do not infer approval. Caller controls the review cycle, with a default ceiling of two automatic passes. An explicit user instruction extending that budget governs the current task; preserve it across in-scope fixes and do not request the same decision again. Final-state review must cover material fixes.
 
 ## Self-improvement and attribution
 
