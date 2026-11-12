@@ -82,7 +82,7 @@ test("one large editable project imports, saves, edits and exports without split
     .toContain("Saved locally");
   await page.reload();
   await expect
-    .poll(async () => (await inspect(page)).nodes[0].name)
+    .poll(async () => (await inspect(page)).nodes[0]?.name)
     .toBe("Edited in combined workspace");
   expect((await inspect(page)).total).toBe(4_201);
 
