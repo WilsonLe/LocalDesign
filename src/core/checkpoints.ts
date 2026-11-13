@@ -2,47 +2,22 @@ import {
   type Checkpoint,
   type DesignDocument,
   type DesignNode,
-  blankDocument,
   compactNativeNode,
+  ancestors,
   descendants,
   requireThat,
-  validateDocument,
 } from "./model";
-import { MAX_CHECKPOINT_BYTES, MAX_CHECKPOINT_NODES } from "./limits";
-import { contentDigest, canonicalJSON } from "./hash";
-import { worldPoint, worldRotation } from "./geometry";
+import { contentDigest } from "./hash";
+import { worldPoint, worldRotation, localPoint } from "./geometry";
 
+import { resourceDigest, checkpointDocument } from "./checkpointValidation";
+export {
+  checkpointWire,
+  checkpointDigest,
+  checkpointDocument,
+  validateCheckpoints,
+} from "./checkpointValidation";
 type Payload = Checkpoint["payload"];
-export function checkpointWire(payload: Payload) {
-  return {
-    ...payload,
-    nodes: payload.nodes.map(compactNativeNode),
-    components: payload.components.map((component) => ({
-      ...component,
-      nodes: component.nodes.map(compactNativeNode),
-    })),
-  };
-}
-export const checkpointDigest = (payload: Payload) =>
-  contentDigest(checkpointWire(payload));
-function resourceDigest(
-  doc: DesignDocument,
-  assetIds: string[],
-  fontIds: string[],
-) {
-  const assets = new Map(doc.assets.map((asset) => [asset.id, asset])),
-    fonts = new Map(doc.fonts.map((font) => [font.id, font]));
-  requireThat(
-    assetIds.every((id) => assets.has(id)) &&
-      fontIds.every((id) => fonts.has(id)),
-    "CHECKPOINT_RESOURCE",
-    "A checkpoint dependency is missing; retain its assets and licensed fonts.",
-  );
-  return contentDigest({
-    assets: assetIds.map((id) => assets.get(id)),
-    fonts: fontIds.map((id) => fonts.get(id)),
-  });
-}
 export function componentClosure(doc: DesignDocument, ids: Iterable<string>) {
   const map = new Map(
       doc.components.map((definition) => [definition.id, definition]),
@@ -65,6 +40,7 @@ export function captureCheckpoint(
   targetId: string,
 ): Payload {
   let nodes: DesignNode[] = [];
+  let ancestorContext: DesignNode[] = [];
   let rootId = targetId;
   let components: DesignDocument["components"];
   if (kind === "frame") {
@@ -74,6 +50,7 @@ export function captureCheckpoint(
       "CHECKPOINT_TARGET",
       "Select a complete frame for a checkpoint.",
     );
+    ancestorContext = structuredClone(ancestors(doc, root));
     nodes = structuredClone([root, ...descendants(doc, root.id)]);
     Object.assign(nodes[0], worldPoint(doc, root), {
       rotation: worldRotation(doc, root),
@@ -100,7 +77,11 @@ export function captureCheckpoint(
   }
   const assetIds = [
     ...new Set(
-      [...nodes, ...components.flatMap((item) => item.nodes)]
+      [
+        ...nodes,
+        ...ancestorContext,
+        ...components.flatMap((item) => item.nodes),
+      ]
         .flatMap((node) => [
           ...(node.assetId ? [node.assetId] : []),
           ...(node.component?.overrides ?? []).flatMap((row) =>
@@ -124,6 +105,7 @@ export function captureCheckpoint(
   return {
     rootId,
     nodes,
+    ancestorContext,
     components: structuredClone(components),
     tokens: structuredClone(doc.tokens),
     tokenThemes: structuredClone(doc.tokenThemes),
@@ -133,81 +115,33 @@ export function captureCheckpoint(
     resourceDigest: resourceDigest(doc, assetIds, fontIds),
   };
 }
-export function checkpointDocument(
+/** Frozen visual context for evidence; ordinary restore still uses the isolated frame. */
+export function checkpointEvidenceDocument(
   doc: DesignDocument,
   checkpoint: Checkpoint,
 ): DesignDocument {
-  const payload = checkpoint.payload;
-  const pageIds = [...new Set(payload.nodes.map((node) => node.pageId))];
-  return {
-    ...blankDocument(checkpoint.label),
-    id: doc.id,
-    assets: doc.assets,
-    fonts: doc.fonts,
-    pages: pageIds.length
-      ? pageIds.map((id) => ({ id, name: "Checkpoint", background: "none" }))
-      : doc.pages.slice(0, 1),
-    nodes: structuredClone(payload.nodes),
-    components: structuredClone(payload.components),
-    tokens: structuredClone(payload.tokens),
-    tokenThemes: structuredClone(payload.tokenThemes),
-    activeTokenTheme: payload.activeTokenTheme,
-  };
-}
-export function validateCheckpoints(doc: DesignDocument) {
-  let bytes = 0,
-    nodeCount = 0;
-  for (const checkpoint of doc.checkpoints) {
-    bytes += new TextEncoder().encode(
-      canonicalJSON(checkpointWire(checkpoint.payload)),
-    ).length;
-    nodeCount +=
-      checkpoint.payload.nodes.length +
-      checkpoint.payload.components.reduce(
-        (sum, item) => sum + item.nodes.length,
-        0,
-      );
-    requireThat(
-      bytes <= MAX_CHECKPOINT_BYTES && nodeCount <= MAX_CHECKPOINT_NODES,
-      "CHECKPOINT_LIMIT",
-      "Retained checkpoints exceed 16 MB or 100,000 stored parts. Export a backup and remove older checkpoints before adding another.",
-    );
-    requireThat(
-      checkpointDigest(checkpoint.payload) === checkpoint.digest,
-      "CHECKPOINT_DIGEST",
-      "A checkpoint's content digest is invalid.",
-    );
-    requireThat(
-      resourceDigest(
-        doc,
-        checkpoint.payload.assetIds,
-        checkpoint.payload.fontIds,
-      ) === checkpoint.payload.resourceDigest,
-      "CHECKPOINT_RESOURCE",
-      "A checkpoint's immutable assets/fonts changed.",
-    );
-    if (checkpoint.kind === "frame")
-      requireThat(
-        checkpoint.payload.rootId === checkpoint.targetId &&
-          checkpoint.payload.nodes.find(
-            (node) => node.id === checkpoint.targetId,
-          )?.type === "frame",
-        "CHECKPOINT_TARGET",
-        "Invalid retained frame root.",
-      );
-    else
-      requireThat(
-        !checkpoint.payload.nodes.length &&
-          checkpoint.payload.components.some(
-            (item) =>
-              item.id === checkpoint.targetId &&
-              item.rootId === checkpoint.payload.rootId,
-          ),
-        "CHECKPOINT_TARGET",
-        "Invalid retained component root.",
-      );
-    validateDocument(checkpointDocument(doc, checkpoint));
+  const retained = checkpointDocument(doc, checkpoint);
+  if (checkpoint.kind !== "frame" || !checkpoint.payload.ancestorContext.length)
+    return retained;
+  const root = retained.nodes.find((node) => node.id === checkpoint.targetId)!;
+  const context = structuredClone(checkpoint.payload.ancestorContext);
+  retained.nodes.push(...context);
+  const parent = context[0];
+  const point = localPoint(retained, parent, { x: root.x, y: root.y });
+  root.x = point.x;
+  root.y = point.y;
+  root.rotation -= worldRotation(retained, parent);
+  root.parentId = parent.id;
+  for (const node of retained.nodes) {
+    node.component = null;
+    node.componentPart = null;
+    node.componentSource = null;
+    node.bindings = {};
+    node.tokenTheme = null;
   }
+  for (const node of context)
+    node.layout = { ...node.layout, direction: "none" };
+  return retained;
 }
 function dependencyChanges(doc: DesignDocument, checkpoint: Checkpoint) {
   const payload = checkpoint.payload;

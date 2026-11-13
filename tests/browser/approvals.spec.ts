@@ -139,3 +139,60 @@ test("failed approval storage preserves the pending request and exact design rev
   expect((await tool(page, "handoffs")).handoffs[0].status).toBe("pending");
   expect((await tool(page, "checkpoints")).total).toBe(0);
 });
+
+test("approved evidence retains ancestor clipping and opacity after current ancestry changes", async ({
+  page,
+}) => {
+  await setup(page);
+  await edits(page, [
+    {
+      op: "create",
+      node: {
+        id: "parent",
+        name: "Clipping parent",
+        type: "frame",
+        pageId: (await inspect(page)).pageId,
+        width: 100,
+        height: 80,
+        clip: true,
+        fill: "none",
+        opacity: 0.5,
+      },
+    },
+    { op: "reparent", ids: ["frame"], parentId: "parent" },
+  ]);
+  const visible = await tool(page, "export_design", {
+    format: "png",
+    ids: ["frame"],
+    mode: "composition",
+    background: "#ffffff",
+  });
+  const original = await artifactBytes(page, visible.id, visible.size);
+  await page
+    .getByRole("button", { name: "Approve current frame", exact: true })
+    .click();
+  await expect(page.locator('[data-handoff-status="approved"]')).toBeVisible();
+  const handoff = (await tool(page, "handoffs")).handoffs[0];
+  const evidence = async () =>
+    (
+      await tool(page, "checkpoints", {
+        action: "preview",
+        id: handoff.approval.checkpointId,
+      })
+    ).content[0].data;
+  const retained = await evidence();
+  expect(Buffer.from(retained, "base64")).toEqual(original);
+  for (const patch of [
+    { x: 600, rotation: 45 },
+    { opacity: 0.25 },
+    { clip: false },
+    { hidden: true },
+  ]) {
+    await edits(page, [{ op: "update", ids: ["parent"], patch }]);
+    expect((await tool(page, "handoffs")).handoffs[0].status).toBe("changed");
+    expect(await evidence()).toBe(retained);
+  }
+  await page.reload();
+  await expect(page.getByTestId("canvas")).toBeVisible();
+  expect(await evidence()).toBe(retained);
+});

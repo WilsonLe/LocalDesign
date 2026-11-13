@@ -33,7 +33,7 @@ export class PageToolRuntime {
   }
   private refresh = () => {
     if (this.closed || this.suspended) return;
-    const id = this.workspace.active ? this.workspace.engine.document.id : "";
+    const id = `${this.workspace.active ? this.workspace.engine.document.id : ""}:${this.workspace.engine.activationGeneration}`;
     if (id === this.activeId) return;
     this.activeId = id;
     this.controller.abort();

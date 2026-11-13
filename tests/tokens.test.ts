@@ -5,6 +5,8 @@ import {
   makeNode,
   uid,
   type DesignDocument,
+  ComponentSchema,
+  ComponentInstanceSchema,
 } from "../src/core/model";
 import { tokenResolver } from "../src/core/tokens";
 
@@ -283,4 +285,58 @@ describe("native token resolution", () => {
       expect(tokenResolver(engine.document).value("alias-0")).toBe("#123456");
     }
   });
+});
+
+it("detaching a variant token preserves inherited private themes and differently themed existing instances", () => {
+  const d = blankDocument();
+  d.tokenThemes = [{ id: "dark", name: "Dark" }];
+  d.tokens = [token("ink", "#111111", { themes: { dark: "#eeeeee" } })];
+  d.components = [
+    ComponentSchema.parse({
+      id: "card",
+      name: "Card",
+      rootId: "root",
+      nodes: [
+        makeNode("frame", "private", { id: "root", tokenTheme: "dark" }),
+        makeNode("rectangle", "private", { id: "part", parentId: "root" }),
+      ],
+      variants: [
+        {
+          id: "paint",
+          name: "Paint",
+          when: {},
+          overrides: [{ partId: "part", patch: {}, bindings: { fill: "ink" } }],
+        },
+      ],
+    }),
+  ];
+  const spec = ComponentInstanceSchema.parse({ componentId: "card" });
+  d.nodes = [
+    makeNode("frame", d.pages[0].id, { id: "dark-card", component: spec }),
+    makeNode("frame", d.pages[0].id, {
+      id: "base-card",
+      component: {
+        ...structuredClone(spec),
+        overrides: [
+          { path: ["root"], patch: { tokenTheme: null }, bindings: {} },
+        ],
+      },
+    }),
+  ];
+  const e = new DesignEngine(d);
+  const paints = () =>
+    e.document.nodes.filter((n) => n.componentPart).map((n) => [n.id, n.fill]);
+  const before = paints();
+  expect(before.map(([, fill]) => fill)).toEqual(["#eeeeee", "#111111"]);
+  e.dispatch([{ op: "token_delete", id: "ink", detach: true }]);
+  expect(paints()).toEqual(before);
+  expect(
+    e.document.components[0].variants[0].overrides[0].bindings.fill,
+  ).toEqual({ value: "#eeeeee" });
+  e.dispatch([{ op: "rename", name: "Retained" }]);
+  expect(paints()).toEqual(before);
+  e.history("undo", e.guard());
+  e.history("undo", e.guard());
+  expect(e.document.tokens[0].id).toBe("ink");
+  expect(paints()).toEqual(before);
 });

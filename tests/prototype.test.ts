@@ -103,3 +103,23 @@ it("clipped sources do not become keyboard or agent prototype actions", () => {
     e.playPrototype(e.document.id, { action: "event", interactionId: "ab" }),
   ).toThrow(/available interaction/);
 });
+
+it("hiding an ancestor retires open prototype overlays immediately", () => {
+  const e = fixture();
+  e.dispatch([
+    {
+      op: "create",
+      node: makeNode("group", e.pageId, { id: "overlay-parent" }),
+    },
+    { op: "reparent", ids: ["overlay"], parentId: "overlay-parent" },
+  ]);
+  e.playPrototype(e.document.id, { action: "start" });
+  e.playPrototype(e.document.id, { action: "event", interactionId: "ab" });
+  e.playPrototype(e.document.id, { action: "event", interactionId: "bo" });
+  expect(e.getSnapshot().player.overlays).toHaveLength(1);
+  e.dispatch([
+    { op: "update", ids: ["overlay-parent"], patch: { hidden: true } },
+  ]);
+  expect(e.getSnapshot().player.overlays).toEqual([]);
+  expect(e.getSnapshot().player.open).toBe(true);
+});

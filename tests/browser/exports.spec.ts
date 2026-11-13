@@ -559,8 +559,12 @@ test("asset decoding cannot commit after caller cancellation, retirement, a huma
       }
     };
   });
-  for (const cancel of ["caller", "retire", "revision", "document"]) {
+  for (const cancel of ["caller", "retire", "revision", "document", "reopen"]) {
     const before = await inspect(page);
+    const retiredArtifact =
+      cancel === "reopen"
+        ? await tool(page, "export_design", { format: "svg" })
+        : null;
     await page.evaluate(
       ({ before, pixel, cancel }) => {
         (window as any).__holdDecode = true;
@@ -602,6 +606,26 @@ test("asset decoding cannot commit after caller cancellation, retirement, a huma
         },
       });
       expect(created.isError, created.message).not.toBe(true);
+    }
+    if (cancel === "reopen") {
+      const opened = await tool(page, "workspace", {
+        action: "open",
+        id: before.documentId,
+        guard: {
+          expectedDocumentId: before.documentId,
+          expectedRevision: before.revision,
+          requestId: "reopen-while-decoding",
+        },
+      });
+      expect(opened.isError, opened.message).not.toBe(true);
+      expect(
+        (
+          await tool(page, "artifact", {
+            action: "read",
+            id: retiredArtifact.id,
+          })
+        ).code,
+      ).toBe("MISSING_ARTIFACT");
     }
     await page.evaluate((cancel) => {
       if (cancel === "retire") {

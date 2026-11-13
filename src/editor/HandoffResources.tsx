@@ -11,7 +11,7 @@ import {
   persistApprovalGrant,
   readHandoffStatuses,
 } from "../storage/approvals";
-import { checkpointDocument } from "../core/checkpoints";
+import { checkpointEvidenceDocument } from "../core/checkpoints";
 import { pngExport } from "../files/export";
 const labels: Record<HandoffStatus, string> = {
   pending: "Awaiting human review",
@@ -221,14 +221,17 @@ export function HandoffResources({
                         const checkpoint = doc.checkpoints.find(
                           (item) => item.id === handoff.approval!.checkpointId,
                         )!;
-                        const retained = checkpointDocument(doc, checkpoint);
+                        const retained = checkpointEvidenceDocument(
+                          doc,
+                          checkpoint,
+                        );
                         const blob = await pngExport(
                           retained,
                           retained.nodes.find(
                             (node) => node.id === checkpoint.targetId,
                           )!.pageId,
                           [checkpoint.targetId],
-                          { background: "#ffffff" },
+                          { background: "#ffffff", composition: true },
                         );
                         setPreview({
                           url: URL.createObjectURL(blob),

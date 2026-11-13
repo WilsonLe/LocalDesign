@@ -248,3 +248,72 @@ test("flat large-page marquee selection shares its traversal index", async ({
     contentType: "text/plain",
   });
 });
+
+test("a token-bound workspace can rename without validating the catalog once per binding", async ({
+  page,
+}, info) => {
+  await harness(page);
+  await open(page);
+  const doc = blankDocument("Token performance fixture");
+  doc.tokenThemes = Array.from({ length: 12 }, (_, i) => ({
+    id: `theme-${i}`,
+    name: `Theme ${i}`,
+  }));
+  doc.tokens = Array.from({ length: 500 }, (_, i) => ({
+    id: `token-${i}`,
+    name: `color-${i}`,
+    type: "color" as const,
+    value: "#112233",
+    themes: Object.fromEntries(doc.tokenThemes.map((t) => [t.id, "#445566"])),
+    description: "",
+  }));
+  doc.nodes = Array.from({ length: 1000 }, (_, i) =>
+    makeNode("rectangle", doc.pages[0].id, {
+      id: `node-${i}`,
+      x: i * 200,
+      bindings: { fill: `token-${i % 500}` },
+    }),
+  );
+  await page.evaluate(async (doc) => {
+    const request = indexedDB.open("localdesign-v1", 1);
+    const db = await new Promise<IDBDatabase>((resolve) => {
+      request.onsuccess = () => resolve(request.result);
+    });
+    const tx = db.transaction(["documents", "settings"], "readwrite");
+    tx.objectStore("documents").put(doc);
+    tx.objectStore("settings").put(doc.id, "active");
+    await new Promise<void>((resolve) => {
+      tx.oncomplete = () => resolve();
+    });
+    db.close();
+  }, doc);
+  await page.goto(`workspace/${doc.id}`);
+  await expect(page.getByTestId("canvas")).toBeVisible();
+  const result = await page.evaluate(async () => {
+    const registry = (window as any).__testSiteTools;
+    const d = await registry
+      .get("localdesign_inspect_document")
+      .execute({ limit: 1 });
+    const start = performance.now();
+    const receipt = await registry
+      .get("localdesign_apply_edits")
+      .execute({
+        expectedDocumentId: d.documentId,
+        expectedRevision: d.revision,
+        requestId: "token-perf-rename",
+        commands: [{ op: "rename", name: "Renamed token workspace" }],
+      });
+    return { ms: performance.now() - start, receipt };
+  });
+  expect(result.receipt.isError, result.receipt.message).not.toBe(true);
+  expect(result.ms).toBeLessThan(process.env.CI ? 1000 : 500);
+  const saved = await inspect(page);
+  expect(saved.revision).toBe(1);
+  expect(saved.total).toBe(1000);
+  expect(saved.nodes[0].fill).toBe("#112233");
+  console.log("TOKEN_BOUND_RENAME", result.ms);
+  await info.attach("token-bound-rename", {
+    body: JSON.stringify(result),
+    contentType: "application/json",
+  });
+});

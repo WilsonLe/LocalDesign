@@ -194,3 +194,47 @@ it("rejects corrupted dependency payloads before any target mutation", () => {
   expect(() => e.dispatch([command(e, p)])).toThrow(/token|Unknown/i);
   expect(e.document).toBe(before);
 });
+
+it("sync reintroduces omitted components with stable identity and retains the last imported baseline", () => {
+  for (const editWhileOmitted of [false, true]) {
+    const e = new DesignEngine();
+    e.dispatch([command(e, payload())]);
+    const id = e.document.packageSources[0].componentMap.button;
+    e.dispatch([
+      CommandSchema.parse({
+        op: "component_instance",
+        id: "instance",
+        componentId: id,
+        pageId: e.pageId,
+      }),
+    ]);
+    const omitted = payload();
+    omitted.components = [];
+    omitted.tokens = [];
+    if (editWhileOmitted)
+      e.dispatch([
+        CommandSchema.parse({
+          op: "component_set",
+          id,
+          expectedComponentRevision: 1,
+          description: "Local edit",
+        }),
+      ]);
+    e.dispatch([command(e, omitted, 2, "sync")]);
+    expect(e.document.packageSources[0].componentMap.button).toBe(id);
+    const incoming = payload();
+    incoming.components[0].nodes[0].width = 260;
+    const update = command(e, incoming, 3, "sync");
+    if (editWhileOmitted) {
+      const before = e.document;
+      expect(() => e.dispatch([update])).toThrow(/local edits/);
+      expect(e.document).toBe(before);
+    }
+    e.dispatch([
+      CommandSchema.parse({ ...update, replaceLocalEdits: editWhileOmitted }),
+    ]);
+    expect(e.document.components).toHaveLength(1);
+    expect(e.document.components[0].id).toBe(id);
+    expect(e.document.nodes.find((n) => n.id === "instance")?.width).toBe(260);
+  }
+});

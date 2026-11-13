@@ -163,12 +163,12 @@ export function importLibrary(doc: DesignDocument, input: Import) {
     originId: input.originId,
     version: input.version,
     digest: input.digest,
-    componentMap: Object.create(null),
-    tokenMap: Object.create(null),
-    themeMap: Object.create(null),
-    assetMap: Object.create(null),
-    fontMap: Object.create(null),
-    baselines: Object.create(null),
+    componentMap: Object.assign(Object.create(null), old?.componentMap),
+    tokenMap: Object.assign(Object.create(null), old?.tokenMap),
+    themeMap: Object.assign(Object.create(null), old?.themeMap),
+    assetMap: Object.assign(Object.create(null), old?.assetMap),
+    fontMap: Object.assign(Object.create(null), old?.fontMap),
+    baselines: Object.assign(Object.create(null), old?.baselines),
   };
   const allocate = (kind: string, id: string) =>
     resourceImportId(doc.id, input.namespace, kind, id);
@@ -511,18 +511,24 @@ function definitionChange(
       contentDigest(before?.variants ?? []) !== contentDigest(after.variants),
   };
 }
-export function refreshPackageBaselines(doc: DesignDocument, originId: string) {
+export function refreshPackageBaselines(
+  doc: DesignDocument,
+  originId: string,
+  payload: LibraryPayload,
+) {
   const source = doc.packageSources.find((item) => item.originId === originId);
   if (!source) return;
-  for (const id of Object.values(source.componentMap)) {
+  for (const id of payload.components.map(
+    (item) => source.componentMap[item.id],
+  )) {
     const item = doc.components.find((item) => item.id === id);
     if (item) source.baselines[id] = definitionDigest(item);
   }
-  for (const [map, catalog] of [
-    [source.tokenMap, doc.tokens],
-    [source.themeMap, doc.tokenThemes],
+  for (const [map, catalog, incoming] of [
+    [source.tokenMap, doc.tokens, payload.tokens],
+    [source.themeMap, doc.tokenThemes, payload.tokenThemes],
   ] as const)
-    for (const id of Object.values(map)) {
+    for (const id of incoming.map((item) => map[item.id])) {
       const item = catalog.find((item) => item.id === id);
       if (item) source.baselines[id] = contentDigest(item);
     }

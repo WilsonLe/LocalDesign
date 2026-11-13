@@ -13,7 +13,7 @@ import {
   type TokenPropertyName,
 } from "./model";
 import { MAX_NODES, MAX_COMPONENT_OVERRIDES } from "./limits";
-import { validateTokenBinding } from "./tokens";
+import { validateTokenBinding, tokenResolver } from "./tokens";
 
 type NativePatch = Record<string, unknown>;
 type Override = ComponentInstance["overrides"][number];
@@ -282,7 +282,8 @@ export function validateComponents(
     return result;
   };
   for (const id of catalog.keys()) height(id);
-  const checkedBindings = new Set<string>();
+  const checkedBindings = new Set<string>(),
+    bindingResolver = tokenResolver(doc);
   const validateBound = (node: DesignNode) => {
     for (const [field, id] of Object.entries(node.bindings))
       validateTokenBinding(
@@ -291,6 +292,7 @@ export function validateComponents(
         field as TokenPropertyName,
         id!,
         checkedBindings,
+        bindingResolver,
       );
   };
   const checkRow = (index: DefinitionIndex, row: Override) => {
@@ -551,7 +553,8 @@ export function resolveComponents(
   );
   const seen = new Set<string>(),
     nodes: DesignNode[] = [],
-    checkedBindings = new Set<string>();
+    checkedBindings = new Set<string>(),
+    bindingResolver = tokenResolver(doc);
   const emit = (node: DesignNode, topRootId?: string) => {
     requireThat(
       !seen.has(node.id) &&
@@ -821,6 +824,7 @@ export function resolveComponents(
                     field as TokenPropertyName,
                     id!,
                     checkedBindings,
+                    bindingResolver,
                   );
                 applyBindings(node, { [field]: id });
               } catch (error) {

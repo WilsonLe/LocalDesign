@@ -37,10 +37,10 @@ import { portableFont, validateFontRecord } from "../fonts/data";
 import { z } from "zod";
 import { resolveTokens } from "./tokens";
 import { resolveComponents } from "./components";
-import { validateCheckpoints } from "./checkpoints";
-import { validatePrototype } from "./prototype";
+import { validateCheckpoints, checkpointWire } from "./checkpointValidation";
+import { validatePrototype } from "./prototypeValidation";
 import { validatePackageSources } from "./packages";
-import { validateHandoffs } from "./approvals";
+import { validateHandoffs } from "./approvalValidation";
 export const uid = () => crypto.randomUUID();
 export const Id = z
   .string()
@@ -347,6 +347,7 @@ export const CheckpointPayloadSchema = z
   .object({
     rootId: Id,
     nodes: z.array(NodeSchema).max(MAX_NODES),
+    ancestorContext: z.array(NodeSchema).max(40).default([]),
     components: z.array(ComponentSchema).max(MAX_COMPONENTS),
     tokens: z.array(TokenSchema).max(MAX_TOKENS),
     tokenThemes: z.array(TokenThemeSchema).max(MAX_TOKEN_THEMES),
@@ -557,14 +558,7 @@ export function nativeDocumentData(doc: DesignDocument) {
     })),
     checkpoints: doc.checkpoints.map((checkpoint) => ({
       ...checkpoint,
-      payload: {
-        ...checkpoint.payload,
-        nodes: checkpoint.payload.nodes.map(compactNativeNode),
-        components: checkpoint.payload.components.map((component) => ({
-          ...component,
-          nodes: component.nodes.map(compactNativeNode),
-        })),
-      },
+      payload: checkpointWire(checkpoint.payload),
     })),
   };
 }

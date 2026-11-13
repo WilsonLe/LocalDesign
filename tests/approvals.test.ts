@@ -6,6 +6,7 @@ import {
   HandoffApprovalSchema,
   validateDocument,
 } from "../src/core/model";
+import { checkpointEvidenceDocument } from "../src/core/checkpoints";
 import { CommandSchema } from "../src/core/commands";
 import {
   approvalGrantDigest,
@@ -115,4 +116,68 @@ it("history can retain human evidence but cannot recreate an active grant after 
   engine.history("redo", engine.guard());
   engine.history("undo", engine.guard());
   expect(engine.document.handoffs[0].approval?.historical).toBe(true);
+});
+
+it("approval binds ancestor appearance while its evidence retains the original immutable context", () => {
+  const e = fixture();
+  e.dispatch([
+    CommandSchema.parse({
+      op: "create",
+      node: {
+        id: "parent",
+        name: "Parent",
+        type: "group",
+        pageId: e.pageId,
+        x: 100,
+        y: 80,
+        rotation: 15,
+        opacity: 0.5,
+      },
+    }),
+    CommandSchema.parse({ op: "reparent", ids: ["frame"], parentId: "parent" }),
+    {
+      op: "checkpoint_create",
+      id: "evidence",
+      kind: "frame",
+      targetId: "frame",
+      label: "Context",
+      author: "Fixture",
+    },
+  ]);
+  const d = structuredClone(e.document);
+  d.handoffs[0].approval = HandoffApprovalSchema.parse({
+    grantId: "fixture",
+    documentId: d.id,
+    reviewer: "Fixture",
+    note: "",
+    approvedAt: 1,
+    contentDigest: handoffContentDigest(d, "frame"),
+    checkpointId: "evidence",
+    checkpointDigest: d.checkpoints[0].digest,
+  });
+  const grant = approvalGrantDigest(d.id, "handoff", d.handoffs[0].approval!);
+  const retained = checkpointEvidenceDocument(d, d.checkpoints[0]);
+  expect(handoffStatus(d, d.handoffs[0], grant)).toBe("approved");
+  for (const patch of [
+    { x: 600 },
+    { rotation: 45 },
+    { opacity: 0.25 },
+    { hidden: true },
+  ]) {
+    const changed = structuredClone(d);
+    Object.assign(
+      changed.nodes.find((n) => n.id === "parent")!,
+      patch,
+    );
+    expect(handoffStatus(changed, changed.handoffs[0], grant)).toBe("changed");
+    expect(checkpointEvidenceDocument(changed, changed.checkpoints[0])).toEqual(
+      retained,
+    );
+  }
+  expect(retained.nodes.find((n) => n.id === "parent")).toMatchObject({
+    x: 100,
+    rotation: 15,
+    opacity: 0.5,
+  });
+  expect(() => validateDocument(d)).not.toThrow();
 });

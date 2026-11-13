@@ -6,6 +6,11 @@ import {
   type TokenPropertyName,
 } from "./model";
 import { z } from "zod";
+import {
+  componentNodeId,
+  recordComponentBinding,
+  resolveComponents,
+} from "./components";
 
 export const tokenPropertyTypes = {
   fill: "color",
@@ -113,9 +118,9 @@ export function validateTokenBinding(
   property: TokenPropertyName,
   id: string,
   checked = new Set<string>(),
+  resolver = tokenResolver(doc),
 ) {
-  const resolver = tokenResolver(doc),
-    token = resolver.tokens.get(id);
+  const token = resolver.tokens.get(id);
   requireThat(
     token?.type === tokenPropertyTypes[property],
     "TOKEN_TYPE",
@@ -168,7 +173,7 @@ export function resolveTokens(doc: DesignDocument) {
     }
     for (const [name, id] of Object.entries(node.bindings)) {
       const property = name as TokenPropertyName;
-      validateTokenBinding(doc, node, property, id!, checkedBindings);
+      validateTokenBinding(doc, node, property, id!, checkedBindings, resolver);
       const result = resolver.value(id!, theme);
       validateValue(property, result);
       if (property === "layout.gap") node.layout.gap = result as number;
@@ -194,23 +199,58 @@ export function detachToken(doc: DesignDocument, id: string, detach: boolean) {
   const bound = allNodes.filter((node) =>
     Object.values(node.bindings).includes(id),
   );
+  const scene = new Map(doc.nodes.map((node) => [node.id, node]));
+  const inheritedTheme = (
+    node: DesignNode | undefined,
+    nodes: Map<string, DesignNode>,
+    patches = new Map<string, Record<string, unknown>>(),
+  ) => {
+    while (node) {
+      const patch = patches.get(node.id);
+      const theme =
+        patch && Object.hasOwn(patch, "tokenTheme")
+          ? patch.tokenTheme
+          : node.tokenTheme;
+      if (typeof theme === "string") return theme;
+      node = node.parentId ? nodes.get(node.parentId) : undefined;
+    }
+    return doc.activeTokenTheme;
+  };
   const rows = [
-    ...allNodes.flatMap((node) =>
+    ...doc.nodes.flatMap((node) =>
       (node.component?.overrides ?? []).map((row) => ({
         row,
-        theme: node.tokenTheme,
+        theme: inheritedTheme(
+          row.path.length === 1 &&
+            row.path[0] ===
+              doc.components.find((d) => d.id === node.component!.componentId)
+                ?.rootId
+            ? node
+            : scene.get(componentNodeId(node.id, row.path)),
+          scene,
+        ),
       })),
     ),
-    ...doc.components.flatMap((definition) =>
-      definition.variants.flatMap((variant) =>
-        variant.overrides.map((row) => ({
-          row,
-          theme:
-            definition.nodes.find((node) => node.id === row.partId)
-              ?.tokenTheme ?? null,
-        })),
-      ),
-    ),
+    ...doc.components.flatMap((definition) => {
+      const nodes = new Map(definition.nodes.map((node) => [node.id, node]));
+      return [
+        ...definition.nodes.flatMap((node) =>
+          (node.component?.overrides ?? []).map((row) => ({
+            row,
+            theme: inheritedTheme(node, nodes),
+          })),
+        ),
+        ...definition.variants.flatMap((variant) => {
+          const patches = new Map(
+            variant.overrides.map((row) => [row.partId, row.patch]),
+          );
+          return variant.overrides.map((row) => ({
+            row,
+            theme: inheritedTheme(nodes.get(row.partId), nodes, patches),
+          }));
+        }),
+      ];
+    }),
   ];
   const rowUses = rows.filter(({ row }) =>
     Object.values(row.bindings).includes(id),
@@ -221,6 +261,22 @@ export function detachToken(doc: DesignDocument, id: string, detach: boolean) {
     "Token is in use. Detach its uses explicitly before deleting.",
   );
   resolveTokens(doc);
+  const painted = doc.nodes.flatMap((node) =>
+    Object.entries(node.bindings)
+      .filter(([, tokenId]) => tokenId === id)
+      .map(([property]) => ({
+        id: node.id,
+        property: property as TokenPropertyName,
+        value:
+          property === "layout.gap"
+            ? node.layout.gap
+            : property === "layout.padding"
+              ? node.layout.padding
+              : node[
+                  property as Exclude<TokenPropertyName, `layout.${string}`>
+                ],
+      })),
+  );
   for (const definition of doc.components)
     resolveTokens({ ...doc, nodes: definition.nodes });
   for (const token of references) {
@@ -249,6 +305,29 @@ export function detachToken(doc: DesignDocument, id: string, detach: boolean) {
           ),
         };
   doc.tokens = doc.tokens.filter((token) => token.id !== id);
+  // One definition may be used under several inherited themes. Preserve each current
+  // instance's visible value when replacing its shared binding with a literal.
+  resolveComponents(doc);
+  resolveTokens(doc);
+  const byId = new Map(doc.nodes.map((node) => [node.id, node]));
+  for (const paint of painted) {
+    const node = byId.get(paint.id)!;
+    const current =
+      paint.property === "layout.gap"
+        ? node.layout.gap
+        : paint.property === "layout.padding"
+          ? node.layout.padding
+          : node[
+              paint.property as Exclude<TokenPropertyName, `layout.${string}`>
+            ];
+    if (current === paint.value) continue;
+    if (paint.property === "layout.gap")
+      node.layout.gap = paint.value as number;
+    else if (paint.property === "layout.padding")
+      node.layout.padding = paint.value as number;
+    else Object.assign(node, { [paint.property]: paint.value });
+    recordComponentBinding(doc, node, paint.property, null, byId);
+  }
 }
 
 export function tokenBindingUsage(doc: DesignDocument) {

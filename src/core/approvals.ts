@@ -3,25 +3,11 @@ import {
   type Handoff,
   requireThat,
   descendants,
+  ancestors,
 } from "./model";
 import { resourceClosure } from "./resources";
 import { libraryDigest } from "./packages";
 import { contentDigest } from "./hash";
-export function validateHandoffs(doc: DesignDocument) {
-  for (const handoff of doc.handoffs)
-    if (handoff.approval) {
-      const checkpoint = doc.checkpoints.find(
-        (item) => item.id === handoff.approval!.checkpointId,
-      );
-      requireThat(
-        checkpoint?.kind === "frame" &&
-          checkpoint.targetId === handoff.frameId &&
-          checkpoint.digest === handoff.approval.checkpointDigest,
-        "APPROVAL_EVIDENCE",
-        "Approved handoffs must retain their matching frame checkpoint.",
-      );
-    }
-}
 export function handoffContentDigest(doc: DesignDocument, frameId: string) {
   const frame = doc.nodes.find((node) => node.id === frameId);
   requireThat(
@@ -30,9 +16,10 @@ export function handoffContentDigest(doc: DesignDocument, frameId: string) {
     "Select a complete existing frame.",
   );
   const nodes = [frame, ...descendants(doc, frameId)];
+  const context = ancestors(doc, frame);
   const ids = new Set(nodes.map((node) => node.id));
   return contentDigest({
-    library: libraryDigest(resourceClosure(doc, [], nodes)),
+    library: libraryDigest(resourceClosure(doc, [], [...nodes, ...context])),
     interactions: doc.prototype.interactions.filter((item) =>
       ids.has(item.sourceId),
     ),
@@ -69,3 +56,5 @@ export function handoffStatus(
     ? "approved"
     : "changed";
 }
+
+export { validateHandoffs } from "./approvalValidation";

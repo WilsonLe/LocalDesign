@@ -44,7 +44,10 @@ import { readHandoffStatuses } from "../storage/approvals";
 import { MAX_HANDOFFS } from "../core/limits";
 import { MAX_PACKAGE_BYTES, MAX_PACKAGE_SOURCES } from "../core/limits";
 import { ComponentValueSchema } from "../core/model";
-import { checkpointDiff, checkpointDocument } from "../core/checkpoints";
+import {
+  checkpointDiff,
+  checkpointEvidenceDocument,
+} from "../core/checkpoints";
 import { prototypeProblems, prototypeActions } from "../core/prototype";
 import { bounds, worldPoint } from "../core/geometry";
 import {
@@ -178,7 +181,7 @@ export function createTools(
     tools.push({
       name: `localdesign_${name}`,
       description,
-      inputSchema: z.toJSONSchema(schema, { io: "input" }),
+      inputSchema: z.toJSONSchema(schema, { io: "input", reused: "ref" }),
       annotations: { readOnlyHint: readOnly, untrustedContentHint: true },
       execute: async (input, options) => {
         try {
@@ -521,7 +524,9 @@ export function createTools(
           fontIds: payload.fontIds,
         };
       }
-      const temp = new DesignEngine(checkpointDocument(doc, checkpoint));
+      const temp = new DesignEngine(
+        checkpointEvidenceDocument(doc, checkpoint),
+      );
       let rootId = checkpoint.payload.rootId;
       if (checkpoint.kind === "component") {
         rootId = crypto.randomUUID();
@@ -543,6 +548,7 @@ export function createTools(
       const blob = await pngExport(temp.document, temp.pageId, [rootId], {
         scale: input.scale,
         background: "#ffffff",
+        composition: checkpoint.payload.ancestorContext.length > 0,
       });
       assertNotAborted(signal);
       requireThat(
@@ -1050,7 +1056,10 @@ export function createTools(
     true,
     () => ({
       apiVersion: "1.0",
-      commandSchema: z.toJSONSchema(CommandSchema, { io: "input" }),
+      commandSchema: z.toJSONSchema(CommandSchema, {
+        io: "input",
+        reused: "ref",
+      }),
       fonts: fontCatalog(engine.document),
       fontLimitations,
       actionParity,

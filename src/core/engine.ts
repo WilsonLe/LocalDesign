@@ -110,6 +110,10 @@ export class DesignEngine {
   private receipts = new Map<string, { payload: string; receipt: Receipt }>();
   private listeners = new Set<() => void>();
   private version = 0;
+  private activation = 0;
+  get activationGeneration() {
+    return this.activation;
+  }
   private activity: Snapshot["activity"] = null;
   private player: PrototypePlayerState = emptyPlayer();
   private activityTimer?: ReturnType<typeof setTimeout>;
@@ -211,10 +215,12 @@ export class DesignEngine {
     };
   }
   replace(d: DesignDocument) {
+    const validated = validateDocument(d);
     clearTimeout(this.activityTimer);
     this.activity = null;
     this.player = emptyPlayer();
-    this.doc = validateDocument(d);
+    this.doc = validated;
+    this.activation++;
     this.undoStack = [];
     this.redoStack = [];
     this.receipts.clear();
@@ -385,7 +391,7 @@ export class DesignEngine {
     warnings.push(...componentResult.warnings);
     for (const command of r.commands)
       if (command.op === "library_import" && command.mode !== "copy")
-        refreshPackageBaselines(next, command.originId);
+        refreshPackageBaselines(next, command.originId, command.payload);
     const libraryImpact = libraryImpacts.at(-1);
     this.refreshReviewAnchors(next);
     const changedDefinitions = new Set(
@@ -590,7 +596,10 @@ export class DesignEngine {
           overlays: this.player.overlays.filter(
             (entry) =>
               byId.get(entry.frameId)?.type === "frame" &&
-              !byId.get(entry.frameId)!.hidden,
+              !byId.get(entry.frameId)!.hidden &&
+              !ancestors(this.doc, byId.get(entry.frameId)!, byId).some(
+                (node) => node.hidden,
+              ),
           ),
         };
     }
@@ -1194,6 +1203,8 @@ export class DesignEngine {
       }
       case "token_delete":
         detachToken(d, c.id, c.detach);
+        byId.clear();
+        for (const node of d.nodes) byId.set(node.id, node);
         break;
       case "token_bind":
         for (const id of c.ids) {

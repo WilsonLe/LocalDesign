@@ -135,6 +135,22 @@ for (const mode of ["legacy", "auto"] as const)
       });
       expect(result.content.some((item) => item.type === "image")).toBe(true);
       let current = await call("inspect_document");
+      const artifact = await call("export_design", { format: "svg" });
+      const reopened = await call("workspace", {
+        action: "open",
+        id: current.documentId,
+        guard: {
+          expectedDocumentId: current.documentId,
+          expectedRevision: current.revision,
+          requestId: "mcp-reopen",
+        },
+      });
+      expect(reopened.isError, reopened.message).not.toBe(true);
+      expect(
+        (await call("artifact", { action: "read", id: artifact.id })).code,
+      ).toBe("MISSING_ARTIFACT");
+      current = await call("inspect_document");
+      expect(current.documentId).toBe(d.documentId);
       const closed = await call("workspace", {
         action: "close",
         guard: {
