@@ -15,6 +15,9 @@ import {
   ComponentValueSchema,
   ReviewAnchorSchema,
   ReviewMessageSchema,
+  PrototypeSchema,
+  LibraryPayloadSchema,
+  HandoffSchema,
   type DesignNode,
 } from "./model";
 import { MAX_PAGES, MAX_TOKEN_THEMES } from "./limits";
@@ -84,6 +87,38 @@ const Patch = z
   })
   .strict();
 export const CommandSchema = z.discriminatedUnion("op", [
+  z
+    .object({
+      op: z.literal("handoff_request"),
+      handoff: HandoffSchema.omit({
+        frameName: true,
+        createdAt: true,
+        sourceRevision: true,
+        approval: true,
+      }),
+    })
+    .strict(),
+  z.object({ op: z.literal("handoff_revoke"), id: Id }).strict(),
+  z.object({ op: z.literal("handoff_delete"), id: Id }).strict(),
+  z
+    .object({
+      op: z.literal("library_import"),
+      namespace: Id,
+      payload: LibraryPayloadSchema,
+      originId: Id,
+      version: z.number().int().min(1),
+      digest: z.string().regex(/^[a-f0-9]{64}$/),
+      mode: z.enum(["import", "sync", "copy"]).default("import"),
+      replaceLocalEdits: z.boolean().default(false),
+      conflictPolicy: z.enum(["reject", "drop"]).default("reject"),
+      pageId: Id,
+      dx: z.number().finite().min(-1000000).max(1000000).default(24),
+      dy: z.number().finite().min(-1000000).max(1000000).default(24),
+    })
+    .strict(),
+  z
+    .object({ op: z.literal("prototype_set"), prototype: PrototypeSchema })
+    .strict(),
   z
     .object({
       op: z.literal("review_add"),
@@ -308,3 +343,10 @@ export const EditSchema = GuardSchema.extend({
 export type Command = z.infer<typeof CommandSchema>;
 export type EditRequest = z.infer<typeof EditSchema>;
 export type Guard = z.infer<typeof GuardSchema>;
+export const PrototypePlaySchema = z
+  .object({
+    action: z.enum(["start", "event", "back", "close_overlay", "stop"]),
+    frameId: Id.optional(),
+    interactionId: Id.optional(),
+  })
+  .strict();

@@ -15,6 +15,9 @@ import { IconResources } from "./IconResources";
 import { ComponentResources } from "./ComponentResources";
 import { HistoryResources } from "./HistoryResources";
 import { ReviewResources } from "./ReviewResources";
+import { PrototypeResources } from "./Prototype";
+import { PackageResources } from "./PackageResources";
+import { HandoffResources } from "./HandoffResources";
 const resourceTabs = [
   "context",
   "pages",
@@ -23,6 +26,9 @@ const resourceTabs = [
   "components",
   "history",
   "review",
+  "prototype",
+  "packages",
+  "handoff",
 ] as const;
 
 export function DesignResources({
@@ -157,11 +163,46 @@ export function DesignResources({
                       ? "History"
                       : value === "review"
                         ? "Review"
-                        : "Pages"}
+                        : value === "prototype"
+                          ? "Prototype"
+                          : value === "packages"
+                            ? "Packages"
+                            : value === "handoff"
+                              ? "Handoff"
+                              : "Pages"}
           </Button>
         ))}
       </div>
-      {tab === "review" ? (
+      {tab === "handoff" ? (
+        <div
+          role="tabpanel"
+          id="resource-panel-handoff"
+          aria-labelledby="resource-tab-handoff"
+        >
+          <HandoffResources engine={engine} document={doc} onError={onError} />
+        </div>
+      ) : tab === "packages" ? (
+        <div
+          role="tabpanel"
+          id="resource-panel-packages"
+          aria-labelledby="resource-tab-packages"
+        >
+          <PackageResources engine={engine} document={doc} onError={onError} />
+        </div>
+      ) : tab === "prototype" ? (
+        <div
+          role="tabpanel"
+          id="resource-panel-prototype"
+          aria-labelledby="resource-tab-prototype"
+        >
+          <PrototypeResources
+            engine={engine}
+            document={doc}
+            onError={onError}
+            onPlay={onClose}
+          />
+        </div>
+      ) : tab === "review" ? (
         <div
           role="tabpanel"
           id="resource-panel-review"

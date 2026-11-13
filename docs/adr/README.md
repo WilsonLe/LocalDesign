@@ -4,3 +4,4 @@
 - [0002 — Versioned self-contained skill adaptations](0002-self-contained-skills.md)
 - [0003 — Portable fonts and preserved typography](0003-portable-fonts.md)
 - [0004 — Native agent capabilities and portable document extensions](0004-native-agent-capabilities.md)
+- [0005 — Optional authenticated loopback MCP companion](0005-optional-loopback-mcp-companion.md)

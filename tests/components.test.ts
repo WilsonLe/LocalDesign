@@ -622,3 +622,73 @@ it("rejects root placement override rows and reconstructs unordered source defin
   ).toThrow(/placement|position/);
   expect(engine.document).toBe(before);
 });
+
+it("captures and freezes the resolved state at each command boundary inside one atomic batch", () => {
+  const d = fixture();
+  d.nodes.push(instance(d, "a"));
+  d.tokens.push(
+    TokenSchema.parse({
+      id: "ink",
+      name: "ink",
+      type: "color",
+      value: "#112233",
+    }),
+  );
+  d.components[0].nodes[0].bindings.fill = "ink";
+  const engine = new DesignEngine(d);
+  const next = structuredClone(engine.document.components[0].nodes);
+  next[0].width = 240;
+  engine.dispatch([
+    CommandSchema.parse({
+      op: "component_set",
+      id: "button",
+      expectedComponentRevision: 1,
+      nodes: next,
+    }),
+    {
+      op: "token_set",
+      token: { ...engine.document.tokens[0], value: "#445566" },
+    },
+    {
+      op: "checkpoint_create",
+      id: "batch-capture",
+      kind: "frame",
+      targetId: "a",
+      label: "Current resolved state",
+      author: "You",
+    },
+    { op: "component_delete", id: "button", detach: false },
+  ]);
+  expect(engine.document.checkpoints[0].payload.nodes[0]).toMatchObject({
+    width: 240,
+    fill: "#445566",
+  });
+  expect(engine.document.nodes.find((node) => node.id === "a")).toMatchObject({
+    width: 240,
+    fill: "#445566",
+    component: { frozen: true },
+  });
+});
+it("a newly inserted instance can be edited by its deterministic part ID in the same atomic request", () => {
+  const d = fixture(),
+    engine = new DesignEngine(d);
+  engine.dispatch([
+    CommandSchema.parse({
+      op: "component_instance",
+      id: "new",
+      componentId: "button",
+      pageId: d.pages[0].id,
+    }),
+    {
+      op: "update",
+      ids: [componentNodeId("new", ["label"])],
+      patch: { text: "Immediate override" },
+    },
+  ]);
+  expect(
+    engine.document.nodes.find(
+      (node) => node.id === componentNodeId("new", ["label"]),
+    )?.text,
+  ).toBe("Immediate override");
+  expect(engine.document.revision).toBe(1);
+});

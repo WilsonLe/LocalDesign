@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { zipSync, strToU8 } from "fflate";
-import { harness, open, tool, inspect, edits } from "./helpers";
+import { artifactBytes, harness, open, tool, inspect, edits } from "./helpers";
 async function png(page: Parameters<typeof inspect>[0], ids?: string[]) {
   const a = await tool(page, "export_design", { format: "png", ids });
   expect(a.isError, a.message).not.toBe(true);
@@ -381,15 +381,11 @@ test("actual native exporter reopens a supported metadata scene above eight MB",
   await edits(page, commands);
   const artifact = await tool(page, "export_design", { format: "native" });
   expect(artifact.isError, artifact.message).not.toBe(true);
-  const part = await tool(page, "artifact", {
-    id: artifact.id,
-    action: "read",
-    length: 524288,
-  });
+  const bytes = await artifactBytes(page, artifact.id, artifact.size);
   const prepared = await tool(page, "import_files", {
     action: "prepare",
     name: "large.localdesign",
-    base64: part.base64,
+    base64: bytes.toString("base64"),
   });
   expect(prepared.isError, prepared.message).not.toBe(true);
   expect(prepared.nodes).toBe(401);
@@ -620,15 +616,11 @@ test("declared raster MIME must match decoded byte format before accepting tool 
   ]);
   const exported = await tool(page, "export_design", { format: "native" });
   expect(exported.isError, exported.message).not.toBe(true);
-  const bytes = await tool(page, "artifact", {
-    id: exported.id,
-    action: "read",
-    length: 524288,
-  });
+  const bytes = await artifactBytes(page, exported.id, exported.size);
   const prepared = await tool(page, "import_files", {
     action: "prepare",
     name: "jpeg.localdesign",
-    base64: bytes.base64,
+    base64: bytes.toString("base64"),
   });
   expect(prepared.isError, prepared.message).not.toBe(true);
 });

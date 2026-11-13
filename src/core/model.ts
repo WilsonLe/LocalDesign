@@ -23,6 +23,9 @@ import {
   MAX_DOCUMENT_FONTS,
   MAX_REVIEW_THREADS,
   MAX_REVIEW_REPLIES,
+  MAX_PROTOTYPE_INTERACTIONS,
+  MAX_PACKAGE_SOURCES,
+  MAX_HANDOFFS,
 } from "./limits";
 import {
   DocumentFonts,
@@ -35,6 +38,9 @@ import { z } from "zod";
 import { resolveTokens } from "./tokens";
 import { resolveComponents } from "./components";
 import { validateCheckpoints } from "./checkpoints";
+import { validatePrototype } from "./prototype";
+import { validatePackageSources } from "./packages";
+import { validateHandoffs } from "./approvals";
 export const uid = () => crypto.randomUUID();
 export const Id = z
   .string()
@@ -394,6 +400,79 @@ export const ReviewThreadSchema = z
   })
   .strict();
 export type ReviewThread = z.infer<typeof ReviewThreadSchema>;
+export const PrototypeInteractionSchema = z
+  .object({
+    id: Id,
+    sourceId: Id,
+    sourceName: z.string().max(200).default(""),
+    action: z.enum(["navigate", "back", "overlay", "close_overlay"]),
+    targetFrameId: Id.nullable().default(null),
+    targetName: z.string().max(200).default(""),
+    position: z
+      .enum(["center", "top-left", "top-right", "bottom-left", "bottom-right"])
+      .default("center"),
+  })
+  .strict();
+export const PrototypeSchema = z
+  .object({
+    entryFrameId: Id.nullable().default(null),
+    interactions: z
+      .array(PrototypeInteractionSchema)
+      .max(MAX_PROTOTYPE_INTERACTIONS)
+      .default([]),
+  })
+  .strict();
+export const LibraryPayloadSchema = z
+  .object({
+    nodes: z.array(NodeSchema).max(MAX_NODES).default([]),
+    components: z.array(ComponentSchema).max(MAX_COMPONENTS),
+    tokens: z.array(TokenSchema).max(MAX_TOKENS),
+    tokenThemes: z.array(TokenThemeSchema).max(MAX_TOKEN_THEMES),
+    activeTokenTheme: Id.nullable(),
+    assets: z.array(AssetSchema).max(MAX_ASSETS),
+    fonts: DocumentFonts,
+  })
+  .strict();
+export type LibraryPayload = z.infer<typeof LibraryPayloadSchema>;
+export const PackageSourceSchema = z
+  .object({
+    originId: Id,
+    version: z.number().int().min(1),
+    digest: z.string().regex(/^[a-f0-9]{64}$/),
+    componentMap: z.record(Id, Id),
+    tokenMap: z.record(Id, Id),
+    themeMap: z.record(Id, Id),
+    assetMap: z.record(Id, Id),
+    fontMap: z.record(Id, Id),
+    baselines: z.record(Id, z.string().regex(/^[a-f0-9]{64}$/)),
+  })
+  .strict();
+export const HandoffApprovalSchema = z
+  .object({
+    historical: z.boolean().default(false),
+    grantId: Id,
+    documentId: Id,
+    reviewer: z.string().trim().min(1).max(100),
+    note: z.string().max(4000),
+    approvedAt: z.number().int().min(0),
+    contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+    checkpointId: Id,
+    checkpointDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  })
+  .strict();
+export const HandoffSchema = z
+  .object({
+    id: Id,
+    frameId: Id,
+    frameName: z.string().max(200),
+    requestedBy: z.string().trim().min(1).max(100),
+    note: z.string().max(4000),
+    createdAt: z.number().int().min(0),
+    sourceRevision: z.number().int().min(0),
+    approval: HandoffApprovalSchema.nullable().default(null),
+  })
+  .strict();
+export type Handoff = z.infer<typeof HandoffSchema>;
 export const DocumentSchema = z
   .object({
     schemaVersion: z.literal(3),
@@ -411,11 +490,20 @@ export const DocumentSchema = z
     tokenThemes: z.array(TokenThemeSchema).max(MAX_TOKEN_THEMES).default([]),
     activeTokenTheme: Id.nullable().default(null),
     components: z.array(ComponentSchema).max(MAX_COMPONENTS).default([]),
+    packageSources: z
+      .array(PackageSourceSchema)
+      .max(MAX_PACKAGE_SOURCES)
+      .default([]),
+    handoffs: z.array(HandoffSchema).max(MAX_HANDOFFS).default([]),
     checkpoints: z.array(CheckpointSchema).max(MAX_CHECKPOINTS).default([]),
     reviewThreads: z
       .array(ReviewThreadSchema)
       .max(MAX_REVIEW_THREADS)
       .default([]),
+    prototype: PrototypeSchema.default({
+      entryFrameId: null,
+      interactions: [],
+    }),
   })
   .strict();
 export type DesignDocument = z.infer<typeof DocumentSchema>;
@@ -500,6 +588,9 @@ export function blankDocument(name = "Untitled design"): DesignDocument {
     components: [],
     checkpoints: [],
     reviewThreads: [],
+    prototype: { entryFrameId: null, interactions: [] },
+    packageSources: [],
+    handoffs: [],
   };
 }
 export function makeNode(
@@ -562,6 +653,8 @@ export function validateDocument(input: unknown): DesignDocument {
     ...d.components,
     ...d.checkpoints,
     ...d.reviewThreads,
+    ...d.prototype.interactions,
+    ...d.handoffs,
   ]) {
     requireThat(!ids.has(item.id), "DUPLICATE_ID", `Duplicate ID: ${item.id}`);
     ids.add(item.id);
@@ -654,6 +747,9 @@ export function validateDocument(input: unknown): DesignDocument {
     }
   }
   resolveTokens(d);
+  validatePrototype(d);
+  validatePackageSources(d);
+  validateHandoffs(d);
   for (const thread of d.reviewThreads)
     requireThat(
       new Set([thread.message.id, ...thread.replies.map((reply) => reply.id)])
@@ -705,9 +801,13 @@ export function validateDocument(input: unknown): DesignDocument {
   );
   return d;
 }
-export function descendants(d: DesignDocument, id: string): DesignNode[] {
+export function descendants(
+  d: DesignDocument,
+  id: string,
+  index = indexNodes(d),
+): DesignNode[] {
   const out: DesignNode[] = [];
-  const { children } = indexNodes(d);
+  const { children } = index;
   const visit = (p: string) => {
     for (const n of children.get(p) ?? []) {
       out.push(n);

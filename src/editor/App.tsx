@@ -39,6 +39,7 @@ import {
   Copy,
   Scissors,
   ClipboardPaste,
+  Play,
 } from "lucide-react";
 import { DesignEngine } from "../core/engine";
 import { makeNode, roots, uid, type DesignNode } from "../core/model";
@@ -51,6 +52,9 @@ import { rasterExport, svgExport } from "../files/export";
 import { Artifacts } from "../files/artifacts";
 import { fontsReady } from "../render/fonts";
 import { connectWebMCP } from "../webmcp/register";
+import { PageToolRuntime } from "../webmcp/runtime";
+import { LoopbackConnection } from "../webmcp/loopback";
+import { LocalMCPConnection } from "./LocalMCPConnection";
 import { listSkills, getSkill } from "../skills/catalog";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
@@ -60,6 +64,7 @@ import { blocksCanvasShortcuts } from "./shortcuts";
 import { WorkspaceList } from "./WorkspaceList";
 import { DesignResources } from "./DesignResources";
 import { ExportPanel, type ExportRequest } from "./ExportPanel";
+import { PrototypePlayer } from "./Prototype";
 import {
   WorkspaceNavigation,
   readWorkspaceRoute,
@@ -120,6 +125,8 @@ const tools = [
 export function App() {
   const snapshot = useSyncExternalStore(engine.subscribe, engine.getSnapshot),
     { document: doc, selection, viewport } = snapshot;
+  const [loopback, setLoopback] = useState<LoopbackConnection | null>(null);
+  const [localConnected, setLocalConnected] = useState(false);
   const [tool, setTool] = useState<Tool>("select"),
     [notice, setNotice] = useState(""),
     [storage, setStorage] = useState(workspace.status),
@@ -222,14 +229,17 @@ export function App() {
         if (!cancelled) setReady(true);
       })
       .catch(report);
-    const dispose = connectWebMCP(
-      workspace,
-      () =>
-        setNotice(
-          "Use Import to choose a file. Your browser may require a click before opening its file picker.",
-        ),
-      setConnection,
+    const runtime = new PageToolRuntime(workspace, () =>
+      setNotice(
+        "Use Import to choose a file. Your browser may require a click before opening its file picker.",
+      ),
     );
+    const localConnection = new LoopbackConnection(runtime);
+    setLoopback(localConnection);
+    const stopLocalStatus = localConnection.subscribe(() =>
+      setLocalConnected(localConnection.getSnapshot().status === "connected"),
+    );
+    const dispose = connectWebMCP(runtime, setConnection);
     const before = (e: BeforeUnloadEvent) => {
       if (workspace.status === "error" || workspace.status === "saving") {
         e.preventDefault();
@@ -242,6 +252,9 @@ export function App() {
       unsub();
       stopNavigation?.();
       dispose();
+      stopLocalStatus();
+      localConnection.dispose();
+      runtime.dispose();
       window.removeEventListener("beforeunload", before);
     };
   }, []);
@@ -267,6 +280,7 @@ export function App() {
         !editing ||
         navigation.loading ||
         modal ||
+        snapshot.player.open ||
         blocksCanvasShortcuts(e.target)
       )
         return;
@@ -380,7 +394,14 @@ export function App() {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [doc, selection, modal, editing, navigation.loading]);
+  }, [
+    doc,
+    selection,
+    modal,
+    editing,
+    navigation.loading,
+    snapshot.player.open,
+  ]);
   const importSelected = async (file: File, asImage = false) => {
     setBusy(true);
     workspace.commitPendingEdits();
@@ -594,15 +615,31 @@ export function App() {
             <LayersIcon size={16} />
           </Button>
         )}
+        {editing && (
+          <Button
+            aria-label="Play prototype"
+            title="Play prototype"
+            disabled={!doc.prototype.entryFrameId}
+            onClick={() =>
+              void perform(() =>
+                engine.playPrototype(doc.id, { action: "start" }),
+              )
+            }
+          >
+            <Play size={15} />
+          </Button>
+        )}
         <Button
-          className={`agent-button ${connection === "connected" ? "connected" : ""}`}
+          className={`agent-button ${connection === "connected" || localConnected ? "connected" : ""}`}
           title="Connect an agent"
           aria-label="Connect an agent"
           onClick={() => setModal("agent")}
         >
           <Plug size={14} />
           <span>
-            {connection === "connected" ? "Agent ready" : "Connect agent"}
+            {connection === "connected" || localConnected
+              ? "Agent ready"
+              : "Connect agent"}
           </span>
         </Button>
         <Button
@@ -865,6 +902,18 @@ export function App() {
           />
         </Modal>
       )}
+      {editing && snapshot.player.open && (
+        <Modal
+          title="Prototype player"
+          onClose={() => engine.playPrototype(doc.id, { action: "stop" })}
+        >
+          <PrototypePlayer
+            engine={engine}
+            snapshot={snapshot}
+            onError={setNotice}
+          />
+        </Modal>
+      )}
       {modal === "agent" && (
         <Modal
           title="A canvas your agent can use"
@@ -884,6 +933,7 @@ export function App() {
               </strong>
             </div>
           </div>
+          {loopback && <LocalMCPConnection connection={loopback} />}
           <ol className="agent-steps">
             <li>Open this page in your agent’s WebMCP-capable browser.</li>
             <li>

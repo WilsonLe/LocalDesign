@@ -186,6 +186,7 @@ export function ComponentResources({
     receipt: Receipt;
   } | null>(null);
   const [drop, setDrop] = useState(false);
+  const [staleSource, setStaleSource] = useState(false);
   const definition = doc.components.find((item) => item.id === id);
   const selected = doc.nodes.find((item) => item.id === engine.selection[0]);
   const source =
@@ -212,6 +213,7 @@ export function ComponentResources({
   const load = (next: string) => {
     const item = engine.document.components.find((item) => item.id === next);
     setId(next);
+    setStaleSource(false);
     setName(item?.name ?? "");
     setDescription(item?.description ?? "");
     setProperties(structuredClone(item?.properties ?? []));
@@ -272,7 +274,7 @@ export function ComponentResources({
               variants,
               expectedComponentRevision: definition?.revision,
               conflictPolicy: drop ? "drop" : "reject",
-              allowStaleSource: false,
+              allowStaleSource: staleSource,
             }
           : {
               op: "component_set",
@@ -396,6 +398,23 @@ export function ComponentResources({
               />
               Drop incompatible overrides
             </label>
+            {definition &&
+              source &&
+              selected?.componentSource &&
+              selected.componentSource.revision < definition.revision && (
+                <label className="checks">
+                  <Input
+                    type="checkbox"
+                    checked={staleSource}
+                    onChange={(event) => {
+                      setStaleSource(event.target.checked);
+                      setPending(null);
+                    }}
+                  />
+                  Publish an older source copy (r
+                  {selected.componentSource.revision} → r{definition.revision})
+                </label>
+              )}
             {pending && (
               <div role="status" className="resource-confirm">
                 <strong>
@@ -585,24 +604,30 @@ export function ComponentResources({
                     overrides: [
                       {
                         partId,
-                        patch: {
-                          [field]: ["hidden", "locked", "clip"].includes(field)
-                            ? variantValue === "true"
-                            : [
-                                  "text",
-                                  "fill",
-                                  "stroke",
-                                  "fontFamily",
-                                  "fontWeight",
-                                  "fontStyle",
-                                  "path",
-                                  "strokeLinecap",
-                                  "strokeLinejoin",
-                                ].includes(field)
-                              ? variantValue
-                              : Number(variantValue),
-                        },
-                        bindings: {},
+                        patch: field.startsWith("layout.")
+                          ? {}
+                          : {
+                              [field]: ["hidden", "locked", "clip"].includes(
+                                field,
+                              )
+                                ? variantValue === "true"
+                                : [
+                                      "text",
+                                      "fill",
+                                      "stroke",
+                                      "fontFamily",
+                                      "fontWeight",
+                                      "fontStyle",
+                                      "path",
+                                      "strokeLinecap",
+                                      "strokeLinejoin",
+                                    ].includes(field)
+                                  ? variantValue
+                                  : Number(variantValue),
+                            },
+                        bindings: field.startsWith("layout.")
+                          ? { [field]: { value: Number(variantValue) } }
+                          : {},
                       },
                     ],
                   },

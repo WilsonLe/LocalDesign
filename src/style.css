@@ -1280,6 +1280,58 @@ kbd {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.prototype-player {
+  display: grid;
+  gap: 16px;
+}
+.prototype-stage {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  max-height: 65vh;
+  overflow-y: auto;
+  background: #202020;
+}
+.prototype-artboard {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.prototype-artboard [data-node-id] {
+  cursor: pointer !important;
+}
+.prototype-overlay {
+  position: absolute;
+}
+.position-center {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.position-top-left {
+  top: 0;
+  left: 0;
+}
+.position-top-right {
+  top: 0;
+  right: 0;
+}
+.position-bottom-left {
+  bottom: 0;
+  left: 0;
+}
+.position-bottom-right {
+  bottom: 0;
+  right: 0;
+}
+.prototype-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.resource-id {
+  overflow-wrap: anywhere;
+}
 .agent-activity {
   position: fixed;
   z-index: 30;
@@ -1821,4 +1873,21 @@ kbd {
   .brand {
     font-size: 12px;
   }
+}
+.local-mcp-connection {
+  margin: 16px 0;
+}
+.local-mcp-connection summary {
+  cursor: pointer;
+  font-size: 13px;
+}
+.local-mcp-connection form {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0;
+}
+.local-mcp-connection label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
 }

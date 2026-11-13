@@ -2,6 +2,25 @@ import { indexNodes } from "./tree";
 import { detachToken, resolveTokens, clearRemovedThemes } from "./tokens";
 import { iconAttribution, iconCatalog } from "../icons/catalog";
 import { MAX_ACTIVITY_TTL_MS } from "./limits";
+import { handoffContentDigest } from "./approvals";
+import { contentDigest } from "./hash";
+import {
+  consumeHumanApprovalIntent,
+  type HumanApprovalIntent,
+} from "./humanApproval";
+import {
+  importLibrary,
+  resourceImportId,
+  refreshPackageBaselines,
+  type LibraryDefinitionChange,
+} from "./packages";
+import {
+  advancePrototype,
+  emptyPlayer,
+  prototypeProblems,
+  type PrototypeAction,
+  type PrototypePlayerState,
+} from "./prototype";
 import {
   captureCheckpoint,
   checkpointDigest,
@@ -20,6 +39,7 @@ import {
   CommandSchema,
   EditSchema,
   GuardSchema,
+  PrototypePlaySchema,
   type Command,
   type EditRequest,
   type Guard,
@@ -36,6 +56,8 @@ import {
   validateDocument,
   ComponentSchema,
   ComponentInstanceSchema,
+  HandoffApprovalSchema,
+  type Handoff,
   type DesignDocument,
   type DesignNode,
   type Viewport,
@@ -60,8 +82,18 @@ export type Receipt = {
     conflicts: import("./components").ComponentConflict[];
     conflictCount: number;
   };
+  libraryImpact?: {
+    originId: string;
+    version: number;
+    added: string[];
+    updated: string[];
+    rootIds: string[];
+    localConflictCount: number;
+    changes: LibraryDefinitionChange[];
+  };
 };
 export type Snapshot = {
+  player: PrototypePlayerState;
   activity: { actor: string; message: string; expiresAt: number } | null;
   document: DesignDocument;
   pageId: string;
@@ -79,6 +111,7 @@ export class DesignEngine {
   private listeners = new Set<() => void>();
   private version = 0;
   private activity: Snapshot["activity"] = null;
+  private player: PrototypePlayerState = emptyPlayer();
   private activityTimer?: ReturnType<typeof setTimeout>;
   pageId: string;
   selection: string[] = [];
@@ -91,6 +124,7 @@ export class DesignEngine {
   }
   private buildSnapshot(): Snapshot {
     return {
+      player: this.player,
       activity: this.activity,
       document: this.doc,
       pageId: this.pageId,
@@ -155,6 +189,20 @@ export class DesignEngine {
     this.emit();
     return this.activity;
   }
+  playPrototype(expectedDocumentId: string, input: PrototypeAction) {
+    requireThat(
+      expectedDocumentId === this.doc.id,
+      "DOCUMENT_MISMATCH",
+      "The active document changed.",
+    );
+    this.player = advancePrototype(
+      this.doc,
+      this.player,
+      PrototypePlaySchema.parse(input),
+    );
+    this.emit();
+    return this.player;
+  }
   guard(): Guard {
     return {
       expectedDocumentId: this.doc.id,
@@ -165,6 +213,7 @@ export class DesignEngine {
   replace(d: DesignDocument) {
     clearTimeout(this.activityTimer);
     this.activity = null;
+    this.player = emptyPlayer();
     this.doc = validateDocument(d);
     this.undoStack = [];
     this.redoStack = [];
@@ -231,6 +280,7 @@ export class DesignEngine {
     createdIds: string[] = [],
     warnings: string[] = [],
     componentImpact?: Receipt["componentImpact"],
+    libraryImpact?: Receipt["libraryImpact"],
   ): Receipt {
     const receipt = {
       documentId: this.doc.id,
@@ -239,6 +289,7 @@ export class DesignEngine {
       createdIds,
       warnings,
       ...(componentImpact ? { componentImpact } : {}),
+      ...(libraryImpact ? { libraryImpact } : {}),
     };
     this.receipts.set(g.requestId, { payload, receipt });
     if (this.receipts.size > 256)
@@ -252,22 +303,90 @@ export class DesignEngine {
     if (prior) return prior;
     const next = structuredClone(this.doc);
     const created: string[] = [];
+    const warnings: string[] = [];
+    const libraryImpacts: NonNullable<Receipt["libraryImpact"]>[] = [];
     // Transaction-owned references: refresh at the boundary, maintain structural edits below.
     const byId = new Map(next.nodes.map((n) => [n.id, n]));
-    for (const c of r.commands) this.apply(next, c, created, byId);
-    const dropFor = new Set(
-      r.commands.flatMap((c) =>
-        (c.op === "component_set" || c.op === "component_capture") &&
-        c.conflictPolicy === "drop"
-          ? [c.id]
-          : c.op === "checkpoint_restore" && c.conflictPolicy === "drop"
-            ? (next.checkpoints
-                .find((item) => item.id === c.id)
-                ?.payload.components.map((item) => item.id) ?? [])
-            : [],
+    const dropDefinitions = () =>
+      new Set(
+        r.commands.flatMap((c) =>
+          (c.op === "component_set" || c.op === "component_capture") &&
+          c.conflictPolicy === "drop"
+            ? [c.id]
+            : c.op === "library_import" && c.conflictPolicy === "drop"
+              ? c.payload.components.map((item) =>
+                  c.mode === "sync"
+                    ? (next.packageSources.find(
+                        (source) => source.originId === c.originId,
+                      )?.componentMap[item.id] ??
+                      resourceImportId(
+                        next.id,
+                        c.namespace,
+                        "component",
+                        item.id,
+                      ))
+                    : resourceImportId(
+                        next.id,
+                        c.namespace,
+                        "component",
+                        item.id,
+                      ),
+                )
+              : c.op === "checkpoint_restore" && c.conflictPolicy === "drop"
+                ? (next.checkpoints
+                    .find((item) => item.id === c.id)
+                    ?.payload.components.map((item) => item.id) ?? [])
+                : [],
+        ),
+      );
+    const resolutions: import("./components").ComponentResolution[] = [];
+    const settle = () => {
+      const result = resolveComponents(next, { dropFor: dropDefinitions() });
+      resolutions.push(result);
+      resolveTokens(next);
+      applyLayouts(next);
+      byId.clear();
+      for (const node of next.nodes) byId.set(node.id, node);
+    };
+    let pendingResolution = false;
+    for (const command of r.commands) {
+      const needsCurrent =
+        [
+          "component_capture",
+          "component_source",
+          "component_delete",
+          "component_detach",
+          "checkpoint_create",
+          "token_delete",
+        ].includes(command.op) ||
+        (command.op === "token_bind" && command.tokenId === null) ||
+        ("ids" in command &&
+          next.components.length > 0 &&
+          command.ids.some((id) => !byId.has(id)));
+      if (needsCurrent && pendingResolution) {
+        settle();
+        pendingResolution = false;
+      }
+      this.apply(next, command, created, byId, libraryImpacts);
+      pendingResolution = true;
+    }
+    settle();
+    const componentResult = {
+      warnings: resolutions.flatMap((result) => result.warnings),
+      conflicts: resolutions
+        .flatMap((result) => result.conflicts)
+        .slice(0, 100),
+      conflictCount: resolutions.reduce(
+        (sum, result) => sum + result.conflictCount,
+        0,
       ),
-    );
-    const componentResult = resolveComponents(next, { dropFor });
+      createdIds: resolutions.flatMap((result) => result.createdIds),
+    };
+    warnings.push(...componentResult.warnings);
+    for (const command of r.commands)
+      if (command.op === "library_import" && command.mode !== "copy")
+        refreshPackageBaselines(next, command.originId);
+    const libraryImpact = libraryImpacts.at(-1);
     this.refreshReviewAnchors(next);
     const changedDefinitions = new Set(
       next.components
@@ -309,8 +428,6 @@ export class DesignEngine {
         created.push(id);
         declared.add(id);
       }
-    resolveTokens(next);
-    applyLayouts(next);
     validateDocument(next);
     if (dryRun)
       return {
@@ -318,8 +435,9 @@ export class DesignEngine {
         revision: this.doc.revision,
         requestId: r.requestId,
         createdIds: created,
-        warnings: componentResult.warnings,
+        warnings,
         ...(componentImpact ? { componentImpact } : {}),
+        ...(libraryImpact ? { libraryImpact } : {}),
       };
     this.undoStack.push(this.doc);
     if (this.undoStack.length > 100) this.undoStack.shift();
@@ -331,14 +449,90 @@ export class DesignEngine {
       r,
       payload,
       created,
-      componentResult.warnings,
+      warnings,
       componentImpact,
+      libraryImpact,
     );
     this.emit();
     return receipt;
   }
   dispatch(commands: Command[]) {
     return this.edit({ ...this.guard(), commands });
+  }
+  async approveHuman(
+    guard: Guard,
+    id: string,
+    reviewer: string,
+    note: string,
+    intent: HumanApprovalIntent,
+    persist: (
+      documentId: string,
+      handoffId: string,
+      approval: NonNullable<Handoff["approval"]>,
+    ) => Promise<void>,
+  ): Promise<Receipt> {
+    const g = GuardSchema.parse(guard),
+      payload = JSON.stringify({
+        action: "human_approval",
+        ...g,
+        id,
+        reviewer,
+        note,
+      });
+    const prior = this.check(g, payload);
+    if (prior) return prior;
+    consumeHumanApprovalIntent(intent);
+    const base = this.doc,
+      next = structuredClone(base),
+      handoff = next.handoffs.find((item) => item.id === id);
+    requireThat(handoff, "MISSING_HANDOFF", "Choose a handoff request.");
+    const captured = captureCheckpoint(base, "frame", handoff.frameId),
+      checkpointId = resourceImportId(
+        base.id,
+        g.requestId,
+        "approved-frame",
+        id,
+      );
+    const checkpoint = {
+      id: checkpointId,
+      kind: "frame" as const,
+      targetId: handoff.frameId,
+      label: `Approved: ${handoff.frameName}`.slice(0, 200),
+      author: reviewer,
+      createdAt: Date.now(),
+      sourceRevision: base.revision,
+      digest: checkpointDigest(captured),
+      payload: captured,
+    };
+    const approval = HandoffApprovalSchema.parse({
+      historical: false,
+      grantId: resourceImportId(base.id, g.requestId, "human-grant", id),
+      documentId: base.id,
+      reviewer,
+      note,
+      approvedAt: Date.now(),
+      contentDigest: handoffContentDigest(base, handoff.frameId),
+      checkpointId,
+      checkpointDigest: checkpoint.digest,
+    });
+    handoff.approval = approval;
+    next.checkpoints.push(checkpoint);
+    const validated = validateDocument(next);
+    await persist(base.id, id, approval);
+    requireThat(
+      this.doc === base,
+      "STALE_REVISION",
+      "The document changed while recording approval. Review its current content again.",
+    );
+    this.undoStack.push(base);
+    if (this.undoStack.length > 100) this.undoStack.shift();
+    this.redoStack = [];
+    validated.revision = base.revision + 1;
+    this.doc = validated;
+    this.reconcile();
+    const receipt = this.remember(g, payload, [checkpointId]);
+    this.emit();
+    return receipt;
   }
   history(action: "undo" | "redo", guard: Guard) {
     const g = GuardSchema.parse(guard),
@@ -349,6 +543,19 @@ export class DesignEngine {
       dest = action === "undo" ? this.redoStack : this.undoStack;
     requireThat(source.length, "EMPTY_HISTORY", `Nothing to ${action}.`);
     const next = structuredClone(source.pop()!);
+    // History may retain signed evidence, but cannot re-grant a sign-off that
+    // was removed/revoked or undone. Only a fresh trusted UI action can do that.
+    for (const handoff of next.handoffs)
+      if (handoff.approval) {
+        const current = this.doc.handoffs.find(
+          (item) => item.id === handoff.id,
+        )?.approval;
+        if (
+          !current ||
+          contentDigest(current) !== contentDigest(handoff.approval)
+        )
+          handoff.approval.historical = true;
+      }
     dest.push(this.doc);
     next.revision = this.doc.revision + 1;
     this.doc = next;
@@ -364,6 +571,29 @@ export class DesignEngine {
     this.selection = this.selection.filter(
       (id) => byId.get(id)?.pageId === this.pageId,
     );
+    if (this.player.open) {
+      const frame = this.player.frameId
+        ? byId.get(this.player.frameId)
+        : undefined;
+      if (
+        frame?.type !== "frame" ||
+        frame.hidden ||
+        ancestors(this.doc, frame, byId).some((node) => node.hidden)
+      )
+        this.player = {
+          ...emptyPlayer(),
+          error: "The playing frame was removed or hidden.",
+        };
+      else
+        this.player = {
+          ...this.player,
+          overlays: this.player.overlays.filter(
+            (entry) =>
+              byId.get(entry.frameId)?.type === "frame" &&
+              !byId.get(entry.frameId)!.hidden,
+          ),
+        };
+    }
   }
   private insertNode(
     d: DesignDocument,
@@ -423,6 +653,7 @@ export class DesignEngine {
     raw: Command,
     created: string[],
     byId: Map<string, DesignNode>,
+    libraryImpacts: NonNullable<Receipt["libraryImpact"]>[] = [],
   ) {
     const c = CommandSchema.parse(raw);
     if (
@@ -504,6 +735,82 @@ export class DesignEngine {
       }
     };
     switch (c.op) {
+      case "handoff_request": {
+        const frame = byId.get(c.handoff.frameId);
+        requireThat(
+          frame?.type === "frame" && !frame.componentPart,
+          "HANDOFF_FRAME",
+          "Choose a complete existing frame.",
+        );
+        d.handoffs.push({
+          ...c.handoff,
+          frameName: frame.name,
+          createdAt: Date.now(),
+          sourceRevision: d.revision,
+          approval: null,
+        });
+        created.push(c.handoff.id);
+        break;
+      }
+      case "handoff_revoke":
+      case "handoff_delete": {
+        const handoff = d.handoffs.find((item) => item.id === c.id);
+        requireThat(handoff, "MISSING_HANDOFF", "Choose a handoff request.");
+        if (c.op === "handoff_revoke") handoff.approval = null;
+        else d.handoffs = d.handoffs.filter((item) => item.id !== c.id);
+        break;
+      }
+      case "library_import": {
+        const before = new Set(
+          [
+            ...d.nodes,
+            ...d.components,
+            ...d.tokens,
+            ...d.tokenThemes,
+            ...d.assets,
+            ...d.fonts,
+          ].map((item) => item.id),
+        );
+        const result = importLibrary(d, c);
+        for (const item of [
+          ...d.nodes,
+          ...d.components,
+          ...d.tokens,
+          ...d.tokenThemes,
+          ...d.assets,
+          ...d.fonts,
+        ])
+          if (!before.has(item.id)) created.push(item.id);
+        byId.clear();
+        for (const node of d.nodes) byId.set(node.id, node);
+        libraryImpacts.push({
+          originId: c.originId,
+          version: c.version,
+          added: result.added.slice(0, 100),
+          updated: result.updated.slice(0, 100),
+          rootIds: result.roots.slice(0, 100),
+          localConflictCount: result.localConflicts.length,
+          changes: result.changes.slice(0, 100),
+        });
+        break;
+      }
+      case "prototype_set": {
+        d.prototype = structuredClone(c.prototype);
+        for (const interaction of d.prototype.interactions) {
+          interaction.sourceName =
+            byId.get(interaction.sourceId)?.name ?? interaction.sourceName;
+          interaction.targetName =
+            (interaction.targetFrameId
+              ? byId.get(interaction.targetFrameId)?.name
+              : undefined) ?? "";
+        }
+        requireThat(
+          !prototypeProblems(d).length,
+          "PROTOTYPE_TARGET",
+          "The graph names a missing source, target or entry frame. Repair the broken links before publishing.",
+        );
+        break;
+      }
       case "review_add": {
         const node = c.anchor.nodeId ? byId.get(c.anchor.nodeId) : undefined;
         const page = d.pages.find((page) => page.id === c.anchor.pageId);
@@ -566,6 +873,11 @@ export class DesignEngine {
         break;
       }
       case "checkpoint_delete":
+        requireThat(
+          !d.handoffs.some((item) => item.approval?.checkpointId === c.id),
+          "APPROVAL_EVIDENCE",
+          "Remove or revoke the handoff before deleting its approved evidence.",
+        );
         requireThat(
           d.checkpoints.some((item) => item.id === c.id),
           "MISSING_CHECKPOINT",

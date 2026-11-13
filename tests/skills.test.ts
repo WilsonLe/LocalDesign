@@ -28,6 +28,16 @@ it("serves complete cold-start packages and schema-valid executable examples wit
     engine.edit(parsed);
     expect(engine.document.nodes).toHaveLength(2);
     expect(engine.document.nodes[1].y).toBe(24);
+    const resourceExample = [
+      ...p.instructions.matchAll(/```json\n([\s\S]*?)\n```/g),
+    ][1]?.[1];
+    expect(resourceExample).toBeTruthy();
+    engine.edit(EditSchema.parse(JSON.parse(resourceExample!)));
+    expect(engine.document.components).toHaveLength(1);
+    expect(engine.document.checkpoints).toHaveLength(1);
+    expect(engine.document.reviewThreads).toHaveLength(1);
+    expect(engine.document.prototype.interactions).toHaveLength(1);
+    expect(engine.document.handoffs[0].approval).toBeNull();
   }
 });
 it("unknown ID/version errors are explicit and reading skills leaves engine/history unchanged", () => {

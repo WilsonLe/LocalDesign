@@ -100,9 +100,24 @@ export function captureCheckpoint(
   }
   const assetIds = [
     ...new Set(
-      [...nodes, ...components.flatMap((item) => item.nodes)].flatMap((node) =>
-        node.assetId ? [node.assetId] : [],
-      ),
+      [...nodes, ...components.flatMap((item) => item.nodes)]
+        .flatMap((node) => [
+          ...(node.assetId ? [node.assetId] : []),
+          ...(node.component?.overrides ?? []).flatMap((row) =>
+            typeof row.patch.assetId === "string" ? [row.patch.assetId] : [],
+          ),
+        ])
+        .concat(
+          components.flatMap((item) =>
+            item.variants.flatMap((variant) =>
+              variant.overrides.flatMap((row) =>
+                typeof row.patch.assetId === "string"
+                  ? [row.patch.assetId]
+                  : [],
+              ),
+            ),
+          ),
+        ),
     ),
   ];
   const fontIds = doc.fonts.map((font) => font.id);
