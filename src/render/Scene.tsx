@@ -177,15 +177,20 @@ export function SceneNode({
         compactText={compactText}
         compactPrefix={compactPrefix}
       />
-      {interactive && (
-        <rect
-          width={n.width}
-          height={n.height}
-          fill="transparent"
-          stroke="none"
-          style={{ pointerEvents: "all" } as CSSProperties}
-        />
-      )}
+      {interactive &&
+        !(
+          (n.type === "frame" || n.type === "rectangle") &&
+          n.radius === 0 &&
+          n.fill !== "none"
+        ) && (
+          <rect
+            width={n.width}
+            height={n.height}
+            fill="transparent"
+            stroke="none"
+            style={{ pointerEvents: "all" } as CSSProperties}
+          />
+        )}
       {children.length > 0 && (
         <g
           clipPath={

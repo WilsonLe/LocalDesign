@@ -2,6 +2,10 @@
 
 Keep evidence-based lessons using the improvement skill. No speculative rules or private design content.
 
+## 2026-11-13 — Reuse native paint for identical logical hit areas
+
+Trigger: renderer profiling exposed a transparent hit rectangle for every interactive node, including already filled, square-corner rectangles and frames. Correction: those native painted rectangles already cover the same logical box, so retain the extra hit region only where needed (unpainted/rounded shapes, text, groups and other geometry). The browser regression clicks invisible/transparent paint, rounded corners, blank group interiors, ellipses and paths and checks unchanged document revision; compact/detailed pixels still pass. Scope: redundant interactive DOM only; logical selection coverage remains. The later conservative short-label fit prototype passed exact references but showed no material cold gain and was discarded, preserving the simpler existing wrapping owner. Resume with actual hit/selection cases and ordinary performance checks rather than counting fewer nodes alone as proof of user latency.
+
 ## 2026-11-13 — Record runner-image identity before attributing CI timing
 
 Trigger: the last green integration run used Ubuntu 26.04 image20261111.82.6; later failures used20261111.196.1, including after measured source work reductions. Both OS versions are supported by the installed Playwright package. Correction: CI/Pages select the explicit Ubuntu24.04 target instead of a moving major-version alias, while retaining the full suite and unchanged500ms/every-first-sample contract. This is a defined test platform, not proof the image update caused the earlier variability; unchanged-main variability remains recorded in#22. Evidence owners: workflow runner declarations, docs/deployment.md and actual hosted receipts. Resume by comparing exact image versions, supported browser binaries and complete checks before attributing timing to the candidate; a fixed major OS label still receives image patches and does not guarantee CPU throughput.

@@ -17,10 +17,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - name: Compare cold visits in a fresh browser before the suite
+        continue-on-error: true
+        run: npm run build && npx playwright test --grep 'first visits to dense text regions' --repeat-each=3 --output=cold-before-results
       - run: npm run check
+      - name: Compare cold visits in a fresh browser after the suite
+        if: always()
+        continue-on-error: true
+        run: npx playwright test --grep 'first visits to dense text regions' --repeat-each=3 --output=cold-after-results
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
-          name: browser-failures
-          path: test-results/
+          name: cold-process-comparison
+          path: |
+            test-results/
+            cold-before-results/
+            cold-after-results/
           retention-days: 7

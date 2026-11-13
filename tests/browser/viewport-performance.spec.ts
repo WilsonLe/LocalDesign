@@ -7,6 +7,79 @@ import {
 import { harness, open, inspect, tool } from "./helpers";
 import { readFileSync } from "node:fs";
 
+test("native paint and retained hit regions keep logical selection for transparent, rounded and unpainted nodes", async ({
+  page,
+}) => {
+  await harness(page);
+  await open(page);
+  const d = await inspect(page);
+  const nodes = [
+    { id: "filled", type: "rectangle", x: 40, y: 80, fill: "#cc5555" },
+    { id: "transparent", type: "frame", x: 260, y: 80, fill: "#00000000" },
+    {
+      id: "invisible",
+      type: "rectangle",
+      x: 480,
+      y: 80,
+      fill: "#cc5555",
+      opacity: 0,
+    },
+    {
+      id: "unpainted",
+      type: "rectangle",
+      x: 40,
+      y: 260,
+      fill: "none",
+      stroke: "#111111",
+    },
+    {
+      id: "rounded",
+      type: "frame",
+      x: 260,
+      y: 260,
+      fill: "#dddddd",
+      radius: 40,
+    },
+    { id: "empty-group", type: "group", x: 480, y: 260 },
+    { id: "ellipse", type: "ellipse", x: 40, y: 440, fill: "#cc5555" },
+    {
+      id: "path",
+      type: "path",
+      x: 260,
+      y: 440,
+      fill: "none",
+      stroke: "#111111",
+      path: "M0 0L20 20",
+    },
+  ];
+  await tool(page, "apply_edits", {
+    expectedDocumentId: d.documentId,
+    expectedRevision: d.revision,
+    requestId: "logical-hit-regions",
+    commands: nodes.map((node) => ({
+      op: "create",
+      node: {
+        ...node,
+        name: node.id,
+        pageId: d.pageId,
+        width: 160,
+        height: 100,
+      },
+    })),
+  });
+  await tool(page, "viewport", { x: 0, y: 0, zoom: 1 });
+  const canvas = await page.getByTestId("canvas").boundingBox();
+  expect(canvas).not.toBeNull();
+  const revision = (await inspect(page)).revision;
+  for (const node of nodes) {
+    await page.mouse.click(canvas!.x + node.x + 2, canvas!.y + node.y + 2);
+    expect((await inspect(page)).selection, node.id).toEqual([node.id]);
+    expect((await inspect(page)).revision).toBe(revision);
+  }
+  for (const id of ["filled", "transparent", "invisible"])
+    await expect(page.locator(`[data-node-id="${id}"] > rect`)).toHaveCount(1);
+});
+
 test("text-heavy multi-screen board renders only the visible area and preserves offscreen work", async ({
   page,
 }, testInfo) => {
