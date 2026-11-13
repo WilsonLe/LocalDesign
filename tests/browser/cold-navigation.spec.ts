@@ -93,6 +93,12 @@ test("first visits to dense text regions and pages stay responsive", async ({
   await expect(page.locator(".save-state")).toContainText("Saved locally");
   await expect(page.getByTestId("canvas")).toBeVisible();
   const session = await page.context().newCDPSession(page);
+  if (process.env.LOCALDESIGN_TRACE)
+    await session.send("Tracing.start", {
+      categories:
+        "devtools.timeline,disabled-by-default-devtools.timeline,blink.user_timing",
+      transferMode: "ReturnAsStream",
+    });
   if (process.env.LOCALDESIGN_PROFILE) {
     await session.send("Profiler.enable");
     await session.send("Profiler.start");
@@ -138,6 +144,26 @@ test("first visits to dense text regions and pages stay responsive", async ({
     writeFileSync(
       testInfo.outputPath("cold.cpuprofile"),
       JSON.stringify(profile),
+    );
+  }
+  if (process.env.LOCALDESIGN_TRACE) {
+    const completed = new Promise<{ stream: string }>((resolve) =>
+      session.once("Tracing.tracingComplete", resolve),
+    );
+    await session.send("Tracing.end");
+    const { stream } = await completed;
+    const chunks: Buffer[] = [];
+    for (;;) {
+      const result = await session.send("IO.read", { handle: stream });
+      chunks.push(
+        Buffer.from(result.data, result.base64Encoded ? "base64" : "utf8"),
+      );
+      if (result.eof) break;
+    }
+    await session.send("IO.close", { handle: stream });
+    writeFileSync(
+      testInfo.outputPath("cold.timeline.json"),
+      Buffer.concat(chunks),
     );
   }
   await testInfo.attach("cold-timings", {
