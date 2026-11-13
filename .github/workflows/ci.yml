@@ -26,6 +26,11 @@ jobs:
           results=[]
           for label,sha in [('baseline','9cccd2d2746192daf783e51a116df85098cd935d'),('candidate',candidate)]:
               subprocess.run(['git','switch','--detach',sha],check=True)
+              spec=pathlib.Path('tests/browser/cold-navigation.spec.ts')
+              original=spec.read_text()
+              marker='  console.log("COLD_NAVIGATION", JSON.stringify(metrics));'
+              assert marker in original
+              spec.write_text(original.replace(marker, marker+'\n  await session.send("HeapProfiler.collectGarbage");\n  console.log("COLD_HEAP", JSON.stringify(await session.send("Runtime.getHeapUsage")));',1))
               with (output/f'{label}-build.log').open('w') as f:
                   subprocess.run(['npm','run','build'],stdout=f,stderr=subprocess.STDOUT,check=True)
               for i in range(3):
@@ -33,9 +38,10 @@ jobs:
                   with log.open('w') as f:
                       run=subprocess.run(['npx','playwright','test','tests/browser/cold-navigation.spec.ts','--grep','first visits','--output',str(output/f'{label}-{i}')],stdout=f,stderr=subprocess.STDOUT)
                   text=log.read_text(); line=next(l for l in text.splitlines() if l.startswith('COLD_NAVIGATION '))
-                  result={'phase':label,'run':i,'sha':sha,'exitCode':run.returncode,'metrics':json.loads(line.removeprefix('COLD_NAVIGATION '))}
+                  result={'phase':label,'run':i,'sha':sha,'exitCode':run.returncode,'metrics':json.loads(line.removeprefix('COLD_NAVIGATION ')), 'heap':json.loads(next(l for l in text.splitlines() if l.startswith('COLD_HEAP ')).removeprefix('COLD_HEAP '))}
                   results.append(result); print(json.dumps(result),flush=True)
                   (output/'results.json').write_text(json.dumps(results,indent=2))
+              subprocess.run(['git','restore','--','tests/browser/cold-navigation.spec.ts'],check=True)
           sys.exit(1 if any(r['exitCode'] for r in results) else 0)
           PYCODE
       - uses: actions/upload-artifact@v4

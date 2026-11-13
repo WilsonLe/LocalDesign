@@ -92,10 +92,12 @@ export const NodeShape = memo(
                       <use
                         key={j}
                         href={`#${glyphPrefix}${glyph.id}`}
-                        transform={`translate(${glyph.x} ${glyph.y}) scale(${glyph.scale} ${-glyph.scale})`}
+                        transform={`translate(${shaped.positions[j * 3]} ${shaped.positions[j * 3 + 1]}) scale(${shaped.positions[j * 3 + 2]} ${-shaped.positions[j * 3 + 2]})`}
                         fill={n.fill}
                         stroke={n.stroke}
-                        strokeWidth={n.strokeWidth / glyph.scale}
+                        strokeWidth={
+                          n.strokeWidth / shaped.positions[j * 3 + 2]
+                        }
                       />
                     ))}
                   </g>

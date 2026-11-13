@@ -125,11 +125,17 @@ function computeMeasurement(
     for (const [index, line] of lines.entries()) {
       const shaped = shapeLine(n, font.record, line),
         origin = textLineOrigin(n, shaped.width, index);
-      for (const glyph of shaped.glyphs) {
-        left = Math.min(left, origin.x + glyph.ink.x);
-        top = Math.min(top, origin.y + glyph.ink.y);
-        right = Math.max(right, origin.x + glyph.ink.x + glyph.ink.width);
-        bottom = Math.max(bottom, origin.y + glyph.ink.y + glyph.ink.height);
+      for (let i = 0; i < shaped.glyphs.length; i++) {
+        const glyph = shaped.glyphs[i],
+          scale = shaped.positions[i * 3 + 2],
+          x = shaped.positions[i * 3] + glyph.minX * scale,
+          y = shaped.positions[i * 3 + 1] - glyph.maxY * scale,
+          width = (glyph.maxX - glyph.minX) * scale,
+          height = (glyph.maxY - glyph.minY) * scale;
+        left = Math.min(left, origin.x + x);
+        top = Math.min(top, origin.y + y);
+        right = Math.max(right, origin.x + x + width);
+        bottom = Math.max(bottom, origin.y + y + height);
       }
     }
   return {
