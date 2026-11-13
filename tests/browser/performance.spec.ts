@@ -295,14 +295,12 @@ test("a token-bound workspace can rename without validating the catalog once per
       .get("localdesign_inspect_document")
       .execute({ limit: 1 });
     const start = performance.now();
-    const receipt = await registry
-      .get("localdesign_apply_edits")
-      .execute({
-        expectedDocumentId: d.documentId,
-        expectedRevision: d.revision,
-        requestId: "token-perf-rename",
-        commands: [{ op: "rename", name: "Renamed token workspace" }],
-      });
+    const receipt = await registry.get("localdesign_apply_edits").execute({
+      expectedDocumentId: d.documentId,
+      expectedRevision: d.revision,
+      requestId: "token-perf-rename",
+      commands: [{ op: "rename", name: "Renamed token workspace" }],
+    });
     return { ms: performance.now() - start, receipt };
   });
   expect(result.receipt.isError, result.receipt.message).not.toBe(true);
