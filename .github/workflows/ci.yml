@@ -1,5 +1,6 @@
-name: Checks
+name: Cold profile (diagnostic)
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
@@ -17,10 +18,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run check
+      - run: lscpu
+      - run: npm run build
+      - run: npx playwright test tests/browser/cold-navigation.spec.ts --grep 'first visits'
+        env:
+          LOCALDESIGN_PROFILE: "1"
+          LOCALDESIGN_TRACE: "1"
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
-          name: browser-failures
+          name: browser-diagnostics
           path: test-results/
           retention-days: 7

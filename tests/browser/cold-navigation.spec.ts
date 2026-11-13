@@ -93,6 +93,38 @@ test("first visits to dense text regions and pages stay responsive", async ({
   await expect(page.locator(".save-state")).toContainText("Saved locally");
   await expect(page.getByTestId("canvas")).toBeVisible();
   const session = await page.context().newCDPSession(page);
+  if (process.env.LOCALDESIGN_TRACE)
+    await page.evaluate(() => {
+      const stats: Record<
+        string,
+        { calls: number; ms: number; characters: number }
+      > = {};
+      const original = Element.prototype.setAttribute;
+      Element.prototype.setAttribute = function (name, value) {
+        const start = performance.now();
+        try {
+          return original.call(this, name, value);
+        } finally {
+          const key = `${this.tagName}:${name}`;
+          const item = (stats[key] ??= { calls: 0, ms: 0, characters: 0 });
+          item.calls++;
+          item.ms += performance.now() - start;
+          if (typeof value === "string") item.characters += value.length;
+        }
+      };
+      (window as any).__coldAttributeProfile = {
+        stats,
+        restore: () => {
+          Element.prototype.setAttribute = original;
+        },
+      };
+    });
+  if (process.env.LOCALDESIGN_TRACE)
+    await session.send("Tracing.start", {
+      categories:
+        "devtools.timeline,disabled-by-default-devtools.timeline,blink.user_timing",
+      transferMode: "ReturnAsStream",
+    });
   if (process.env.LOCALDESIGN_PROFILE) {
     await session.send("Profiler.enable");
     await session.send("Profiler.start");
@@ -138,6 +170,39 @@ test("first visits to dense text regions and pages stay responsive", async ({
     writeFileSync(
       testInfo.outputPath("cold.cpuprofile"),
       JSON.stringify(profile),
+    );
+  }
+  if (process.env.LOCALDESIGN_TRACE) {
+    const attributes = await page.evaluate(() => {
+      const profile = (window as any).__coldAttributeProfile;
+      profile.restore();
+      delete (window as any).__coldAttributeProfile;
+      return profile.stats;
+    });
+    writeFileSync(
+      testInfo.outputPath("cold.attributes.json"),
+      JSON.stringify(attributes),
+    );
+    const completed = new Promise<string>((resolve, reject) =>
+      session.once("Tracing.tracingComplete", (event) => {
+        if (event.stream) resolve(event.stream);
+        else reject(new Error("Tracing did not return a stream."));
+      }),
+    );
+    await session.send("Tracing.end");
+    const stream = await completed;
+    const chunks: Buffer[] = [];
+    for (;;) {
+      const result = await session.send("IO.read", { handle: stream });
+      chunks.push(
+        Buffer.from(result.data, result.base64Encoded ? "base64" : "utf8"),
+      );
+      if (result.eof) break;
+    }
+    await session.send("IO.close", { handle: stream });
+    writeFileSync(
+      testInfo.outputPath("cold.timeline.json"),
+      Buffer.concat(chunks),
     );
   }
   await testInfo.attach("cold-timings", {
