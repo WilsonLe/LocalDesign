@@ -50,7 +50,7 @@ export const NodeShape = memo(
       case "text": {
         const { lines, font } = textShape(n, doc);
         return (
-          <g aria-label={n.text} data-font-id={font.id}>
+          <>
             <title>{n.text}</title>
             {font.record &&
               lines.map((shaped, i) => {
@@ -84,7 +84,7 @@ export const NodeShape = memo(
                   </g>
                 );
               })}
-          </g>
+          </>
         );
       }
       case "image":
@@ -132,6 +132,8 @@ export function SceneNode({
   return (
     <g
       data-node-id={interactive ? n.id : undefined}
+      aria-label={n.type === "text" ? n.text : undefined}
+      data-font-id={n.type === "text" ? textShape(n, doc).font.id : undefined}
       transform={`translate(${n.x} ${n.y}) rotate(${n.rotation})`}
       opacity={n.opacity}
       onPointerDown={onPointerDown}

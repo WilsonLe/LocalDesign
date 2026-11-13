@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { harness, open, inspect, edits } from "./helpers";
+import { harness, open, inspect, edits, tool } from "./helpers";
 
 for (const viewport of [
   { width: 1440, height: 900 },
@@ -49,6 +49,18 @@ for (const viewport of [
     ).toBeInViewport();
     await expect(
       page.getByRole("textbox", { name: "Search layers" }),
+    ).toBeInViewport();
+    // Tool changes also reveal the active page, including a drawer opened later.
+    const drawer = await toggle.isVisible();
+    if (drawer) await toggle.click();
+    await tool(page, "selection", { ids: [], pageId: "page-60" });
+    if (drawer) await toggle.click();
+    await expect(
+      page.getByRole("button", { name: "Page 60", exact: true }),
+    ).toBeInViewport();
+    await tool(page, "selection", { ids: [], pageId });
+    await expect(
+      page.getByRole("button", { name: "Page 1", exact: true }),
     ).toBeInViewport();
     const firstLayer = page.getByRole("button", {
       name: "Select Layer 1",
