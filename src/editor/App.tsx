@@ -108,7 +108,7 @@ function Modal({
         finalFocus={() => returnFocus}
       >
         <DialogHeader>
-          <DialogTitle id="dialog-title">{title}</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <Button size="icon-sm" aria-label="Close dialog" onClick={onClose}>
             <X size={18} />
           </Button>

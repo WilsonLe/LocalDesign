@@ -1,5 +1,80 @@
 import { expect, test } from "@playwright/test";
 import { harness, open, inspect, edits, tool } from "./helpers";
+
+for (const width of [1440, 390])
+  for (const source of [
+    { button: "Connect an agent", title: "A canvas your agent can use" },
+    { button: "Design resources", title: "Design resources" },
+  ])
+    test(`agent-started player retains unique labels and dialog focus over ${source.button} at ${width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 960 });
+      await harness(page);
+      await open(page);
+      const d = await inspect(page);
+      await edits(page, [
+        {
+          op: "create",
+          node: {
+            id: "entry",
+            type: "frame",
+            name: "Entry",
+            pageId: d.pageId,
+            width: 320,
+            height: 240,
+          },
+        },
+        {
+          op: "prototype_set",
+          prototype: { entryFrameId: "entry", interactions: [] },
+        },
+      ]);
+      const before = await inspect(page);
+      const opener = page.getByRole("button", {
+        name: source.button,
+        exact: true,
+      });
+      await opener.click();
+      const original = page.getByRole("dialog", {
+        name: source.title,
+        exact: true,
+      });
+      await expect(original).toBeVisible();
+      const close = original.getByRole("button", {
+        name: "Close dialog",
+        exact: true,
+      });
+      await close.focus();
+      await tool(page, "prototype", {
+        action: "start",
+        expectedDocumentId: before.documentId,
+      });
+      const player = page.getByRole("dialog", {
+        name: "Prototype player",
+        exact: true,
+      });
+      await expect(player).toBeVisible();
+      const labels = await page
+        .locator('[role="dialog"]')
+        .evaluateAll((dialogs) =>
+          dialogs.map((el) => el.getAttribute("aria-labelledby")),
+        );
+      expect(labels).toHaveLength(2);
+      expect(labels.every(Boolean)).toBe(true);
+      expect(new Set(labels).size).toBe(labels.length);
+      await tool(page, "prototype", {
+        action: "stop",
+        expectedDocumentId: before.documentId,
+      });
+      await expect(player).toHaveCount(0);
+      await expect(original).toBeVisible();
+      await expect(close).toBeFocused();
+      expect((await inspect(page)).revision).toBe(before.revision);
+      await close.click();
+      await expect(opener).toBeFocused();
+    });
+
 for (const width of [1440, 390])
   test(`native prototype player navigates, overlays and preserves saved editing at ${width}px`, async ({
     page,
