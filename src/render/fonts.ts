@@ -133,15 +133,14 @@ export function resolveFont(node: DesignNode, doc?: DesignDocument) {
     status === "exact"
       ? null
       : `${node.fontId && !explicit ? "Missing font ID. " : ""}Requested ${node.fontFamily} ${node.fontWeight} ${node.fontStyle}; ${status === "mapped" ? "mapped" : "substituted"} with ${chosen.family} ${chosen.weight} ${chosen.style}. ${status === "mapped" ? "Clear replacement to restore the request." : "Choose a replacement or add the licensed font."}`;
+  const coverage = record?.files.map((file) => fontInfo(file).characters) ?? [];
   const missingGlyphs = record
     ? [
         ...new Set(
           Array.from(node.text.normalize("NFC")).filter(
             (c) =>
               !/\s/u.test(c) &&
-              !record.files.some((f) =>
-                fontInfo(f).characters.has(c.codePointAt(0)!),
-              ),
+              !coverage.some((characters) => characters.has(c.codePointAt(0)!)),
           ),
         ),
       ]
