@@ -315,9 +315,10 @@ function relativeOutline(glyph: PositionedGlyph) {
   return result;
 }
 
-type Compact = { paths: string[]; scale: number };
-const geometries = new Map<string, string[]>();
+type Compact = { id: string; paths: string[]; scale: number };
+const geometries = new Map<string, Pick<Compact, "id" | "paths">>();
 let geometryBytes = 0;
+let nextGeometry = 0;
 const compactLines = new WeakMap<Line, Compact | null>();
 export function compactLine(line: Line): Compact | null {
   if (compactLines.has(line)) return compactLines.get(line)!;
@@ -335,7 +336,7 @@ export function compactLine(line: Line): Compact | null {
   }
   const geometry = line.geometryKey && geometries.get(line.geometryKey);
   if (geometry) {
-    const result = { paths: geometry, scale };
+    const result = { ...geometry, scale };
     compactLines.set(line, result);
     return result;
   }
@@ -361,19 +362,23 @@ export function compactLine(line: Line): Compact | null {
     right = glyph.ink.x + glyph.ink.width + glyph.scale;
   }
   if (current) paths.push(current);
-  const result = { paths, scale };
+  const result = { id: `compact-${nextGeometry++}`, paths, scale };
   if (line.geometryKey) {
     const size =
       line.geometryKey.length +
+      result.id.length +
       paths.reduce((sum, path) => sum + path.length, 0);
     while (geometries.size && geometryBytes + size > 4_000_000) {
       const first = geometries.keys().next().value!;
       geometryBytes -=
         first.length +
-        geometries.get(first)!.reduce((sum, path) => sum + path.length, 0);
+        geometries.get(first)!.id.length +
+        geometries
+          .get(first)!
+          .paths.reduce((sum, path) => sum + path.length, 0);
       geometries.delete(first);
     }
-    geometries.set(line.geometryKey, paths);
+    geometries.set(line.geometryKey, result);
     geometryBytes += size;
   }
   compactLines.set(line, result);

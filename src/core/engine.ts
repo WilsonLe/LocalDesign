@@ -235,14 +235,23 @@ export class DesignEngine {
       "MISSING_PAGE",
       "Unknown page.",
     );
-    const { byId } = indexNodes(this.doc);
-    requireThat(
-      ids.every((id) => byId.get(id)?.pageId === pageId),
-      "MISSING_NODE",
-      "Selection contains unknown nodes or nodes on another page.",
-    );
+    if (ids.length) {
+      const { byId } = indexNodes(this.doc);
+      requireThat(
+        ids.every((id) => byId.get(id)?.pageId === pageId),
+        "MISSING_NODE",
+        "Selection contains unknown nodes or nodes on another page.",
+      );
+    }
+    const selection = [...new Set(ids)];
+    if (
+      pageId === this.pageId &&
+      selection.length === this.selection.length &&
+      selection.every((id, i) => id === this.selection[i])
+    )
+      return;
     this.pageId = pageId;
-    this.selection = [...new Set(ids)];
+    this.selection = selection;
     this.emit();
   }
   setViewport(v: Partial<Viewport>) {
@@ -256,6 +265,12 @@ export class DesignEngine {
       "INVALID_VIEWPORT",
       "Zoom must be between 0.05 and 8; coordinates must be finite.",
     );
+    if (
+      next.x === this.viewport.x &&
+      next.y === this.viewport.y &&
+      next.zoom === this.viewport.zoom
+    )
+      return;
     this.viewport = next;
     this.emit();
   }

@@ -287,6 +287,8 @@ test("compact canvas text preserves outlined glyph pixels, overlaps, alpha and s
         "Italic overhang fj AV",
         "Transparent paint",
         "Outlined text",
+        "Shared geometry",
+        "Shared geometry",
       ].map((text, i) => ({
         op: "create",
         node: {
@@ -299,9 +301,9 @@ test("compact canvas text preserves outlined glyph pixels, overlaps, alpha and s
           y: i * 120,
           width: 900,
           height: 100,
-          fontSize: 56,
+          fontSize: i === 7 ? 42.125 : i === 6 ? 64.5 : 56,
           text,
-          fill: i === 4 ? "#ffffff80" : "#fff",
+          fill: i === 7 ? "#ff000080" : i === 4 ? "#ffffff80" : "#fff",
           fontFamily: i === 3 ? "Source Serif 4" : "Inter",
           fontStyle: i === 3 ? "italic" : "normal",
           letterSpacing: i === 2 ? -15 : 0,
@@ -329,6 +331,15 @@ test("compact canvas text preserves outlined glyph pixels, overlaps, alpha and s
   expect(
     await page.locator('[data-node-id="sample-0"] [data-compact-text]').count(),
   ).toBeLessThan(5);
+  expect(
+    await page
+      .locator('[data-node-id="sample-6"] [data-compact-text]')
+      .getAttribute("href"),
+  ).toBe(
+    await page
+      .locator('[data-node-id="sample-7"] [data-compact-text]')
+      .getAttribute("href"),
+  );
   expect(
     await page.locator('[data-node-id="sample-5"] use').count(),
   ).toBeGreaterThan(5);

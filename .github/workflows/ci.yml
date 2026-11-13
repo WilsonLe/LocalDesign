@@ -24,25 +24,3 @@ jobs:
           name: browser-failures
           path: test-results/
           retention-days: 7
-  cold-diagnostic:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run build
-      - run: npx playwright test tests/browser/cold-navigation.spec.ts --grep 'first visits'
-        env:
-          LOCALDESIGN_PROFILE: "1"
-          LOCALDESIGN_TRACE: "1"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: cold-diagnostics
-          path: test-results/
-          retention-days: 7
