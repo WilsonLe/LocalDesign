@@ -139,28 +139,27 @@ test("workspace deletion uses a focused cancel-safe confirmation with failure an
   );
 });
 
-async function headerFits(
+async function controlsFit(
   page: import("@playwright/test").Page,
   width: number,
+  selector = ".topbar button, .topbar input",
 ) {
-  const boxes = await page
-    .locator(".topbar button, .topbar input")
-    .evaluateAll((elements) =>
-      elements
-        .filter(
-          (el) =>
-            el.getClientRects().length &&
-            getComputedStyle(el).visibility !== "hidden",
-        )
-        .map((el) => {
-          const r = el.getBoundingClientRect();
-          return {
-            name: el.getAttribute("aria-label") || el.textContent,
-            left: r.left,
-            right: r.right,
-          };
-        }),
-    );
+  const boxes = await page.locator(selector).evaluateAll((elements) =>
+    elements
+      .filter(
+        (el) =>
+          el.getClientRects().length &&
+          getComputedStyle(el).visibility !== "hidden",
+      )
+      .map((el) => {
+        const r = el.getBoundingClientRect();
+        return {
+          name: el.getAttribute("aria-label") || el.textContent,
+          left: r.left,
+          right: r.right,
+        };
+      }),
+  );
   for (let i = 0; i < boxes.length; i++) {
     expect(boxes[i].left, `${boxes[i].name} left`).toBeGreaterThanOrEqual(0);
     expect(boxes[i].right, `${boxes[i].name} right`).toBeLessThanOrEqual(width);
@@ -255,7 +254,8 @@ for (const width of [1440, 885, 851, 850, 571, 570, 390, 320]) {
       const foreground = await page.evaluate(
         () => getComputedStyle(document.documentElement).color,
       );
-      await headerFits(page, width);
+      await controlsFit(page, width);
+      await controlsFit(page, width, ".floating-tools button");
       await expect(
         page.getByRole("button", { name: "Hand", exact: true }),
       ).toHaveCSS("color", foreground);
@@ -285,7 +285,7 @@ for (const width of [1440, 885, 851, 850, 571, 570, 390, 320]) {
       }
     }
     await page.getByRole("button", { name: "Workspaces", exact: true }).click();
-    await headerFits(page, width);
+    await controlsFit(page, width);
     await page
       .getByRole("button", { name: "Delete Untitled design", exact: true })
       .click();

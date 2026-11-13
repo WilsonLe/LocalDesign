@@ -761,7 +761,7 @@ export function App() {
                     key={id}
                     size="icon-sm"
                     variant={tool === id ? "default" : "ghost"}
-                    className={`${tool === id ? "active" : ""} ${i === 2 || i === 7 ? "tool-separated" : ""}`}
+                    className={`max-[570px]:size-7 ${tool === id ? "active" : ""} ${i === 2 || i === 7 ? "tool-separated" : ""}`}
                     aria-label={title}
                     aria-pressed={tool === id}
                     title={`${title} (${key})`}
