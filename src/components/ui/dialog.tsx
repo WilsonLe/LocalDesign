@@ -6,7 +6,7 @@ export const DialogDescription = DialogPrimitive.Description;
 export const dialogOverlayStyles =
   "fixed inset-0 z-50 bg-black/40 backdrop-blur-xs";
 export const dialogContentStyles =
-  "fixed left-1/2 top-1/2 z-60 grid w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-2.5rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover p-6 text-popover-foreground shadow-xl outline-none";
+  "fixed left-1/2 top-1/2 z-60 grid grid-cols-1 w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-2.5rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover p-6 text-popover-foreground shadow-xl outline-none";
 export function DialogTitle({
   className,
   ...props

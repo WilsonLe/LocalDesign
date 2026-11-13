@@ -671,7 +671,7 @@ export function ComponentResources({
                 />
               </label>
               <Button type="submit" disabled={!partId || !condition}>
-                Add variant for selected part and field
+                Add variant
               </Button>
             </form>
           </section>
