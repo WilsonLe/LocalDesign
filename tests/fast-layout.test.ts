@@ -92,7 +92,7 @@ it("matches original bundled Latin shaping, including every wrapping prefix", as
   }
 }, 120000);
 
-it("keeps exhaustive grapheme wrapping at narrow boundaries and with negative tracking", async () => {
+it("keeps exhaustive grapheme wrapping across sizes, narrow boundaries and negative tracking", async () => {
   const { blankDocument, makeNode } = await import("../src/core/model");
   const { measureText } = await import("../src/render/text");
   const { validateFontRecord } = await import("../src/fonts/data");
@@ -141,83 +141,85 @@ it("keeps exhaustive grapheme wrapping at narrow boundaries and with negative tr
       );
       expect(measured.overflow).toBe(true);
     }
-    for (const letterSpacing of [-2, 0, 1.25]) {
-      const rawWidth = (text: string) => {
-        const segments: { face: number; text: string }[] = [];
-        for (const c of text) {
-          const index = fonts.findIndex((f) =>
-            f.characterSet.includes(c.codePointAt(0)!),
-          );
-          const face = Math.max(0, index),
-            last = segments.at(-1);
-          if (last?.face === face) last.text += c;
-          else segments.push({ face, text: c });
-        }
-        let x = 0,
-          spaced = false;
-        for (const segment of segments)
-          for (const position of fonts[segment.face].layout(
-            segment.text,
-            letterSpacing ? { liga: false, clig: false } : undefined,
-          ).positions) {
-            x += position.xAdvance * (17.3 / fonts[segment.face].unitsPerEm);
-            if (position.xAdvance) {
-              x += letterSpacing;
-              spaced = true;
-            }
+    for (const fontSize of [14.0005, 17.3, 64.125])
+      for (const letterSpacing of [-2, 0, 1.25]) {
+        const rawWidth = (text: string) => {
+          const segments: { face: number; text: string }[] = [];
+          for (const c of text) {
+            const index = fonts.findIndex((f) =>
+              f.characterSet.includes(c.codePointAt(0)!),
+            );
+            const face = Math.max(0, index),
+              last = segments.at(-1);
+            if (last?.face === face) last.text += c;
+            else segments.push({ face, text: c });
           }
-        return x - (spaced ? letterSpacing : 0);
-      };
-      for (const text of [
-        "AV office -> Lớp học: Tiếng Việt, “Typography” € 123",
-        "Ta\nĐa\u0306ng ky\u0301, ffi và cộng đồng",
-        "missing ☃ and soft\u00adhyphen",
-      ]) {
-        const normalized = text.normalize("NFC");
-        const widths = [
-          1,
-          30,
-          90,
-          200,
-          10000,
-          rawWidth(normalized.split("\n")[0]) - 1e-7,
-          rawWidth(normalized.split("\n")[0]) + 1e-7,
-        ];
-        for (const width of widths) {
-          const lines: string[] = [];
-          for (const paragraph of normalized.split("\n")) {
-            let line = "";
-            for (const { segment } of segmenter.segment(paragraph)) {
-              if (line && rawWidth(line + segment) > width) {
-                const split = line.lastIndexOf(" ");
-                if (split > line.length * 0.4) {
-                  lines.push(line.slice(0, split));
-                  line = line.slice(split + 1) + segment;
-                } else {
-                  lines.push(line);
-                  line = segment;
-                }
-              } else line += segment;
+          let x = 0,
+            spaced = false;
+          for (const segment of segments)
+            for (const position of fonts[segment.face].layout(
+              segment.text,
+              letterSpacing ? { liga: false, clig: false } : undefined,
+            ).positions) {
+              x +=
+                position.xAdvance * (fontSize / fonts[segment.face].unitsPerEm);
+              if (position.xAdvance) {
+                x += letterSpacing;
+                spaced = true;
+              }
             }
-            lines.push(line);
+          return x - (spaced ? letterSpacing : 0);
+        };
+        for (const text of [
+          "AV office -> Lớp học: Tiếng Việt, “Typography” € 123",
+          "Ta\nĐa\u0306ng ky\u0301, ffi và cộng đồng",
+          "missing ☃ and soft\u00adhyphen",
+        ]) {
+          const normalized = text.normalize("NFC");
+          const widths = [
+            1,
+            30,
+            90,
+            200,
+            10000,
+            rawWidth(normalized.split("\n")[0]) - 1e-7,
+            rawWidth(normalized.split("\n")[0]) + 1e-7,
+          ];
+          for (const width of widths) {
+            const lines: string[] = [];
+            for (const paragraph of normalized.split("\n")) {
+              let line = "";
+              for (const { segment } of segmenter.segment(paragraph)) {
+                if (line && rawWidth(line + segment) > width) {
+                  const split = line.lastIndexOf(" ");
+                  if (split > line.length * 0.4) {
+                    lines.push(line.slice(0, split));
+                    line = line.slice(split + 1) + segment;
+                  } else {
+                    lines.push(line);
+                    line = segment;
+                  }
+                } else line += segment;
+              }
+              lines.push(line);
+            }
+            const node = makeNode("text", doc.pages[0].id, {
+              text,
+              fontFamily: choice.family,
+              fontId: choice.id,
+              fontSize,
+              fontWeight: choice.weight,
+              fontStyle: choice.style,
+              letterSpacing,
+              width,
+            });
+            expect(
+              measureText(node, doc).lines,
+              `${choice.id}: ${JSON.stringify(text)} size=${fontSize} spacing=${letterSpacing} width=${width}`,
+            ).toEqual(lines);
           }
-          const node = makeNode("text", doc.pages[0].id, {
-            text,
-            fontFamily: choice.family,
-            fontId: choice.id,
-            fontSize: 17.3,
-            fontWeight: choice.weight,
-            fontStyle: choice.style,
-            letterSpacing,
-            width,
-          });
-          expect(
-            measureText(node, doc).lines,
-            `${choice.id}: ${JSON.stringify(text)} spacing=${letterSpacing} width=${width}`,
-          ).toEqual(lines);
         }
       }
-    }
   }
 }, 120000);
 

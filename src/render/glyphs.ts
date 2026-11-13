@@ -104,29 +104,67 @@ export function prefixWidths(
 }
 const widths = new Map<string, number>();
 let widthCharacters = 0;
+type WidthRun = { unitsPerEm: number; advances: number[] };
+const widthRuns = new Map<string, { runs: WidthRun[]; bytes: number }>();
+let widthRunBytes = 0;
+function widthLayout(
+  record: DocumentFont,
+  text: string,
+  tracking: boolean,
+  faceKey: string,
+) {
+  // Prefix wrapping repeats the same shaping at many font sizes. Retain only
+  // the unscaled advances; accumulate them in the original order at each size.
+  const key = `${record.source}:${faceKey}:${tracking}:${text}`;
+  const prior = widthRuns.get(key);
+  if (prior) return prior.runs;
+  const runs = segmentsFor(record, text).map((segment) => {
+    const font = face(segment.file);
+    return {
+      unitsPerEm: font.unitsPerEm,
+      advances: layout(
+        font,
+        record,
+        segment.text,
+        tracking,
+        false,
+      ).positions.map((position) => position.xAdvance),
+    };
+  });
+  const bytes =
+    key.length * 2 +
+    runs.reduce((sum, run) => sum + 64 + run.advances.length * 8, 0);
+  while (
+    widthRuns.size &&
+    (widthRuns.size >= 8192 || widthRunBytes + bytes > 4_000_000)
+  ) {
+    const first = widthRuns.keys().next().value!;
+    widthRunBytes -= widthRuns.get(first)!.bytes;
+    widthRuns.delete(first);
+  }
+  if (bytes <= 4_000_000) {
+    widthRuns.set(key, { runs, bytes });
+    widthRunBytes += bytes;
+  }
+  return runs;
+}
 export function lineWidth(
   n: Pick<DesignNode, "fontSize" | "letterSpacing">,
   record: DocumentFont,
   text: string,
 ) {
   text = text.normalize("NFC");
-  const key = `${fontKey(record)}:${n.fontSize}:${n.letterSpacing}:${text}`;
+  const faceKey = fontKey(record);
+  const key = `${faceKey}:${n.fontSize}:${n.letterSpacing}:${text}`;
   const prior = widths.get(key);
   if (prior !== undefined) return prior;
   let x = 0,
     spacing = false;
-  for (const segment of segmentsFor(record, text)) {
-    const font = face(segment.file),
-      scale = n.fontSize / font.unitsPerEm;
-    for (const position of layout(
-      font,
-      record,
-      segment.text,
-      !!n.letterSpacing,
-      false,
-    ).positions) {
-      x += position.xAdvance * scale;
-      if (position.xAdvance) {
+  for (const run of widthLayout(record, text, !!n.letterSpacing, faceKey)) {
+    const scale = n.fontSize / run.unitsPerEm;
+    for (const advance of run.advances) {
+      x += advance * scale;
+      if (advance) {
         x += n.letterSpacing;
         spacing = true;
       }
