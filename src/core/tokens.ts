@@ -107,6 +107,39 @@ function validateValue(property: TokenPropertyName, value: string | number) {
 }
 
 /** Materialize bound fields in the canonical snapshot, so all existing consumers share resolution. */
+export function validateTokenBinding(
+  doc: DesignDocument,
+  node: DesignNode,
+  property: TokenPropertyName,
+  id: string,
+  checked = new Set<string>(),
+) {
+  const resolver = tokenResolver(doc),
+    token = resolver.tokens.get(id);
+  requireThat(
+    token?.type === tokenPropertyTypes[property],
+    "TOKEN_TYPE",
+    `Token type does not match ${property}.`,
+  );
+  requireThat(
+    (!property.startsWith("font") &&
+      !["lineHeight", "letterSpacing"].includes(property)) ||
+      node.type === "text",
+    "TOKEN_TARGET",
+    "Typography tokens require a text layer.",
+  );
+  requireThat(
+    !property.startsWith("layout.") || node.type === "frame",
+    "TOKEN_TARGET",
+    "Layout tokens require a frame.",
+  );
+  const key = `${id}:${property}`;
+  if (!checked.has(key)) {
+    for (const theme of [null, ...resolver.themes])
+      validateValue(property, resolver.value(id, theme));
+    checked.add(key);
+  }
+}
 export function resolveTokens(doc: DesignDocument) {
   const resolver = tokenResolver(doc),
     nodes = new Map(doc.nodes.map((node) => [node.id, node]));
@@ -134,31 +167,8 @@ export function resolveTokens(doc: DesignDocument) {
       current = current.parentId ? nodes.get(current.parentId) : undefined;
     }
     for (const [name, id] of Object.entries(node.bindings)) {
-      const property = name as TokenPropertyName,
-        token = resolver.tokens.get(id!);
-      requireThat(
-        token?.type === tokenPropertyTypes[property],
-        "TOKEN_TYPE",
-        `Token type does not match ${name}.`,
-      );
-      requireThat(
-        (!property.startsWith("font") &&
-          !["lineHeight", "letterSpacing"].includes(property)) ||
-          node.type === "text",
-        "TOKEN_TARGET",
-        "Typography tokens require a text layer.",
-      );
-      requireThat(
-        !property.startsWith("layout.") || node.type === "frame",
-        "TOKEN_TARGET",
-        "Layout tokens require a frame.",
-      );
-      const bindingKey = `${id}:${property}`;
-      if (!checkedBindings.has(bindingKey)) {
-        for (const candidate of [null, ...resolver.themes])
-          validateValue(property, resolver.value(id!, candidate));
-        checkedBindings.add(bindingKey);
-      }
+      const property = name as TokenPropertyName;
+      validateTokenBinding(doc, node, property, id!, checkedBindings);
       const result = resolver.value(id!, theme);
       validateValue(property, result);
       if (property === "layout.gap") node.layout.gap = result as number;
@@ -177,15 +187,42 @@ export function detachToken(doc: DesignDocument, id: string, detach: boolean) {
       (value) => typeof value === "object" && value.tokenId === id,
     ),
   );
-  const bound = doc.nodes.filter((node) =>
+  const allNodes = [
+    ...doc.nodes,
+    ...doc.components.flatMap((definition) => definition.nodes),
+  ];
+  const bound = allNodes.filter((node) =>
     Object.values(node.bindings).includes(id),
   );
+  const rows = [
+    ...allNodes.flatMap((node) =>
+      (node.component?.overrides ?? []).map((row) => ({
+        row,
+        theme: node.tokenTheme,
+      })),
+    ),
+    ...doc.components.flatMap((definition) =>
+      definition.variants.flatMap((variant) =>
+        variant.overrides.map((row) => ({
+          row,
+          theme:
+            definition.nodes.find((node) => node.id === row.partId)
+              ?.tokenTheme ?? null,
+        })),
+      ),
+    ),
+  ];
+  const rowUses = rows.filter(({ row }) =>
+    Object.values(row.bindings).includes(id),
+  );
   requireThat(
-    detach || (!references.length && !bound.length),
+    detach || (!references.length && !bound.length && !rowUses.length),
     "TOKEN_IN_USE",
     "Token is in use. Detach its uses explicitly before deleting.",
   );
   resolveTokens(doc);
+  for (const definition of doc.components)
+    resolveTokens({ ...doc, nodes: definition.nodes });
   for (const token of references) {
     const base = resolver.value(token.id),
       themes = Object.fromEntries(
@@ -200,5 +237,53 @@ export function detachToken(doc: DesignDocument, id: string, detach: boolean) {
   for (const node of bound)
     for (const [property, tokenId] of Object.entries(node.bindings))
       if (tokenId === id) delete node.bindings[property as TokenPropertyName];
+  for (const { row, theme } of rowUses)
+    for (const [property, tokenId] of Object.entries(row.bindings))
+      if (tokenId === id)
+        row.bindings[property as TokenPropertyName] = {
+          value: resolver.value(
+            id,
+            typeof row.patch.tokenTheme === "string"
+              ? row.patch.tokenTheme
+              : (theme ?? doc.activeTokenTheme),
+          ),
+        };
   doc.tokens = doc.tokens.filter((token) => token.id !== id);
+}
+
+export function tokenBindingUsage(doc: DesignDocument) {
+  const usage = new Map<string, number>();
+  const count = (bindings: Record<string, unknown>) => {
+    for (const id of Object.values(bindings))
+      if (typeof id === "string") usage.set(id, (usage.get(id) ?? 0) + 1);
+  };
+  for (const node of [
+    ...doc.nodes,
+    ...doc.components.flatMap((definition) => definition.nodes),
+  ]) {
+    count(node.bindings);
+    for (const row of node.component?.overrides ?? []) count(row.bindings);
+  }
+  for (const definition of doc.components)
+    for (const variant of definition.variants)
+      for (const row of variant.overrides) count(row.bindings);
+  return usage;
+}
+
+export function clearRemovedThemes(doc: DesignDocument, allowed: Set<string>) {
+  const clearPatch = (patch: Record<string, unknown>) => {
+    if (typeof patch.tokenTheme === "string" && !allowed.has(patch.tokenTheme))
+      patch.tokenTheme = null;
+  };
+  for (const node of [
+    ...doc.nodes,
+    ...doc.components.flatMap((definition) => definition.nodes),
+  ]) {
+    if (node.tokenTheme && !allowed.has(node.tokenTheme))
+      node.tokenTheme = null;
+    for (const row of node.component?.overrides ?? []) clearPatch(row.patch);
+  }
+  for (const definition of doc.components)
+    for (const variant of definition.variants)
+      for (const row of variant.overrides) clearPatch(row.patch);
 }

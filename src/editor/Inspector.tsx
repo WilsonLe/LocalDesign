@@ -19,6 +19,7 @@ import type { Command } from "../core/commands";
 import { uid, type DesignNode } from "../core/model";
 import { measureText } from "../render/text";
 import { FontControls, FontManager } from "./Fonts";
+import { ComponentSelection } from "./ComponentResources";
 function Field({
   label,
   value,
@@ -196,6 +197,11 @@ export const Inspector = memo(function Inspector({
         </>
       ) : (
         <>
+          <ComponentSelection
+            engine={engine}
+            document={doc}
+            onError={onError}
+          />
           <Section title={nodes.length > 1 ? "Selection" : "Layer"}>
             <Field
               label="Name"

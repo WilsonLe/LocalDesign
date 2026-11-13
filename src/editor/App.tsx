@@ -799,6 +799,19 @@ export function App() {
           onList={() => void navigator.navigate({ kind: "list" })}
         />
       )}
+      {editing && snapshot.activity && (
+        <div className="agent-activity" role="status">
+          <span>
+            {snapshot.activity.actor}: {snapshot.activity.message}
+          </span>
+          <Button
+            aria-label="Clear agent status"
+            onClick={() => engine.setActivity(doc.id, "You", "", 1000)}
+          >
+            <X size={14} />
+          </Button>
+        </div>
+      )}
       {notice && (
         <div className="toast" role="status">
           <span>{notice}</span>

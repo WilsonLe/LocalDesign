@@ -1,6 +1,21 @@
 import { indexNodes } from "./tree";
-import { detachToken, resolveTokens } from "./tokens";
+import { detachToken, resolveTokens, clearRemovedThemes } from "./tokens";
 import { iconAttribution, iconCatalog } from "../icons/catalog";
+import { MAX_ACTIVITY_TTL_MS } from "./limits";
+import {
+  captureCheckpoint,
+  checkpointDigest,
+  restoreCheckpoint,
+} from "./checkpoints";
+import {
+  captureComponent,
+  componentSourceNodes,
+  instanceOwner,
+  recordComponentPatch,
+  recordComponentBinding,
+  resolveComponents,
+  componentNodeId,
+} from "./components";
 import {
   CommandSchema,
   EditSchema,
@@ -19,6 +34,8 @@ import {
   roots,
   uid,
   validateDocument,
+  ComponentSchema,
+  ComponentInstanceSchema,
   type DesignDocument,
   type DesignNode,
   type Viewport,
@@ -36,8 +53,16 @@ export type Receipt = {
   requestId: string;
   createdIds: string[];
   warnings: string[];
+  componentImpact?: {
+    definitionIds: string[];
+    instanceCount: number;
+    instanceIds: string[];
+    conflicts: import("./components").ComponentConflict[];
+    conflictCount: number;
+  };
 };
 export type Snapshot = {
+  activity: { actor: string; message: string; expiresAt: number } | null;
   document: DesignDocument;
   pageId: string;
   selection: string[];
@@ -53,6 +78,8 @@ export class DesignEngine {
   private receipts = new Map<string, { payload: string; receipt: Receipt }>();
   private listeners = new Set<() => void>();
   private version = 0;
+  private activity: Snapshot["activity"] = null;
+  private activityTimer?: ReturnType<typeof setTimeout>;
   pageId: string;
   selection: string[] = [];
   viewport: Viewport = { x: 100, y: 100, zoom: 1 };
@@ -64,6 +91,7 @@ export class DesignEngine {
   }
   private buildSnapshot(): Snapshot {
     return {
+      activity: this.activity,
       document: this.doc,
       pageId: this.pageId,
       selection: this.selection,
@@ -88,6 +116,45 @@ export class DesignEngine {
   get document() {
     return this.doc;
   }
+  setActivity(
+    expectedDocumentId: string,
+    actor: string,
+    message: string,
+    ttlMs = 30000,
+  ) {
+    requireThat(
+      expectedDocumentId === this.doc.id,
+      "DOCUMENT_MISMATCH",
+      "The active document changed.",
+    );
+    requireThat(
+      actor.trim().length > 0 &&
+        actor.length <= 100 &&
+        message.length <= 200 &&
+        Number.isInteger(ttlMs) &&
+        ttlMs >= 1000 &&
+        ttlMs <= MAX_ACTIVITY_TTL_MS,
+      "ACTIVITY_VALUE",
+      "Activity requires an actor, a message up to 200 characters and a 1–120 second lifetime.",
+    );
+    clearTimeout(this.activityTimer);
+    this.activity = message.trim()
+      ? {
+          actor: actor.trim(),
+          message: message.trim(),
+          expiresAt: Date.now() + ttlMs,
+        }
+      : null;
+    if (this.activity) {
+      this.activityTimer = setTimeout(() => {
+        this.activity = null;
+        this.emit();
+      }, ttlMs);
+      this.activityTimer.unref?.();
+    }
+    this.emit();
+    return this.activity;
+  }
   guard(): Guard {
     return {
       expectedDocumentId: this.doc.id,
@@ -96,6 +163,8 @@ export class DesignEngine {
     };
   }
   replace(d: DesignDocument) {
+    clearTimeout(this.activityTimer);
+    this.activity = null;
     this.doc = validateDocument(d);
     this.undoStack = [];
     this.redoStack = [];
@@ -160,13 +229,16 @@ export class DesignEngine {
     g: Guard,
     payload: string,
     createdIds: string[] = [],
+    warnings: string[] = [],
+    componentImpact?: Receipt["componentImpact"],
   ): Receipt {
     const receipt = {
       documentId: this.doc.id,
       revision: this.doc.revision,
       requestId: g.requestId,
       createdIds,
-      warnings: [],
+      warnings,
+      ...(componentImpact ? { componentImpact } : {}),
     };
     this.receipts.set(g.requestId, { payload, receipt });
     if (this.receipts.size > 256)
@@ -183,6 +255,60 @@ export class DesignEngine {
     // Transaction-owned references: refresh at the boundary, maintain structural edits below.
     const byId = new Map(next.nodes.map((n) => [n.id, n]));
     for (const c of r.commands) this.apply(next, c, created, byId);
+    const dropFor = new Set(
+      r.commands.flatMap((c) =>
+        (c.op === "component_set" || c.op === "component_capture") &&
+        c.conflictPolicy === "drop"
+          ? [c.id]
+          : c.op === "checkpoint_restore" && c.conflictPolicy === "drop"
+            ? (next.checkpoints
+                .find((item) => item.id === c.id)
+                ?.payload.components.map((item) => item.id) ?? [])
+            : [],
+      ),
+    );
+    const componentResult = resolveComponents(next, { dropFor });
+    this.refreshReviewAnchors(next);
+    const changedDefinitions = new Set(
+      next.components
+        .filter((definition) => {
+          const previous = this.doc.components.find(
+            (item) => item.id === definition.id,
+          );
+          return !previous || previous.revision !== definition.revision;
+        })
+        .map((definition) => definition.id),
+    );
+    const affected = new Set(changedDefinitions);
+    for (let previous = -1; previous !== affected.size;) {
+      previous = affected.size;
+      for (const definition of next.components)
+        if (
+          definition.nodes.some(
+            (node) =>
+              node.component && affected.has(node.component.componentId),
+          )
+        )
+          affected.add(definition.id);
+    }
+    const impacted = next.nodes.filter(
+      (node) => node.component && affected.has(node.component.componentId),
+    );
+    const componentImpact: Receipt["componentImpact"] = changedDefinitions.size
+      ? {
+          definitionIds: [...changedDefinitions],
+          instanceCount: impacted.length,
+          instanceIds: impacted.slice(0, 100).map((node) => node.id),
+          conflicts: componentResult.conflicts,
+          conflictCount: componentResult.conflictCount,
+        }
+      : undefined;
+    const declared = new Set(created);
+    for (const id of componentResult.createdIds)
+      if (!declared.has(id)) {
+        created.push(id);
+        declared.add(id);
+      }
     resolveTokens(next);
     applyLayouts(next);
     validateDocument(next);
@@ -192,7 +318,8 @@ export class DesignEngine {
         revision: this.doc.revision,
         requestId: r.requestId,
         createdIds: created,
-        warnings: [],
+        warnings: componentResult.warnings,
+        ...(componentImpact ? { componentImpact } : {}),
       };
     this.undoStack.push(this.doc);
     if (this.undoStack.length > 100) this.undoStack.shift();
@@ -200,7 +327,13 @@ export class DesignEngine {
     next.revision = this.doc.revision + 1;
     this.doc = next;
     this.reconcile();
-    const receipt = this.remember(r, payload, created);
+    const receipt = this.remember(
+      r,
+      payload,
+      created,
+      componentResult.warnings,
+      componentImpact,
+    );
     this.emit();
     return receipt;
   }
@@ -232,6 +365,59 @@ export class DesignEngine {
       (id) => byId.get(id)?.pageId === this.pageId,
     );
   }
+  private insertNode(
+    d: DesignDocument,
+    node: DesignNode,
+    created: string[],
+    byId: Map<string, DesignNode>,
+  ) {
+    if (node.parentId) {
+      const parent = byId.get(node.parentId);
+      requireThat(parent, "MISSING_NODE", "Unknown destination parent.");
+      requireThat(
+        !parent.locked &&
+          !ancestors(d, parent, byId).some((node) => node.locked),
+        "LOCKED_NODE",
+        "Unlock the destination parent first.",
+      );
+      requireThat(
+        !parent.component && !parent.componentPart,
+        "COMPONENT_STRUCTURE",
+        "Detach the instance or edit its source before adding children.",
+      );
+    }
+    requireThat(!byId.has(node.id), "DUPLICATE_ID", "Node ID already exists.");
+    const copy = structuredClone(node);
+    d.nodes.push(copy);
+    byId.set(copy.id, copy);
+    created.push(copy.id);
+  }
+  private refreshReviewAnchors(d: DesignDocument) {
+    if (!d.reviewThreads.length) return;
+    const index = indexNodes(d),
+      pages = new Map(d.pages.map((page) => [page.id, page.name]));
+    for (const thread of d.reviewThreads) {
+      const node = thread.anchor.nodeId
+        ? index.byId.get(thread.anchor.nodeId)
+        : undefined;
+      if (node) {
+        const point = worldPoint(
+          d,
+          node,
+          { x: thread.anchor.x, y: thread.anchor.y },
+          index,
+        );
+        Object.assign(thread.anchor, {
+          nodeName: node.name,
+          pageId: node.pageId,
+          lastX: point.x,
+          lastY: point.y,
+        });
+      }
+      const pageName = pages.get(thread.anchor.pageId);
+      if (pageName) thread.anchor.pageName = pageName;
+    }
+  }
   private apply(
     d: DesignDocument,
     raw: Command,
@@ -239,6 +425,17 @@ export class DesignEngine {
     byId: Map<string, DesignNode>,
   ) {
     const c = CommandSchema.parse(raw);
+    if (
+      [
+        "delete",
+        "page_delete",
+        "ungroup",
+        "component_delete",
+        "component_set",
+        "component_capture",
+      ].includes(c.op)
+    )
+      this.refreshReviewAnchors(d);
     const get = (id: string) => {
       const n = byId.get(id);
       requireThat(n, "MISSING_NODE", `Unknown node: ${id}`);
@@ -258,12 +455,31 @@ export class DesignEngine {
         "LOCKED_NODE",
         "Unlock the selected layer or its parent first.",
       );
+      if (
+        [
+          "delete",
+          "duplicate",
+          "reparent",
+          "group",
+          "ungroup",
+          "order",
+          "move_to_page",
+        ].includes(c.op)
+      )
+        requireThat(
+          c.ids.every((id) => !get(id).componentPart) &&
+            (c.op !== "ungroup" || c.ids.every((id) => !get(id).component)),
+          "COMPONENT_STRUCTURE",
+          "Detach the instance before changing its internal structure.",
+        );
     }
     const moveParent = (n: DesignNode, parentId: string | null) => {
       const p = parentId ? get(parentId) : undefined;
       requireThat(
         !p ||
           (["group", "frame"].includes(p.type) &&
+            !p.component &&
+            !p.componentPart &&
             !p.locked &&
             !ancestors(d, p, byId).some((n) => n.locked)),
         "INVALID_PARENT",
@@ -288,6 +504,337 @@ export class DesignEngine {
       }
     };
     switch (c.op) {
+      case "review_add": {
+        const node = c.anchor.nodeId ? byId.get(c.anchor.nodeId) : undefined;
+        const page = d.pages.find((page) => page.id === c.anchor.pageId);
+        requireThat(
+          page && (!c.anchor.nodeId || node?.pageId === page.id),
+          "REVIEW_ANCHOR",
+          "Choose an existing page and optional layer for a new thread.",
+        );
+        d.reviewThreads.push({
+          id: c.id,
+          anchor: {
+            ...c.anchor,
+            pageName: page.name,
+            nodeName: node?.name ?? "",
+            lastX: node
+              ? worldPoint(d, node, { x: c.anchor.x, y: c.anchor.y }).x
+              : c.anchor.x,
+            lastY: node
+              ? worldPoint(d, node, { x: c.anchor.x, y: c.anchor.y }).y
+              : c.anchor.y,
+          },
+          message: { ...c.message, createdAt: Date.now() },
+          replies: [],
+          resolved: false,
+        });
+        created.push(c.id);
+        break;
+      }
+      case "review_reply":
+      case "review_resolve":
+      case "review_delete": {
+        const thread = d.reviewThreads.find((item) => item.id === c.id);
+        requireThat(thread, "MISSING_THREAD", "Choose a review thread.");
+        if (c.op === "review_reply") {
+          requireThat(
+            !thread.resolved,
+            "REVIEW_RESOLVED",
+            "Reopen the thread before replying.",
+          );
+          thread.replies.push({ ...c.message, createdAt: Date.now() });
+        } else if (c.op === "review_resolve") thread.resolved = c.resolved;
+        else
+          d.reviewThreads = d.reviewThreads.filter((item) => item.id !== c.id);
+        break;
+      }
+      case "checkpoint_create": {
+        const payload = captureCheckpoint(d, c.kind, c.targetId);
+        d.checkpoints.push({
+          id: c.id,
+          kind: c.kind,
+          targetId: c.targetId,
+          label: c.label,
+          author: c.author,
+          createdAt: Date.now(),
+          sourceRevision: d.revision,
+          digest: checkpointDigest(payload),
+          payload,
+        });
+        created.push(c.id);
+        break;
+      }
+      case "checkpoint_delete":
+        requireThat(
+          d.checkpoints.some((item) => item.id === c.id),
+          "MISSING_CHECKPOINT",
+          "Choose a retained checkpoint.",
+        );
+        d.checkpoints = d.checkpoints.filter((item) => item.id !== c.id);
+        break;
+      case "checkpoint_restore": {
+        const checkpoint = d.checkpoints.find((item) => item.id === c.id);
+        requireThat(
+          checkpoint,
+          "MISSING_CHECKPOINT",
+          "Choose a retained checkpoint.",
+        );
+        if (checkpoint.kind === "frame") {
+          const root = byId.get(checkpoint.targetId);
+          requireThat(
+            !root ||
+              (!root.locked &&
+                !ancestors(d, root, byId).some((item) => item.locked)),
+            "LOCKED_NODE",
+            "Unlock the frame before restoring its content.",
+          );
+        }
+        const before = new Set(d.nodes.map((node) => node.id));
+        restoreCheckpoint(d, checkpoint, c.mode, c.restoreDependencies);
+        byId.clear();
+        for (const node of d.nodes) {
+          byId.set(node.id, node);
+          if (!before.has(node.id)) created.push(node.id);
+        }
+        break;
+      }
+      case "component_capture":
+      case "component_set": {
+        const previous = d.components.find(
+          (component) => component.id === c.id,
+        );
+        requireThat(
+          !previous?.deleted,
+          "COMPONENT_DELETED",
+          "Restore the retained component before editing it.",
+        );
+        requireThat(
+          previous
+            ? c.expectedComponentRevision === previous.revision
+            : c.expectedComponentRevision === undefined ||
+                c.expectedComponentRevision === 0,
+          "STALE_COMPONENT",
+          "Inspect the current component revision before updating it.",
+        );
+        const captured =
+          c.op === "component_capture"
+            ? captureComponent(d, c.rootId, c.id)
+            : null;
+        if (
+          captured?.sourceRevision !== null &&
+          captured?.sourceRevision !== undefined &&
+          previous
+        )
+          requireThat(
+            captured.sourceRevision === previous.revision ||
+              (c.op === "component_capture" && c.allowStaleSource),
+            "COMPONENT_SOURCE_STALE",
+            "This editable source predates the current definition. Review impact before explicitly overwriting from it.",
+          );
+        const rootId =
+          captured?.rootId ??
+          (c.op === "component_set" ? c.rootId : undefined) ??
+          previous?.rootId;
+        const nodes =
+          captured?.nodes ??
+          (c.op === "component_set" ? c.nodes : undefined) ??
+          previous?.nodes;
+        requireThat(
+          rootId && nodes,
+          "COMPONENT_ROOT",
+          "Supply a native component root and source nodes.",
+        );
+        const definition = ComponentSchema.parse({
+          id: c.id,
+          rootId,
+          nodes,
+          name:
+            c.name ??
+            previous?.name ??
+            (nodes.find((node) => node.id === rootId)?.name || "Component"),
+          description: c.description ?? previous?.description ?? "",
+          revision: (previous?.revision ?? 0) + 1,
+          deleted: false,
+          properties: c.properties ?? previous?.properties ?? [],
+          variants: c.variants ?? previous?.variants ?? [],
+        });
+        if (previous) d.components[d.components.indexOf(previous)] = definition;
+        else {
+          d.components.push(definition);
+          created.push(c.id);
+        }
+        if (c.op === "component_capture") {
+          const sourceIds = new Set([
+            c.rootId,
+            ...descendants(d, c.rootId).map((node) => node.id),
+          ]);
+          for (const node of d.nodes)
+            if (
+              sourceIds.has(node.id) &&
+              node.componentSource?.componentId === c.id
+            )
+              node.componentSource.revision = definition.revision;
+        }
+        break;
+      }
+      case "component_instance": {
+        const definition = d.components.find(
+          (component) => component.id === c.componentId && !component.deleted,
+        );
+        const root = definition?.nodes.find(
+          (node) => node.id === definition.rootId,
+        );
+        requireThat(
+          definition && root,
+          "MISSING_COMPONENT",
+          "Choose an active native component.",
+        );
+        this.insertNode(
+          d,
+          {
+            ...structuredClone(root),
+            id: c.id,
+            name: c.name ?? definition.name,
+            pageId: c.pageId,
+            parentId: c.parentId,
+            x: c.x,
+            y: c.y,
+            rotation: c.rotation,
+            hidden: false,
+            locked: false,
+            componentPart: null,
+            componentSource: null,
+            component: ComponentInstanceSchema.parse({
+              componentId: c.componentId,
+              properties: c.properties,
+              overrides: c.overrides,
+            }),
+          },
+          created,
+          byId,
+        );
+        break;
+      }
+      case "component_source":
+        for (const node of componentSourceNodes(
+          d,
+          c.componentId,
+          c.id,
+          c.pageId,
+          c.parentId,
+          c.x,
+          c.y,
+        ))
+          this.insertNode(d, node, created, byId);
+        break;
+      case "component_properties":
+        for (const id of c.ids) {
+          const node = get(id),
+            definition = d.components.find(
+              (component) => component.id === node.component?.componentId,
+            );
+          requireThat(
+            node.component &&
+              definition &&
+              !node.component.frozen &&
+              !definition.deleted,
+            "COMPONENT_DELETED",
+            "Choose an active linked instance, or restore/detach its source first.",
+          );
+          const values = new Map(Object.entries(node.component.properties));
+          for (const [name, value] of Object.entries(c.properties))
+            if (value === null) values.delete(name);
+            else values.set(name, value);
+          node.component.properties = Object.fromEntries(values);
+        }
+        break;
+      case "component_reset":
+        for (const id of c.ids) {
+          const owner = instanceOwner(d, get(id), byId);
+          requireThat(
+            owner,
+            "MISSING_INSTANCE",
+            "Choose a linked instance or one of its parts.",
+          );
+          requireThat(
+            !owner.root.component!.frozen,
+            "COMPONENT_DELETED",
+            "Restore or detach the frozen source first.",
+          );
+          owner.root.component!.overrides =
+            c.scope === "instance"
+              ? []
+              : owner.root.component!.overrides.filter(
+                  (row) =>
+                    JSON.stringify(row.path) !== JSON.stringify(owner.path),
+                );
+          if (c.properties) owner.root.component!.properties = {};
+        }
+        break;
+      case "component_detach": {
+        const owners = new Set(
+          c.ids.map((id) => instanceOwner(d, get(id), byId)?.root.id),
+        );
+        requireThat(
+          !owners.has(undefined),
+          "MISSING_INSTANCE",
+          "Choose linked instances or their parts.",
+        );
+        for (const node of d.nodes) {
+          if (owners.has(node.id)) node.component = null;
+          if (node.componentPart && owners.has(node.componentPart.instanceId))
+            node.componentPart = null;
+        }
+        break;
+      }
+      case "component_delete": {
+        const definition = d.components.find(
+          (component) => component.id === c.id,
+        );
+        requireThat(
+          definition && !definition.deleted,
+          "MISSING_COMPONENT",
+          "Choose an active component definition.",
+        );
+        const owners = new Set(
+          d.nodes
+            .filter((node) => node.component?.componentId === c.id)
+            .map((node) => node.id),
+        );
+        for (const node of d.nodes) {
+          if (owners.has(node.id)) {
+            if (c.detach) node.component = null;
+            else node.component!.frozen = true;
+          }
+          if (
+            c.detach &&
+            node.componentPart &&
+            owners.has(node.componentPart.instanceId)
+          )
+            node.componentPart = null;
+        }
+        definition.deleted = true;
+        definition.revision++;
+        break;
+      }
+      case "component_restore": {
+        const definition = d.components.find(
+          (component) => component.id === c.id && component.deleted,
+        );
+        requireThat(
+          definition,
+          "MISSING_COMPONENT",
+          "Choose a retained deleted definition.",
+        );
+        if (c.name) definition.name = c.name;
+        definition.deleted = false;
+        definition.revision++;
+        for (const node of d.nodes)
+          if (node.component?.componentId === c.id)
+            node.component.frozen = false;
+        break;
+      }
       case "icon_insert": {
         const icon = iconCatalog.icons.find((icon) => icon.id === c.iconId);
         requireThat(
@@ -339,6 +886,7 @@ export class DesignEngine {
       case "token_bind":
         for (const id of c.ids) {
           const node = get(id);
+          recordComponentBinding(d, node, c.property, c.tokenId, byId);
           if (c.tokenId === null) delete node.bindings[c.property];
           else {
             node.bindings[c.property] = c.tokenId;
@@ -351,9 +899,7 @@ export class DesignEngine {
         d.tokenThemes = structuredClone(c.themes);
         d.activeTokenTheme = c.activeThemeId;
         const allowed = new Set(c.themes.map((theme) => theme.id));
-        for (const node of d.nodes)
-          if (node.tokenTheme && !allowed.has(node.tokenTheme))
-            node.tokenTheme = null;
+        clearRemovedThemes(d, allowed);
         for (const token of d.tokens)
           token.themes = Object.fromEntries(
             Object.entries(token.themes).filter(([id]) => allowed.has(id)),
@@ -432,29 +978,13 @@ export class DesignEngine {
         }
         break;
       }
-      case "create": {
-        if (c.node.parentId) {
-          const p = get(c.node.parentId);
-          requireThat(
-            !p.locked && !ancestors(d, p, byId).some((n) => n.locked),
-            "LOCKED_NODE",
-            "Unlock the destination parent first.",
-          );
-        }
-        requireThat(
-          !byId.has(c.node.id),
-          "DUPLICATE_ID",
-          "Node ID already exists.",
-        );
-        const node = structuredClone(c.node);
-        d.nodes.push(node);
-        byId.set(node.id, node);
-        created.push(c.node.id);
+      case "create":
+        this.insertNode(d, c.node, created, byId);
         break;
-      }
       case "update":
         for (const id of c.ids) {
           const node = get(id);
+          recordComponentPatch(d, node, c.patch, byId);
           for (const property of Object.keys(node.bindings))
             if (
               property in c.patch ||
@@ -477,10 +1007,43 @@ export class DesignEngine {
       }
       case "duplicate": {
         const originals = selected.flatMap((n) => [n, ...descendants(d, n.id)]);
-        const map = new Map(originals.map((n) => [n.id, uid()]));
+        const map = new Map<string, string>(
+          originals.map((n) => [n.id, uid()]),
+        );
+        const keepSource = new Set(
+          selected
+            .filter(
+              (node) =>
+                node.componentSource &&
+                d.components.some(
+                  (component) =>
+                    component.id === node.componentSource!.componentId &&
+                    component.rootId === node.componentSource!.partId,
+                ),
+            )
+            .flatMap((node) => [
+              node.id,
+              ...descendants(d, node.id).map((child) => child.id),
+            ]),
+        );
+        for (const node of originals)
+          if (node.componentPart) {
+            const rootId = map.get(node.componentPart.instanceId);
+            requireThat(
+              rootId,
+              "COMPONENT_STRUCTURE",
+              "Duplicate the complete instance or detach its part first.",
+            );
+            map.set(node.id, componentNodeId(rootId, node.componentPart.path));
+          }
         for (const n of originals) {
           const clone = structuredClone(n);
           clone.id = map.get(n.id)!;
+          if (clone.componentPart)
+            clone.componentPart.instanceId = map.get(
+              clone.componentPart.instanceId,
+            )!;
+          if (!keepSource.has(n.id)) clone.componentSource = null;
           if (n.parentId && map.has(n.parentId))
             clone.parentId = map.get(n.parentId)!;
           else {
@@ -595,6 +1158,7 @@ export class DesignEngine {
           if (c.axis === "top") n.y = y;
           if (c.axis === "middle") n.y = (y + b - n.height) / 2;
           if (c.axis === "bottom") n.y = b - n.height;
+          recordComponentPatch(d, n, { x: n.x, y: n.y }, byId);
         }
         break;
       }
@@ -616,6 +1180,7 @@ export class DesignEngine {
         let pos = list[0][axis];
         for (const n of list) {
           n[axis] = pos;
+          recordComponentPatch(d, n, { [axis]: pos }, byId);
           pos += n[size] + gap;
         }
         break;

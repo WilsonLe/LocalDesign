@@ -12,7 +12,18 @@ import { validateRasterAssets } from "../files/raster";
 import { base64 } from "../render/fonts";
 import { TokenResources } from "./TokenResources";
 import { IconResources } from "./IconResources";
-const resourceTabs = ["context", "pages", "tokens", "icons"] as const;
+import { ComponentResources } from "./ComponentResources";
+import { HistoryResources } from "./HistoryResources";
+import { ReviewResources } from "./ReviewResources";
+const resourceTabs = [
+  "context",
+  "pages",
+  "tokens",
+  "icons",
+  "components",
+  "history",
+  "review",
+] as const;
 
 export function DesignResources({
   engine,
@@ -140,11 +151,51 @@ export function DesignResources({
                 ? "Tokens"
                 : value === "icons"
                   ? "Icons"
-                  : "Pages"}
+                  : value === "components"
+                    ? "Components"
+                    : value === "history"
+                      ? "History"
+                      : value === "review"
+                        ? "Review"
+                        : "Pages"}
           </Button>
         ))}
       </div>
-      {tab === "icons" ? (
+      {tab === "review" ? (
+        <div
+          role="tabpanel"
+          id="resource-panel-review"
+          aria-labelledby="resource-tab-review"
+        >
+          <ReviewResources
+            engine={engine}
+            document={doc}
+            onError={onError}
+            onNavigate={onClose}
+          />
+        </div>
+      ) : tab === "history" ? (
+        <div
+          role="tabpanel"
+          id="resource-panel-history"
+          aria-labelledby="resource-tab-history"
+        >
+          <HistoryResources engine={engine} document={doc} onError={onError} />
+        </div>
+      ) : tab === "components" ? (
+        <div
+          role="tabpanel"
+          id="resource-panel-components"
+          aria-labelledby="resource-tab-components"
+        >
+          <ComponentResources
+            engine={engine}
+            document={doc}
+            onError={onError}
+            onInserted={onClose}
+          />
+        </div>
+      ) : tab === "icons" ? (
         <div
           role="tabpanel"
           id="resource-panel-icons"

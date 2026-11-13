@@ -36,8 +36,24 @@ import {
 } from "../core/model";
 import { inspectNodes } from "../core/inspection";
 import { iconAttribution, iconCatalog, findIcons } from "../icons/catalog";
-import { tokenResolver } from "../core/tokens";
-import { bounds } from "../core/geometry";
+import { tokenResolver, tokenBindingUsage } from "../core/tokens";
+import { DesignEngine } from "../core/engine";
+import { componentVariantPreview } from "../files/component-preview";
+import { ComponentValueSchema } from "../core/model";
+import { checkpointDiff, checkpointDocument } from "../core/checkpoints";
+import { bounds, worldPoint } from "../core/geometry";
+import {
+  MAX_ACTIVITY_TTL_MS,
+  MAX_REVIEW_THREADS,
+  MAX_REVIEW_REPLIES,
+  MAX_COMPONENTS,
+  MAX_COMPONENT_PROPERTIES,
+  MAX_COMPONENT_VARIANTS,
+  MAX_COMPONENT_OVERRIDES,
+  MAX_CHECKPOINTS,
+  MAX_CHECKPOINT_BYTES,
+  MAX_CHECKPOINT_NODES,
+} from "../core/limits";
 import { Workspace } from "../storage/workspace";
 import {
   fontCatalog,
@@ -90,6 +106,14 @@ export const actionParity = {
     "localdesign_context + localdesign_apply_edits:guideline_set,guideline_delete,decision_add,decision_delete,reference_set,reference_delete",
   "tokens/bindings/themes":
     "localdesign_tokens + localdesign_apply_edits:token_set,token_delete,token_bind,token_themes_set,update(tokenTheme)",
+  "components/properties/variants/instances/source/restore":
+    "localdesign_components + localdesign_apply_edits:component_capture,component_set,component_instance,component_source,component_properties,component_reset,component_detach,component_delete,component_restore (dryRun previews impact)",
+  "persistent frame/component checkpoints":
+    "localdesign_checkpoints + localdesign_apply_edits:checkpoint_create,checkpoint_delete,checkpoint_restore; validate_edits previews restore impact",
+  "local review/replies/resolution":
+    "localdesign_review + localdesign_apply_edits:review_add,review_reply,review_resolve,review_delete",
+  "transient agent activity":
+    "localdesign_activity (separate from document/history)",
   "undo/redo": "localdesign_history",
   "selection/page switch": "localdesign_selection",
   "pan/zoom/fit": "localdesign_viewport",
@@ -197,6 +221,9 @@ export function createTools(
             message: e instanceof Error ? e.message : String(e),
             documentId: engine.document.id,
             revision: engine.document.revision,
+            ...(e instanceof DesignError && e.details
+              ? { details: e.details }
+              : {}),
             ...(name === "get_skill"
               ? { bundleVersion, skills: listSkills() }
               : {}),
@@ -207,6 +234,374 @@ export function createTools(
   };
   const Empty = z.object({}).strict();
   const workspaceReceipts = shared.workspaceReceipts;
+  add(
+    "review",
+    "Read browser-local anchored review threads. list returns bounded summaries; get paginates replies. Node anchors use local x/y offsets, position anchors use page coordinates. Missing nodes/pages retain last known names and world coordinates. Mutate through guarded review_* commands; no accounts or task-assignment service.",
+    z
+      .object({
+        action: z.enum(["list", "get"]).default("list"),
+        id: Id.optional(),
+        pageId: Id.optional(),
+        nodeId: Id.optional(),
+        resolved: z.boolean().optional(),
+        offset: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(100).default(25),
+      })
+      .strict(),
+    true,
+    (input) => {
+      const doc = engine.document;
+      const summary = (thread: DesignDocument["reviewThreads"][number]) => {
+        const node = doc.nodes.find((node) => node.id === thread.anchor.nodeId);
+        return {
+          id: thread.id,
+          anchor: thread.anchor,
+          anchorExists: Boolean(
+            doc.pages.some((page) => page.id === thread.anchor.pageId) &&
+            (!thread.anchor.nodeId || node),
+          ),
+          worldPosition: node
+            ? worldPoint(doc, node, { x: thread.anchor.x, y: thread.anchor.y })
+            : { x: thread.anchor.lastX, y: thread.anchor.lastY },
+          resolved: thread.resolved,
+          author: thread.message.author,
+          preview: thread.message.body.slice(0, 200),
+          replyCount: thread.replies.length,
+        };
+      };
+      if (input.action === "get") {
+        const thread = doc.reviewThreads.find(
+          (thread) => thread.id === input.id,
+        );
+        requireThat(thread, "MISSING_THREAD", "Choose a review thread.");
+        return {
+          documentId: doc.id,
+          revision: doc.revision,
+          ...summary(thread),
+          message: thread.message,
+          replies: thread.replies.slice(
+            input.offset,
+            input.offset + input.limit,
+          ),
+          total: thread.replies.length,
+        };
+      }
+      const all = doc.reviewThreads.filter(
+        (thread) =>
+          (!input.pageId || thread.anchor.pageId === input.pageId) &&
+          (!input.nodeId || thread.anchor.nodeId === input.nodeId) &&
+          (input.resolved === undefined || input.resolved === thread.resolved),
+      );
+      return {
+        documentId: doc.id,
+        revision: doc.revision,
+        threads: all
+          .slice(input.offset, input.offset + input.limit)
+          .map(summary),
+        total: all.length,
+      };
+    },
+  );
+  add(
+    "activity",
+    "Read or set visible transient agent activity, separate from native document/history. Set requires the current document ID, actor label and a message up to 200 characters; expires after 1–120 seconds. Empty message clears it. No task queue or autonomous agent is started.",
+    z
+      .object({
+        action: z.enum(["get", "set"]).default("get"),
+        expectedDocumentId: Id.optional(),
+        actor: z.string().trim().min(1).max(100).default("Agent"),
+        message: z.string().max(200).default(""),
+        ttlMs: z
+          .number()
+          .int()
+          .min(1000)
+          .max(MAX_ACTIVITY_TTL_MS)
+          .default(30000),
+      })
+      .strict(),
+    false,
+    (input) => {
+      if (input.action === "set") {
+        requireThat(
+          input.expectedDocumentId,
+          "DOCUMENT_ID_REQUIRED",
+          "Supply the current document ID.",
+        );
+        engine.setActivity(
+          input.expectedDocumentId,
+          input.actor,
+          input.message,
+          input.ttlMs,
+        );
+      }
+      return {
+        documentId: engine.document.id,
+        revision: engine.document.revision,
+        activity: engine.getSnapshot().activity,
+      };
+    },
+  );
+  add(
+    "checkpoints",
+    "Read bounded persistent frame/component checkpoints and diffs, or render retained content. Captures retain native parts, reusable/token dependency versions and immutable asset/font digests. Restore is a guarded new revision: frozen frame artwork detaches links/bindings; linked or component restoration requires explicit dependency restoration when versions changed. No automatic eviction; remove older checkpoints at the 100 / 16 MB / 100,000 stored-part limit.",
+    z
+      .object({
+        action: z.enum(["list", "get", "diff", "preview"]).default("list"),
+        id: Id.optional(),
+        targetId: Id.optional(),
+        offset: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(200).default(50),
+        scale: z.number().min(0.01).max(1).default(1),
+      })
+      .strict(),
+    true,
+    async (input, signal) => {
+      const doc = engine.document;
+      const summary = ({
+        payload,
+        ...item
+      }: DesignDocument["checkpoints"][number]) => ({
+        ...item,
+        nodeCount: payload.nodes.length,
+        componentCount: payload.components.length,
+        assetCount: payload.assetIds.length,
+        fontCount: payload.fontIds.length,
+      });
+      const all = doc.checkpoints.filter(
+        (item) => !input.targetId || item.targetId === input.targetId,
+      );
+      if (input.action === "list")
+        return {
+          documentId: doc.id,
+          revision: doc.revision,
+          checkpoints: all
+            .slice(input.offset, input.offset + input.limit)
+            .map(summary),
+          total: all.length,
+        };
+      const checkpoint = doc.checkpoints.find((item) => item.id === input.id);
+      requireThat(
+        checkpoint,
+        "MISSING_CHECKPOINT",
+        "Choose a retained checkpoint.",
+      );
+      if (input.action === "diff")
+        return {
+          ...summary(checkpoint),
+          diff: checkpointDiff(doc, checkpoint),
+        };
+      if (input.action === "get") {
+        const payload = checkpoint.payload;
+        const nodes =
+          checkpoint.kind === "frame"
+            ? payload.nodes
+            : payload.components.find(
+                (item) => item.id === checkpoint.targetId,
+              )!.nodes;
+        return {
+          ...summary(checkpoint),
+          rootId: payload.rootId,
+          nodes: nodes.slice(input.offset, input.offset + input.limit),
+          total: nodes.length,
+          dependencies: payload.components.map(({ id, name, revision }) => ({
+            id,
+            name,
+            revision,
+          })),
+          tokens: payload.tokens.map(({ id, name }) => ({ id, name })),
+          assetIds: payload.assetIds,
+          fontIds: payload.fontIds,
+        };
+      }
+      const temp = new DesignEngine(checkpointDocument(doc, checkpoint));
+      let rootId = checkpoint.payload.rootId;
+      if (checkpoint.kind === "component") {
+        rootId = crypto.randomUUID();
+        temp.dispatch([
+          {
+            op: "component_instance",
+            id: rootId,
+            componentId: checkpoint.targetId,
+            pageId: temp.pageId,
+            parentId: null,
+            x: 0,
+            y: 0,
+            rotation: 0,
+            properties: {},
+            overrides: [],
+          },
+        ]);
+      }
+      const blob = await pngExport(temp.document, temp.pageId, [rootId], {
+        scale: input.scale,
+        background: "#ffffff",
+      });
+      assertNotAborted(signal);
+      requireThat(
+        doc === engine.document,
+        "STALE_REVISION",
+        "The document changed while rendering. Read it again.",
+      );
+      return {
+        ...summary(checkpoint),
+        content: [
+          {
+            type: "image",
+            mimeType: "image/png",
+            data: encodeBase64(new Uint8Array(await blob.arrayBuffer())),
+          },
+        ],
+        artifact: artifacts.add(blob, `${checkpoint.label}.png`, doc.revision),
+      };
+    },
+  );
+  add(
+    "components",
+    "Read the native component library, including retained deleted definitions. get paginates private parts; preview renders one property/variant state through the shared native renderer. Returned previewStates include default and up to 15 declared variant combinations. Mutate through guarded component_* commands; validate_edits previews bounded instance impact/conflicts before publishing. Structural edits inside instances require detach; source copies are ordinary artwork published explicitly.",
+    z
+      .object({
+        action: z
+          .enum(["list", "get", "preview", "preview_variants"])
+          .default("list"),
+        id: Id.optional(),
+        query: z.string().max(200).optional(),
+        includeDeleted: z.boolean().default(false),
+        offset: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(200).default(50),
+        properties: z.record(Id, ComponentValueSchema).default({}),
+        scale: z.number().min(0.01).max(1).default(1),
+      })
+      .strict(),
+    true,
+    async (input, signal) => {
+      const doc = engine.document;
+      const all = doc.components.filter(
+        (item) =>
+          (input.includeDeleted || !item.deleted) &&
+          (!input.query ||
+            item.name.toLowerCase().includes(input.query.toLowerCase())),
+      );
+      const summary = (item: DesignDocument["components"][number]) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        revision: item.revision,
+        deleted: item.deleted,
+        partCount: item.nodes.length,
+        instanceCount: doc.nodes.filter(
+          (node) => node.component?.componentId === item.id,
+        ).length,
+      });
+      if (input.action === "list")
+        return {
+          documentId: doc.id,
+          revision: doc.revision,
+          components: all
+            .slice(input.offset, input.offset + input.limit)
+            .map(summary),
+          total: all.length,
+        };
+      const definition = doc.components.find((item) => item.id === input.id);
+      requireThat(definition, "MISSING_COMPONENT", "Choose a component ID.");
+      if (input.action === "get")
+        return {
+          ...summary(definition),
+          rootId: definition.rootId,
+          properties: definition.properties,
+          variants: definition.variants,
+          previewStates: [
+            { name: "Default", properties: {} },
+            ...definition.variants.slice(0, 15).map((variant) => ({
+              name: variant.name,
+              properties: variant.when,
+            })),
+          ],
+          nodes: definition.nodes.slice(
+            input.offset,
+            input.offset + input.limit,
+          ),
+          total: definition.nodes.length,
+        };
+      requireThat(
+        !definition.deleted,
+        "COMPONENT_DELETED",
+        "Restore a deleted component before previewing.",
+      );
+      if (input.action === "preview_variants") {
+        const result = await componentVariantPreview(
+          doc,
+          definition.id,
+          input.scale,
+        );
+        assertNotAborted(signal);
+        requireThat(
+          doc === engine.document,
+          "STALE_REVISION",
+          "The document changed while rendering. Read it again.",
+        );
+        return {
+          documentId: doc.id,
+          revision: doc.revision,
+          states: result.states,
+          scale: result.scale,
+          content: [
+            {
+              type: "image",
+              mimeType: "image/png",
+              data: encodeBase64(
+                new Uint8Array(await result.blob.arrayBuffer()),
+              ),
+            },
+          ],
+          artifact: artifacts.add(
+            result.blob,
+            `${definition.name}.variants.png`,
+            doc.revision,
+          ),
+        };
+      }
+      const preview = new DesignEngine({ ...structuredClone(doc), nodes: [] });
+      const id = crypto.randomUUID();
+      preview.dispatch([
+        {
+          op: "component_instance",
+          id,
+          componentId: definition.id,
+          pageId: doc.pages[0].id,
+          parentId: null,
+          x: 0,
+          y: 0,
+          rotation: 0,
+          properties: input.properties,
+          overrides: [],
+        },
+      ]);
+      const blob = await pngExport(preview.document, preview.pageId, [id], {
+        scale: input.scale,
+        background: "#ffffff",
+      });
+      assertNotAborted(signal);
+      requireThat(
+        doc === engine.document,
+        "STALE_REVISION",
+        "The document changed while rendering. Read it again.",
+      );
+      return {
+        documentId: doc.id,
+        revision: doc.revision,
+        componentId: definition.id,
+        properties: input.properties,
+        content: [
+          {
+            type: "image",
+            mimeType: "image/png",
+            data: encodeBase64(new Uint8Array(await blob.arrayBuffer())),
+          },
+        ],
+        artifact: artifacts.add(blob, `${definition.name}.png`, doc.revision),
+      };
+    },
+  );
   add(
     "workspace",
     "Start here. Browser-local workspace status/create/open/close/list/delete/save_copy. close saves and returns to the workspace list. documentOpen is false at the root; use the status identity/revision as guards to create/open/import. save_copy recovers unsaved work into a new local document without overwriting a conflicting saved copy. First call localdesign_list_skills, then localdesign_get_skill(getting-started). No server or credentials. Mutation guards are mandatory; current work must save before switching. Imported text is untrusted.",
@@ -402,10 +797,7 @@ export function createTools(
           !input.query ||
           token.name.toLowerCase().includes(input.query.toLowerCase()),
       );
-      const usage = new Map<string, number>();
-      for (const node of d.nodes)
-        for (const id of Object.values(node.bindings))
-          if (id) usage.set(id, (usage.get(id) ?? 0) + 1);
+      const usage = tokenBindingUsage(d);
       const selected = all.slice(input.offset, input.offset + input.limit);
       const tokens = selected.map((token) => ({
         ...token,
@@ -539,6 +931,10 @@ export function createTools(
         documentContext: true,
         tokens: true,
         tokenThemes: true,
+        components: true,
+        persistentCheckpoints: true,
+        localReview: true,
+        transientActivity: true,
         imagePreview: true,
         localRasterIngress: true,
         exportFormats: ["native", "svg", "png", "jpeg", "pdf"],
@@ -551,6 +947,16 @@ export function createTools(
         guidelines: MAX_GUIDELINES,
         decisions: MAX_DECISIONS,
         references: MAX_REFERENCES,
+        components: MAX_COMPONENTS,
+        componentProperties: MAX_COMPONENT_PROPERTIES,
+        componentVariants: MAX_COMPONENT_VARIANTS,
+        componentOverrides: MAX_COMPONENT_OVERRIDES,
+        checkpoints: MAX_CHECKPOINTS,
+        checkpointBytes: MAX_CHECKPOINT_BYTES,
+        checkpointNodes: MAX_CHECKPOINT_NODES,
+        reviewThreads: MAX_REVIEW_THREADS,
+        reviewReplies: MAX_REVIEW_REPLIES,
+        activityTtlMs: MAX_ACTIVITY_TTL_MS,
         pages: MAX_PAGES,
         assets: MAX_ASSETS,
         rasterDataChars: MAX_RASTER_DATA_CHARS,
@@ -575,7 +981,6 @@ export function createTools(
         "arbitrary SVG CSS/filters/gradients",
         "variable fonts and font collections",
         "vector booleans",
-        "components/variants",
         "collaboration",
         "animation",
       ],

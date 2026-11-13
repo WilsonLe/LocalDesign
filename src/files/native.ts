@@ -6,6 +6,7 @@ import {
   requireThat,
   uid,
   validateDocument,
+  nativeDocumentData,
   type DesignDocument,
 } from "../core/model";
 import { base64, exportFonts, fontsReady } from "../render/fonts";
@@ -51,7 +52,9 @@ export async function nativeExport(doc: DesignDocument): Promise<Blob> {
   portable.fonts = portable.fonts.filter((f) => f.source !== "bundled");
   if (bundled.length)
     files["fonts/catalog.json"] = strToU8(JSON.stringify(bundled));
-  files["document.json"] = strToU8(JSON.stringify(portable));
+  files["document.json"] = strToU8(
+    JSON.stringify(nativeDocumentData(portable)),
+  );
   const archive = zipSync(files, { level: 6 });
   requireThat(
     archive.length <= MAX_FILE_BYTES,

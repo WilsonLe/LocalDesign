@@ -14,6 +14,15 @@ import {
   MAX_REFERENCES,
   MAX_TOKENS,
   MAX_TOKEN_THEMES,
+  MAX_COMPONENTS,
+  MAX_COMPONENT_PROPERTIES,
+  MAX_COMPONENT_VARIANTS,
+  MAX_COMPONENT_OVERRIDES,
+  MAX_COMPONENT_PROPERTY_OPTIONS,
+  MAX_CHECKPOINTS,
+  MAX_DOCUMENT_FONTS,
+  MAX_REVIEW_THREADS,
+  MAX_REVIEW_REPLIES,
 } from "./limits";
 import {
   DocumentFonts,
@@ -24,6 +33,8 @@ import {
 import { portableFont, validateFontRecord } from "../fonts/data";
 import { z } from "zod";
 import { resolveTokens } from "./tokens";
+import { resolveComponents } from "./components";
+import { validateCheckpoints } from "./checkpoints";
 export const uid = () => crypto.randomUUID();
 export const Id = z
   .string()
@@ -62,6 +73,40 @@ export const TokenProperty = z.enum([
   "layout.padding",
 ]);
 export type TokenPropertyName = z.infer<typeof TokenProperty>;
+export const ComponentValueSchema = z.union([
+  z.string().max(20000),
+  z.number().finite(),
+  z.boolean(),
+]);
+export const ComponentBindingSchema = z.union([
+  Id,
+  z.null(),
+  z
+    .object({ value: z.union([z.string().max(200), z.number().finite()]) })
+    .strict(),
+]);
+export const ComponentOverrideSchema = z
+  .object({
+    path: z.array(Id).min(1).max(40),
+    // Values are checked against native field schemas and immutable-field rules at resolution.
+    patch: z.record(z.string().max(80), z.unknown()),
+    bindings: z
+      .partialRecord(TokenProperty, ComponentBindingSchema)
+      .default({}),
+  })
+  .strict();
+export const ComponentInstanceSchema = z
+  .object({
+    componentId: Id,
+    properties: z.record(Id, ComponentValueSchema).default({}),
+    overrides: z
+      .array(ComponentOverrideSchema)
+      .max(MAX_COMPONENT_OVERRIDES)
+      .default([]),
+    resolvedRevision: z.number().int().min(0).default(0),
+    frozen: z.boolean().default(false),
+  })
+  .strict();
 export const NodeSchema = z
   .object({
     id: Id,
@@ -113,6 +158,21 @@ export const NodeSchema = z
       .nullable()
       .default(null),
     attribution: z.string().max(8000).default(""),
+    component: ComponentInstanceSchema.nullable().default(null),
+    componentPart: z
+      .object({ instanceId: Id, path: z.array(Id).min(1).max(40) })
+      .strict()
+      .nullable()
+      .default(null),
+    componentSource: z
+      .object({
+        componentId: Id,
+        partId: Id,
+        revision: z.number().int().min(1),
+      })
+      .strict()
+      .nullable()
+      .default(null),
     assetId: Id.nullable().default(null),
     layout: Layout.default({
       direction: "none",
@@ -125,6 +185,77 @@ export const NodeSchema = z
   })
   .strict();
 export type DesignNode = z.infer<typeof NodeSchema>;
+export const ComponentField = z.enum([
+  ...TokenProperty.options,
+  "text",
+  "fontStyle",
+  "hidden",
+  "locked",
+  "path",
+  "strokeLinecap",
+  "strokeLinejoin",
+  "x",
+  "y",
+  "rotation",
+  "clip",
+]);
+export const ComponentPropertySchema = z
+  .object({
+    name: Id,
+    type: z.enum(["text", "boolean", "number", "color", "enum"]),
+    defaultValue: ComponentValueSchema,
+    options: z
+      .array(z.string().min(1).max(200))
+      .max(MAX_COMPONENT_PROPERTY_OPTIONS)
+      .default([]),
+    bindings: z
+      .array(z.object({ partId: Id, field: ComponentField }).strict())
+      .max(MAX_COMPONENT_OVERRIDES)
+      .default([]),
+  })
+  .strict();
+export const ComponentVariantSchema = z
+  .object({
+    id: Id,
+    name: z.string().min(1).max(200),
+    when: z.record(Id, ComponentValueSchema),
+    overrides: z
+      .array(
+        z
+          .object({
+            partId: Id,
+            patch: z.record(z.string().max(80), z.unknown()),
+            bindings: z
+              .partialRecord(TokenProperty, ComponentBindingSchema)
+              .default({}),
+          })
+          .strict(),
+      )
+      .max(MAX_COMPONENT_OVERRIDES),
+  })
+  .strict();
+export const ComponentSchema = z
+  .object({
+    id: Id,
+    name: z.string().trim().min(1).max(200),
+    description: z.string().max(1000).default(""),
+    revision: z.number().int().min(1).default(1),
+    deleted: z.boolean().default(false),
+    rootId: Id,
+    nodes: z.array(NodeSchema).min(1).max(MAX_NODES),
+    properties: z
+      .array(ComponentPropertySchema)
+      .max(MAX_COMPONENT_PROPERTIES)
+      .default([]),
+    variants: z
+      .array(ComponentVariantSchema)
+      .max(MAX_COMPONENT_VARIANTS)
+      .default([]),
+  })
+  .strict();
+export type ComponentDefinition = z.infer<typeof ComponentSchema>;
+export type ComponentInstance = z.infer<typeof ComponentInstanceSchema>;
+export type ComponentValue = z.infer<typeof ComponentValueSchema>;
 export const PageSchema = z
   .object({
     id: Id,
@@ -206,6 +337,63 @@ export const TokenSchema = z
 export const TokenThemeSchema = z
   .object({ id: Id, name: z.string().min(1).max(80) })
   .strict();
+export const CheckpointPayloadSchema = z
+  .object({
+    rootId: Id,
+    nodes: z.array(NodeSchema).max(MAX_NODES),
+    components: z.array(ComponentSchema).max(MAX_COMPONENTS),
+    tokens: z.array(TokenSchema).max(MAX_TOKENS),
+    tokenThemes: z.array(TokenThemeSchema).max(MAX_TOKEN_THEMES),
+    activeTokenTheme: Id.nullable(),
+    assetIds: z.array(Id).max(MAX_ASSETS),
+    fontIds: z.array(Id).max(MAX_DOCUMENT_FONTS),
+    resourceDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  })
+  .strict();
+export const CheckpointSchema = z
+  .object({
+    id: Id,
+    kind: z.enum(["frame", "component"]),
+    targetId: Id,
+    label: z.string().trim().min(1).max(200),
+    author: z.string().trim().min(1).max(100),
+    createdAt: z.number().int().min(0),
+    sourceRevision: z.number().int().min(0),
+    digest: z.string().regex(/^[a-f0-9]{64}$/),
+    payload: CheckpointPayloadSchema,
+  })
+  .strict();
+export type Checkpoint = z.infer<typeof CheckpointSchema>;
+export const ReviewMessageSchema = z
+  .object({
+    id: Id,
+    author: z.string().trim().min(1).max(100),
+    body: z.string().trim().min(1).max(4000),
+    createdAt: z.number().int().min(0),
+  })
+  .strict();
+export const ReviewAnchorSchema = z
+  .object({
+    pageId: Id,
+    nodeId: Id.nullable().default(null),
+    x: coordinate,
+    y: coordinate,
+    pageName: z.string().max(200).default(""),
+    nodeName: z.string().max(200).default(""),
+    lastX: coordinate.default(0),
+    lastY: coordinate.default(0),
+  })
+  .strict();
+export const ReviewThreadSchema = z
+  .object({
+    id: Id,
+    anchor: ReviewAnchorSchema,
+    message: ReviewMessageSchema,
+    replies: z.array(ReviewMessageSchema).max(MAX_REVIEW_REPLIES).default([]),
+    resolved: z.boolean().default(false),
+  })
+  .strict();
+export type ReviewThread = z.infer<typeof ReviewThreadSchema>;
 export const DocumentSchema = z
   .object({
     schemaVersion: z.literal(3),
@@ -222,9 +410,76 @@ export const DocumentSchema = z
     tokens: z.array(TokenSchema).max(MAX_TOKENS).default([]),
     tokenThemes: z.array(TokenThemeSchema).max(MAX_TOKEN_THEMES).default([]),
     activeTokenTheme: Id.nullable().default(null),
+    components: z.array(ComponentSchema).max(MAX_COMPONENTS).default([]),
+    checkpoints: z.array(CheckpointSchema).max(MAX_CHECKPOINTS).default([]),
+    reviewThreads: z
+      .array(ReviewThreadSchema)
+      .max(MAX_REVIEW_THREADS)
+      .default([]),
   })
   .strict();
 export type DesignDocument = z.infer<typeof DocumentSchema>;
+const nodeWireDefaults = NodeSchema.parse({
+  id: "_",
+  type: "rectangle",
+  name: "_",
+  pageId: "_",
+});
+const requiredNodeFields = new Set(["id", "type", "name", "pageId"]);
+/** Schema-v3 wire defaults are fixed: omit only exact defaults, never sparse override intent. */
+export function compactNativeNode(node: DesignNode) {
+  return Object.fromEntries(
+    Object.entries(node).filter(([key, value]) => {
+      if (requiredNodeFields.has(key)) return true;
+      const fallback = nodeWireDefaults[key as keyof DesignNode];
+      if (value === fallback) return false;
+      if (
+        value &&
+        fallback &&
+        typeof value === "object" &&
+        typeof fallback === "object"
+      ) {
+        const a = value as Record<string, unknown>,
+          b = fallback as Record<string, unknown>;
+        return (
+          Object.keys(a).length !== Object.keys(b).length ||
+          Object.keys(a).some((field) => a[field] !== b[field])
+        );
+      }
+      return true;
+    }),
+  );
+}
+export function nativeDocumentData(doc: DesignDocument) {
+  const roots = new Map(
+    doc.nodes.filter((node) => node.component).map((node) => [node.id, node]),
+  );
+  return {
+    ...doc,
+    nodes: doc.nodes
+      .filter(
+        (node) =>
+          !node.componentPart ||
+          roots.get(node.componentPart.instanceId)?.component?.frozen !== false,
+      )
+      .map(compactNativeNode),
+    components: doc.components.map((component) => ({
+      ...component,
+      nodes: component.nodes.map(compactNativeNode),
+    })),
+    checkpoints: doc.checkpoints.map((checkpoint) => ({
+      ...checkpoint,
+      payload: {
+        ...checkpoint.payload,
+        nodes: checkpoint.payload.nodes.map(compactNativeNode),
+        components: checkpoint.payload.components.map((component) => ({
+          ...component,
+          nodes: component.nodes.map(compactNativeNode),
+        })),
+      },
+    })),
+  };
+}
 export type Viewport = { x: number; y: number; zoom: number };
 export function blankDocument(name = "Untitled design"): DesignDocument {
   return {
@@ -242,6 +497,9 @@ export function blankDocument(name = "Untitled design"): DesignDocument {
     tokens: [],
     tokenThemes: [],
     activeTokenTheme: null,
+    components: [],
+    checkpoints: [],
+    reviewThreads: [],
   };
 }
 export function makeNode(
@@ -270,6 +528,7 @@ export class DesignError extends Error {
   constructor(
     public code: string,
     message: string,
+    public details?: unknown,
   ) {
     super(message);
   }
@@ -288,6 +547,7 @@ export function validateDocument(input: unknown): DesignDocument {
       ? { ...raw, schemaVersion: 3 }
       : input,
   );
+  resolveComponents(d);
   const ids = new Set<string>();
   for (const item of [
     ...d.pages,
@@ -299,6 +559,9 @@ export function validateDocument(input: unknown): DesignDocument {
     ...d.references,
     ...d.tokens,
     ...d.tokenThemes,
+    ...d.components,
+    ...d.checkpoints,
+    ...d.reviewThreads,
   ]) {
     requireThat(!ids.has(item.id), "DUPLICATE_ID", `Duplicate ID: ${item.id}`);
     ids.add(item.id);
@@ -391,6 +654,15 @@ export function validateDocument(input: unknown): DesignDocument {
     }
   }
   resolveTokens(d);
+  for (const thread of d.reviewThreads)
+    requireThat(
+      new Set([thread.message.id, ...thread.replies.map((reply) => reply.id)])
+        .size ===
+        thread.replies.length + 1,
+      "REVIEW_ID",
+      "Reply IDs must be unique in their thread.",
+    );
+  validateCheckpoints(d);
   const portable = {
     ...d,
     assets: d.assets.map((a) => ({
@@ -399,9 +671,20 @@ export function validateDocument(input: unknown): DesignDocument {
     })),
     fonts: d.fonts.filter((f) => f.source !== "bundled").map(portableFont),
   };
-  const documentBytes = new TextEncoder().encode(
-    JSON.stringify(portable),
-  ).length;
+  // Count resolved parts too: repeated definitions must not evade the editable
+  // metadata ceiling just because their live cache is omitted from the archive.
+  const encoder = new TextEncoder();
+  const wire = nativeDocumentData({ ...portable, nodes: [] });
+  let documentBytes = encoder.encode(JSON.stringify(wire)).length;
+  for (const node of d.nodes) {
+    documentBytes +=
+      encoder.encode(JSON.stringify(compactNativeNode(node))).length + 1;
+    requireThat(
+      documentBytes <= MAX_DOCUMENT_BYTES,
+      "SIZE_LIMIT",
+      "Resolved design metadata exceeds the 64 MB editable-file limit.",
+    );
+  }
   const assetBytes = d.assets.reduce((sum, a) => {
     const data = a.data.split(",")[1];
     return (
