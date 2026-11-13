@@ -10,7 +10,7 @@ import {
   type LibraryPayload,
 } from "../src/core/model";
 import { CommandSchema } from "../src/core/commands";
-import { libraryDigest } from "../src/core/packages";
+import { libraryDigest, resourceImportId } from "../src/core/packages";
 function payload(): LibraryPayload {
   return {
     nodes: [],
@@ -236,5 +236,42 @@ it("sync reintroduces omitted components with stable identity and retains the la
     expect(e.document.components).toHaveLength(1);
     expect(e.document.components[0].id).toBe(id);
     expect(e.document.nodes.find((n) => n.id === "instance")?.width).toBe(260);
+  }
+});
+
+it("sync detects component, token and theme edits made after import in the same atomic batch", () => {
+  for (const kind of ["component", "token", "theme"]) {
+    const e = new DesignEngine(),
+      p = payload();
+    p.tokenThemes = [{ id: "theme", name: "Theme" }];
+    const id = resourceImportId(
+      e.document.id,
+      "import-1",
+      kind,
+      kind === "component"
+        ? "button"
+        : kind === "token"
+          ? "constructor"
+          : "theme",
+    );
+    const mutation =
+      kind === "component"
+        ? {
+            op: "component_set",
+            id,
+            expectedComponentRevision: 1,
+            description: "Local customization",
+          }
+        : kind === "token"
+          ? { op: "token_set", token: { ...p.tokens[0], id, value: "#abcdef" } }
+          : {
+              op: "token_themes_set",
+              themes: [{ id, name: "Local customization" }],
+              activeThemeId: null,
+            };
+    e.dispatch([command(e, p), CommandSchema.parse(mutation)]);
+    const before = e.document;
+    expect(() => e.dispatch([command(e, p, 2, "sync")])).toThrow(/local edits/);
+    expect(e.document).toBe(before);
   }
 });

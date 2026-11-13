@@ -48,12 +48,14 @@ export function checkpointDocument(
   checkpoint: Checkpoint,
 ): DesignDocument {
   const payload = checkpoint.payload;
+  const assets = new Map(doc.assets.map((asset) => [asset.id, asset])),
+    fonts = new Map(doc.fonts.map((font) => [font.id, font]));
   const pageIds = [...new Set(payload.nodes.map((node) => node.pageId))];
   return {
     ...blankDocument(checkpoint.label),
     id: doc.id,
-    assets: doc.assets,
-    fonts: doc.fonts,
+    assets: payload.assetIds.map((id) => assets.get(id)!),
+    fonts: payload.fontIds.map((id) => fonts.get(id)!),
     pages: pageIds.length
       ? pageIds.map((id) => ({ id, name: "Checkpoint", background: "none" }))
       : doc.pages.slice(0, 1),

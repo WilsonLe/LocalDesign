@@ -40,6 +40,128 @@ const placement = new Set([
   "parentId",
 ]);
 const pathKey = (path: string[]) => path.join("/");
+function matchingVariants(
+  definition: ComponentDefinition,
+  values: ReadonlyMap<string, string | number | boolean>,
+) {
+  return definition.variants.filter((variant) =>
+    Object.entries(variant.when).every(
+      ([name, value]) => values.get(name) === value,
+    ),
+  );
+}
+/** Query inherited modes without expanding a potentially large private component into scene nodes. */
+export function componentThemeResolver(doc: DesignDocument) {
+  const catalog = new Map(
+    doc.components.map((definition) => [
+      definition.id,
+      {
+        definition,
+        parts: new Map(definition.nodes.map((node) => [node.id, node])),
+      },
+    ]),
+  );
+  const states = new Map<string, Map<string, NativePatch>>();
+  const query = (
+    componentId: string,
+    path: string[],
+    properties: ComponentInstance["properties"] = {},
+  ) => {
+    const visit = (
+      spec: Pick<ComponentInstance, "componentId" | "properties" | "overrides">,
+      target: string[],
+      inheritedTheme: string | null,
+      inheritedRows: Override[][] = [],
+      rootPatch: NativePatch = {},
+    ): string | null => {
+      const { definition, parts } = catalog.get(spec.componentId)!;
+      const key = JSON.stringify([
+        spec.componentId,
+        Object.entries(spec.properties).sort(([a], [b]) => a.localeCompare(b)),
+      ]);
+      let patches = states.get(key);
+      if (!patches) {
+        const values = new Map(
+          definition.properties.map((property) => [
+            property.name,
+            property.defaultValue,
+          ]),
+        );
+        for (const [name, value] of Object.entries(spec.properties))
+          values.set(name, value);
+        patches = new Map<string, NativePatch>();
+        for (const variant of matchingVariants(definition, values))
+          for (const row of variant.overrides) {
+            const patch = patches.get(row.partId) ?? {};
+            Object.assign(patch, row.patch);
+            patches.set(row.partId, patch);
+          }
+        states.set(key, patches);
+      }
+      const layers = [spec.overrides, ...inheritedRows];
+      const theme = (start: DesignNode | undefined): string | null => {
+        for (
+          let node = start;
+          node;
+          node = node.parentId ? parts.get(node.parentId) : undefined
+        ) {
+          let mode = node.tokenTheme;
+          const patch = patches!.get(node.id);
+          if (patch && Object.hasOwn(patch, "tokenTheme"))
+            mode = patch.tokenTheme as string | null;
+          for (const [index, rows] of layers.entries()) {
+            for (const row of rows)
+              if (
+                row.path.length === 1 &&
+                row.path[0] === node.id &&
+                Object.hasOwn(row.patch, "tokenTheme")
+              )
+                mode = row.patch.tokenTheme as string | null;
+            if (
+              index === 0 &&
+              node.id === definition.rootId &&
+              Object.hasOwn(rootPatch, "tokenTheme")
+            )
+              mode = rootPatch.tokenTheme as string | null;
+          }
+          if (mode) return mode;
+        }
+        return inheritedTheme;
+      };
+      const part = parts.get(target[0]);
+      requireThat(
+        part,
+        "COMPONENT_OVERRIDE",
+        "A stored binding refers to a missing part.",
+      );
+      if (target.length === 1 && !part.component) return theme(part);
+      requireThat(
+        part.component,
+        "COMPONENT_OVERRIDE",
+        "A stored binding has an invalid nested path.",
+      );
+      return visit(
+        part.component,
+        target.length === 1
+          ? [catalog.get(part.component.componentId)!.definition.rootId]
+          : target.slice(1),
+        theme(part.parentId ? parts.get(part.parentId) : undefined),
+        layers.map((rows) =>
+          rows
+            .filter((row) => row.path.length > 1 && row.path[0] === part.id)
+            .map((row) => ({ ...row, path: row.path.slice(1) })),
+        ),
+        patches.get(part.id),
+      );
+    };
+    return visit(
+      { componentId, properties, overrides: [] },
+      path,
+      doc.activeTokenTheme,
+    );
+  };
+  return query;
+}
 export function componentNodeId(
   instanceId: string,
   path: string[],
@@ -730,11 +852,7 @@ export function resolveComponents(
         scopedRows.push(entry);
       }
       const layers = [local, ...inherited];
-      const variants = current.definition.variants.filter((variant) =>
-        Object.entries(variant.when).every(
-          ([name, value]) => values.get(name) === value,
-        ),
-      );
+      const variants = matchingVariants(current.definition, values);
       const visit = (
         part: DesignNode,
         nativeParentId: string | null,

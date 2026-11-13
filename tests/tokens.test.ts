@@ -340,3 +340,169 @@ it("detaching a variant token preserves inherited private themes and differently
   expect(e.document.tokens[0].id).toBe("ink");
   expect(paints()).toEqual(before);
 });
+
+it("detaching freezes default definition paint after ordered matching variants, including unused nested overrides", () => {
+  for (const split of [false, true]) {
+    const d = blankDocument();
+    d.tokenThemes = [{ id: "dark", name: "Dark" }];
+    d.tokens = [token("ink", "#111111", { themes: { dark: "#eeeeee" } })];
+    const themeRows = [
+      { partId: "root", patch: { tokenTheme: "dark" }, bindings: {} },
+      { partId: "root", patch: { width: 200 }, bindings: {} },
+    ];
+    const paintRows = [
+      { partId: "part", patch: {}, bindings: { fill: "ink" } },
+    ];
+    d.components = [
+      ComponentSchema.parse({
+        id: "card",
+        name: "Card",
+        rootId: "root",
+        nodes: [
+          makeNode("frame", "private", { id: "root" }),
+          makeNode("rectangle", "private", { id: "part", parentId: "root" }),
+        ],
+        variants: split
+          ? [
+              { id: "theme", name: "Theme", when: {}, overrides: themeRows },
+              { id: "paint", name: "Paint", when: {}, overrides: paintRows },
+            ]
+          : [
+              {
+                id: "all",
+                name: "All",
+                when: {},
+                overrides: [...themeRows, ...paintRows],
+              },
+            ],
+      }),
+    ];
+    const e = new DesignEngine(d);
+    e.dispatch([{ op: "token_delete", id: "ink", detach: true }]);
+    e.dispatch([
+      {
+        op: "component_instance",
+        id: "new",
+        componentId: "card",
+        pageId: e.pageId,
+        parentId: null,
+        x: 0,
+        y: 0,
+        rotation: 0,
+        properties: {},
+        overrides: [],
+      },
+    ]);
+    expect(e.document.nodes.find((n) => n.componentPart)?.fill).toBe("#eeeeee");
+  }
+  const d = blankDocument();
+  d.tokenThemes = [{ id: "dark", name: "Dark" }];
+  d.tokens = [token("ink", "#111111", { themes: { dark: "#eeeeee" } })];
+  d.components = [
+    ComponentSchema.parse({
+      id: "inner",
+      name: "Inner",
+      rootId: "root",
+      nodes: [
+        makeNode("frame", "private", { id: "root", tokenTheme: "dark" }),
+        makeNode("rectangle", "private", { id: "part", parentId: "root" }),
+      ],
+    }),
+    ComponentSchema.parse({
+      id: "outer",
+      name: "Outer",
+      rootId: "outer-root",
+      nodes: [
+        makeNode("frame", "private", { id: "outer-root" }),
+        makeNode("frame", "private", {
+          id: "ref",
+          parentId: "outer-root",
+          component: ComponentInstanceSchema.parse({
+            componentId: "inner",
+            overrides: [
+              { path: ["part"], patch: {}, bindings: { fill: "ink" } },
+            ],
+          }),
+        }),
+      ],
+    }),
+  ];
+  const e = new DesignEngine(d);
+  e.dispatch([{ op: "token_delete", id: "ink", detach: true }]);
+  e.dispatch([
+    {
+      op: "component_instance",
+      id: "new",
+      componentId: "outer",
+      pageId: e.pageId,
+      parentId: null,
+      x: 0,
+      y: 0,
+      rotation: 0,
+      properties: {},
+      overrides: [],
+    },
+  ]);
+  expect(
+    e.document.nodes.find((n) => n.componentPart?.path.join("/") === "ref/part")
+      ?.fill,
+  ).toBe("#eeeeee");
+});
+
+it("detaching a variant binding on a nested reference follows its materialized root theme", () => {
+  const d = blankDocument();
+  d.tokenThemes = [{ id: "dark", name: "Dark" }];
+  d.tokens = [token("ink", "#111111", { themes: { dark: "#eeeeee" } })];
+  d.components = [
+    ComponentSchema.parse({
+      id: "inner",
+      name: "Inner",
+      rootId: "inner-root",
+      nodes: [
+        makeNode("frame", "private", { id: "inner-root", tokenTheme: "dark" }),
+      ],
+    }),
+    ComponentSchema.parse({
+      id: "outer",
+      name: "Outer",
+      rootId: "outer-root",
+      nodes: [
+        makeNode("frame", "private", { id: "outer-root" }),
+        makeNode("frame", "private", {
+          id: "ref",
+          parentId: "outer-root",
+          component: ComponentInstanceSchema.parse({ componentId: "inner" }),
+        }),
+      ],
+      variants: [
+        {
+          id: "paint",
+          name: "Paint",
+          when: {},
+          overrides: [{ partId: "ref", patch: {}, bindings: { fill: "ink" } }],
+        },
+      ],
+    }),
+  ];
+  const e = new DesignEngine(d);
+  e.dispatch([{ op: "token_delete", id: "ink", detach: true }]);
+  e.dispatch([
+    {
+      op: "component_instance",
+      id: "new",
+      componentId: "outer",
+      pageId: e.pageId,
+      parentId: null,
+      x: 0,
+      y: 0,
+      rotation: 0,
+      properties: {},
+      overrides: [],
+    },
+  ]);
+  expect(
+    e.document.nodes.find(
+      (n) => n.componentPart?.path.join("/") === "ref/inner-root",
+    )?.fill,
+  ).toBe("#eeeeee");
+});

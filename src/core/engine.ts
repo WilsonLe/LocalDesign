@@ -375,6 +375,11 @@ export class DesignEngine {
       }
       this.apply(next, command, created, byId, libraryImpacts);
       pendingResolution = true;
+      if (command.op === "library_import" && command.mode !== "copy") {
+        settle();
+        refreshPackageBaselines(next, command.originId, command.payload);
+        pendingResolution = false;
+      }
     }
     settle();
     const componentResult = {
@@ -389,9 +394,6 @@ export class DesignEngine {
       createdIds: resolutions.flatMap((result) => result.createdIds),
     };
     warnings.push(...componentResult.warnings);
-    for (const command of r.commands)
-      if (command.op === "library_import" && command.mode !== "copy")
-        refreshPackageBaselines(next, command.originId, command.payload);
     const libraryImpact = libraryImpacts.at(-1);
     this.refreshReviewAnchors(next);
     const changedDefinitions = new Set(

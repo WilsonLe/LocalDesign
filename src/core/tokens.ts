@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 import {
   componentNodeId,
+  componentThemeResolver,
   recordComponentBinding,
   resolveComponents,
 } from "./components";
@@ -216,6 +217,7 @@ export function detachToken(doc: DesignDocument, id: string, detach: boolean) {
     }
     return doc.activeTokenTheme;
   };
+  const privateTheme = componentThemeResolver(doc);
   const rows = [
     ...doc.nodes.flatMap((node) =>
       (node.component?.overrides ?? []).map((row) => ({
@@ -231,26 +233,20 @@ export function detachToken(doc: DesignDocument, id: string, detach: boolean) {
         ),
       })),
     ),
-    ...doc.components.flatMap((definition) => {
-      const nodes = new Map(definition.nodes.map((node) => [node.id, node]));
-      return [
-        ...definition.nodes.flatMap((node) =>
-          (node.component?.overrides ?? []).map((row) => ({
-            row,
-            theme: inheritedTheme(node, nodes),
-          })),
-        ),
-        ...definition.variants.flatMap((variant) => {
-          const patches = new Map(
-            variant.overrides.map((row) => [row.partId, row.patch]),
-          );
-          return variant.overrides.map((row) => ({
-            row,
-            theme: inheritedTheme(nodes.get(row.partId), nodes, patches),
-          }));
-        }),
-      ];
-    }),
+    ...doc.components.flatMap((definition) => [
+      ...definition.nodes.flatMap((node) =>
+        (node.component?.overrides ?? []).map((row) => ({
+          row,
+          theme: privateTheme(definition.id, [node.id, ...row.path]),
+        })),
+      ),
+      ...definition.variants.flatMap((variant) =>
+        variant.overrides.map((row) => ({
+          row,
+          theme: privateTheme(definition.id, [row.partId], variant.when),
+        })),
+      ),
+    ]),
   ];
   const rowUses = rows.filter(({ row }) =>
     Object.values(row.bindings).includes(id),
@@ -277,8 +273,21 @@ export function detachToken(doc: DesignDocument, id: string, detach: boolean) {
                 ],
       })),
   );
-  for (const definition of doc.components)
+  for (const definition of doc.components) {
     resolveTokens({ ...doc, nodes: definition.nodes });
+    for (const node of definition.nodes)
+      for (const [field, tokenId] of Object.entries(node.bindings))
+        if (tokenId === id) {
+          const value = resolver.value(
+            id,
+            privateTheme(definition.id, [node.id]),
+          );
+          if (field === "layout.gap") node.layout.gap = value as number;
+          else if (field === "layout.padding")
+            node.layout.padding = value as number;
+          else Object.assign(node, { [field]: value });
+        }
+  }
   for (const token of references) {
     const base = resolver.value(token.id),
       themes = Object.fromEntries(
@@ -297,12 +306,7 @@ export function detachToken(doc: DesignDocument, id: string, detach: boolean) {
     for (const [property, tokenId] of Object.entries(row.bindings))
       if (tokenId === id)
         row.bindings[property as TokenPropertyName] = {
-          value: resolver.value(
-            id,
-            typeof row.patch.tokenTheme === "string"
-              ? row.patch.tokenTheme
-              : (theme ?? doc.activeTokenTheme),
-          ),
+          value: resolver.value(id, theme),
         };
   doc.tokens = doc.tokens.filter((token) => token.id !== id);
   // One definition may be used under several inherited themes. Preserve each current
