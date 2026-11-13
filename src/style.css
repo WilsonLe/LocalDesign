@@ -479,10 +479,10 @@
     gap: 10px;
     font-size: 10px;
     pointer-events: none;
-    color: var(--foreground);
+    color: var(--canvas-foreground);
   }
   .canvas-mode {
-    color: var(--muted-foreground);
+    color: color-mix(in srgb, var(--canvas-foreground), transparent 25%);
     border-left: 1px solid var(--border);
     padding-left: 10px;
   }
@@ -496,7 +496,7 @@
     pointer-events: none;
   }
   .empty-cross {
-    color: var(--muted-foreground);
+    color: color-mix(in srgb, var(--canvas-foreground), transparent 25%);
     font-size: 35px;
     font-weight: 400;
     margin-bottom: 20px;
@@ -506,17 +506,17 @@
     font-weight: 400;
     font-size: 18px;
     letter-spacing: -0.5px;
-    color: var(--foreground);
+    color: var(--canvas-foreground);
     margin-bottom: 12px;
   }
   .canvas-empty p {
     font-size: 11px;
-    color: var(--muted-foreground);
+    color: color-mix(in srgb, var(--canvas-foreground), transparent 25%);
     margin-bottom: 23px;
   }
   .canvas-empty > span {
     font-size: 9px;
-    color: var(--muted-foreground);
+    color: color-mix(in srgb, var(--canvas-foreground), transparent 25%);
   }
   .canvas-empty i {
     margin: 0 7px;
@@ -530,7 +530,7 @@
     transform: translateX(-50%);
     font-size: 9px;
     white-space: nowrap;
-    color: var(--muted-foreground);
+    color: color-mix(in srgb, var(--canvas-foreground), transparent 25%);
     pointer-events: none;
   }
   .floating-tools {
@@ -1204,6 +1204,23 @@
     }
   }
   @media (max-width: 850px) {
+    .topbar {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) repeat(4, auto);
+      gap: 3px;
+      padding-inline: 10px;
+    }
+    .workspace-topbar {
+      grid-template-columns: auto minmax(2rem, 1fr) repeat(3, auto);
+    }
+    .topbar > .history-actions,
+    .topbar > .top-spacer,
+    .topbar > .top-divider {
+      display: none;
+    }
+    .document-title {
+      min-width: 0;
+    }
     .left-panel,
     .right-panel {
       display: none;
@@ -1288,17 +1305,8 @@
   }
   @media (max-width: 570px) {
     .topbar {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr) repeat(4, auto);
       gap: 3px;
       padding: 0 10px;
-    }
-    .history-actions,
-    .top-spacer {
-      display: none;
-    }
-    .document-title {
-      min-width: 0;
     }
     .brand > span:last-child {
       display: none;

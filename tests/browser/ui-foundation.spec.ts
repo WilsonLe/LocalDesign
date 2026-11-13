@@ -139,7 +139,108 @@ test("workspace deletion uses a focused cancel-safe confirmation with failure an
   );
 });
 
-for (const width of [1440, 885, 390]) {
+async function headerFits(
+  page: import("@playwright/test").Page,
+  width: number,
+) {
+  const boxes = await page
+    .locator(".topbar button, .topbar input")
+    .evaluateAll((elements) =>
+      elements
+        .filter(
+          (el) =>
+            el.getClientRects().length &&
+            getComputedStyle(el).visibility !== "hidden",
+        )
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          return {
+            name: el.getAttribute("aria-label") || el.textContent,
+            left: r.left,
+            right: r.right,
+          };
+        }),
+    );
+  for (let i = 0; i < boxes.length; i++) {
+    expect(boxes[i].left, `${boxes[i].name} left`).toBeGreaterThanOrEqual(0);
+    expect(boxes[i].right, `${boxes[i].name} right`).toBeLessThanOrEqual(width);
+    if (i)
+      expect(
+        boxes[i].left,
+        `${boxes[i - 1].name} overlaps ${boxes[i].name}`,
+      ).toBeGreaterThanOrEqual(boxes[i - 1].right - 0.5);
+  }
+}
+
+test("transparent frames ignore group fills, selects have one caret, and explicit canvas paints keep chrome readable", async ({
+  page,
+}) => {
+  await harness(page);
+  await open(page);
+  const d = await inspect(page);
+  await edits(page, [
+    {
+      op: "create",
+      node: {
+        id: "unpainted-group",
+        type: "group",
+        name: "Unpainted group",
+        pageId: d.pageId,
+        fill: "#000000",
+        width: 400,
+        height: 300,
+      },
+    },
+    {
+      op: "create",
+      node: {
+        id: "clear-frame",
+        type: "frame",
+        name: "Transparent frame",
+        pageId: d.pageId,
+        parentId: "unpainted-group",
+        fill: "none",
+        width: 400,
+        height: 300,
+      },
+    },
+  ]);
+  await page.getByRole("button", { name: "Text", exact: true }).click();
+  await page.getByTestId("canvas").click({ position: { x: 200, y: 200 } });
+  const text = (await inspect(page)).nodes.find((n: any) => n.type === "text");
+  expect(text.parentId).toBe("clear-frame");
+  expect(text.fill).toBe("#171717");
+  await expect(page.locator('[data-slot="native-select"]').first()).toHaveCSS(
+    "appearance",
+    "none",
+  );
+  await edits(page, [
+    { op: "delete", ids: ["unpainted-group"] },
+    { op: "page_update", id: d.pageId, patch: { background: "#000000" } },
+  ]);
+  await expect(page.locator(".canvas-empty h1")).toHaveCSS(
+    "color",
+    "rgb(245, 245, 245)",
+  );
+  await expect(page.locator(".canvas-top-label")).toHaveCSS(
+    "color",
+    "rgb(245, 245, 245)",
+  );
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await edits(page, [
+    { op: "page_update", id: d.pageId, patch: { background: "#ffffff" } },
+  ]);
+  await expect(page.locator(".canvas-empty h1")).toHaveCSS(
+    "color",
+    "rgb(23, 23, 23)",
+  );
+  await expect(page.locator(".canvas-top-label")).toHaveCSS(
+    "color",
+    "rgb(23, 23, 23)",
+  );
+});
+
+for (const width of [1440, 885, 851, 850, 571, 570, 390, 320]) {
   test(`shared controls and dialogs fit light/dark at ${width}px`, async ({
     page,
   }) => {
@@ -154,6 +255,7 @@ for (const width of [1440, 885, 390]) {
       const foreground = await page.evaluate(
         () => getComputedStyle(document.documentElement).color,
       );
+      await headerFits(page, width);
       await expect(
         page.getByRole("button", { name: "Hand", exact: true }),
       ).toHaveCSS("color", foreground);
@@ -183,6 +285,7 @@ for (const width of [1440, 885, 390]) {
       }
     }
     await page.getByRole("button", { name: "Workspaces", exact: true }).click();
+    await headerFits(page, width);
     await page
       .getByRole("button", { name: "Delete Untitled design", exact: true })
       .click();

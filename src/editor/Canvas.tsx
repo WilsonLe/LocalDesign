@@ -467,7 +467,7 @@ export function Canvas({
               cx="1"
               cy="1"
               r="0.8"
-              fill="var(--muted-foreground)"
+              fill="var(--canvas-foreground)"
               opacity="0.25"
             />
           </pattern>
@@ -495,7 +495,7 @@ export function Canvas({
                 x={n.x}
                 y={n.y - 10 / v.zoom}
                 fontSize={11 / v.zoom}
-                fill="#a3a3a3"
+                fill="var(--canvas-foreground)"
                 style={{ pointerEvents: "none" }}
               >
                 {n.name}

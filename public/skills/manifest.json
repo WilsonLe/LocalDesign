@@ -1,5 +1,5 @@
 {
-  "bundleVersion": "1.2.0",
+  "bundleVersion": "1.2.1",
   "maxResponseBytes": 48000,
   "source": {
     "url": "https://github.com/WilsonLe/agentic-workflows",
@@ -17,9 +17,9 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.2.0",
+      "version": "1.2.1",
       "path": "getting-started.md",
-      "sha256": "685107b6194bd949e0e87815c78280d1ad079cb9c0f5e859095913cc59c68a91",
+      "sha256": "e6f6aee068f0a260629e4dec227d4f37098cbc5672d641bdffd068c9c943f6df",
       "bytes": 16251,
       "originalSkillIds": []
     },
@@ -32,10 +32,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.2.0",
+      "version": "1.2.1",
       "path": "ui-design.md",
-      "sha256": "dbd76787a6d96dcc9e7d0803264f1b842164488c4a1655b6eed85cd3d5eff72c",
-      "bytes": 18314,
+      "sha256": "20fbb2e204dbae08f1555635eb97fc15131738cae84c32edf4692ddaa32b972a",
+      "bytes": 18446,
       "originalSkillIds": ["ui-design"]
     },
     {
@@ -47,9 +47,9 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.2.0",
+      "version": "1.2.1",
       "path": "typography.md",
-      "sha256": "a5774cc23139e0221912970b1e0759e12232e154ece5935376ed62961f574fa0",
+      "sha256": "e284a9e131f0520023d317ed598a9ed704fe051e14b323b5240c152ba5ef1447",
       "bytes": 18842,
       "originalSkillIds": ["typography"]
     }
@@ -59,7 +59,7 @@
       "path": "ui-design/SKILL.md",
       "sha256": "47a5b923de4e42bfac7521430cbf78df27b1e1a5fb15327705e4301abc596b1f",
       "disposition": "adapted",
-      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts."
+      "reason": "Relevant guidance embedded in local skills; host/plugin dependencies replaced with repository/tool contracts. Local theme guidance follows the light/dark interface and leaves authored design paints explicit."
     },
     {
       "path": "ui-design/agents/openai.yaml",

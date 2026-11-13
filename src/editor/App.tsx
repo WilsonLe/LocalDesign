@@ -6,6 +6,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { ThemeToggle, applyTheme, readTheme } from "./ThemeToggle";
+import { surfaceTextFill } from "./surface";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { NativeSelect } from "../components/ui/native-select";
@@ -16,6 +17,7 @@ import {
   useState,
   useSyncExternalStore,
   type ReactNode,
+  type CSSProperties,
 } from "react";
 import {
   ArrowDownToLine,
@@ -120,6 +122,40 @@ const tools = [
   ["text", "Text", "T", Type],
   ["image", "Image", "I", ImagePlus],
 ] as const;
+function HistoryActions({
+  canUndo,
+  canRedo,
+  onAction,
+  compact = false,
+}: {
+  canUndo: boolean;
+  canRedo: boolean;
+  onAction: (action: "undo" | "redo") => void;
+  compact?: boolean;
+}) {
+  return (
+    <div className="history-actions">
+      <Button
+        size={compact ? "icon-xs" : "icon-sm"}
+        aria-label="Undo"
+        title="Undo (⌘/Ctrl Z)"
+        disabled={!canUndo}
+        onClick={() => onAction("undo")}
+      >
+        <Undo2 />
+      </Button>
+      <Button
+        size={compact ? "icon-xs" : "icon-sm"}
+        aria-label="Redo"
+        title="Redo (⌘/Ctrl Shift Z)"
+        disabled={!canRedo}
+        onClick={() => onAction("redo")}
+      >
+        <Redo2 />
+      </Button>
+    </div>
+  );
+}
 export function App() {
   const [theme, setTheme] = useState(readTheme);
   const snapshot = useSyncExternalStore(engine.subscribe, engine.getSnapshot),
@@ -486,9 +522,9 @@ export function App() {
   };
   return (
     <div className="app">
-      <header className="topbar">
+      <header className={`topbar ${editing ? "" : "workspace-topbar"}`}>
         <Button
-          className="brand"
+          className="brand max-[850px]:px-0"
           title="Workspaces"
           aria-label="Workspaces"
           onClick={() => void navigator.navigate({ kind: "list" })}
@@ -501,7 +537,7 @@ export function App() {
             <span className="top-divider" />
             <div className="document-title">
               <Input
-                className="w-40 max-[1150px]:w-36 max-[850px]:w-32 max-[570px]:w-full"
+                className="w-40 max-[1150px]:w-36 max-[850px]:w-full"
                 ref={nameRef}
                 aria-label="Design name"
                 disabled={!ready}
@@ -522,7 +558,7 @@ export function App() {
                 }}
               />
               <Button
-                className="max-[570px]:hidden"
+                className="max-[850px]:hidden"
                 size="icon-sm"
                 aria-label="Open workspace"
                 onClick={() => void navigator.navigate({ kind: "list" })}
@@ -552,28 +588,13 @@ export function App() {
               </span>
             </span>
             <div className="top-spacer" />
-            <div className="history-actions">
-              <Button
-                aria-label="Undo"
-                title="Undo (⌘/Ctrl Z)"
-                disabled={!snapshot.canUndo}
-                onClick={() =>
-                  perform(() => engine.history("undo", engine.guard()))
-                }
-              >
-                <Undo2 size={16} />
-              </Button>
-              <Button
-                aria-label="Redo"
-                title="Redo (⌘/Ctrl Shift Z)"
-                disabled={!snapshot.canRedo}
-                onClick={() =>
-                  perform(() => engine.history("redo", engine.guard()))
-                }
-              >
-                <Redo2 size={16} />
-              </Button>
-            </div>
+            <HistoryActions
+              canUndo={snapshot.canUndo}
+              canRedo={snapshot.canRedo}
+              onAction={(action) =>
+                perform(() => engine.history(action, engine.guard()))
+              }
+            />
             <span className="top-divider" />
           </>
         )}
@@ -586,23 +607,24 @@ export function App() {
           }}
         />
         <Button
+          size="icon-sm"
           className={`agent-button ${connection === "connected" ? "connected" : ""}`}
-          title="Connect an agent"
+          title={
+            connection === "connected" ? "Agent ready" : "Connect an agent"
+          }
           aria-label="Connect an agent"
           onClick={() => setModal("agent")}
         >
           <Plug size={14} />
-          <span>
-            {connection === "connected" ? "Agent ready" : "Connect agent"}
-          </span>
         </Button>
         <Button
-          className="import-button"
+          className="import-button max-[850px]:size-8 max-[850px]:p-0"
+          aria-label="Import"
           onClick={() => fileInput.current?.click()}
           disabled={busy || navigation.loading || !workspace.initialized}
         >
           <ArrowUpFromLine size={14} />
-          <span>Import</span>
+          <span className="max-[850px]:hidden">Import</span>
         </Button>
         {editing ? (
           <Button
@@ -650,13 +672,23 @@ export function App() {
         <>
           <div className="mobile-controls">
             <Button
+              size="xs"
               aria-expanded={drawer === "layers"}
               onClick={() => setDrawer(drawer === "layers" ? null : "layers")}
             >
               <LayersIcon size={15} />
               Pages & layers
             </Button>
+            <HistoryActions
+              compact
+              canUndo={snapshot.canUndo}
+              canRedo={snapshot.canRedo}
+              onAction={(action) =>
+                perform(() => engine.history(action, engine.guard()))
+              }
+            />
             <Button
+              size="xs"
               aria-expanded={drawer === "inspector"}
               onClick={() =>
                 setDrawer(drawer === "inspector" ? null : "inspector")
@@ -687,7 +719,21 @@ export function App() {
                 onFocusLayer={focusLayer}
               />
             </aside>
-            <div ref={canvasWrap} className="canvas-area">
+            <div
+              ref={canvasWrap}
+              className="canvas-area"
+              style={
+                {
+                  "--canvas-foreground": surfaceTextFill(
+                    [
+                      doc.pages.find((p) => p.id === snapshot.pageId)!
+                        .background,
+                    ],
+                    theme === "dark",
+                  ),
+                } as CSSProperties
+              }
+            >
               {ready && !navigation.loading ? (
                 <Canvas
                   engine={engine}

@@ -6,18 +6,24 @@ export function initialTextFill(
   pageId: string,
   parent?: DesignNode,
 ) {
-  let rgb = document.documentElement.classList.contains("dark")
-    ? [10, 10, 10]
-    : [255, 255, 255];
   const paints = [
     doc.pages.find((p) => p.id === pageId)!.background,
     ...(parent
       ? [...ancestors(doc, parent)]
           .reverse()
           .concat(parent)
+          .filter((n) => n.type === "frame")
           .map((n) => n.fill)
       : []),
   ];
+  return surfaceTextFill(
+    paints,
+    document.documentElement.classList.contains("dark"),
+  );
+}
+
+export function surfaceTextFill(paints: string[], dark: boolean) {
+  let rgb = dark ? [10, 10, 10] : [255, 255, 255];
   for (const paint of paints) {
     if (paint === "none") continue;
     const hex = paint.slice(1);
