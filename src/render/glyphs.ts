@@ -7,7 +7,15 @@ import type { DesignNode } from "../core/model";
 type Font = ReturnType<typeof create>;
 const parsed = new Map<string, { font: Font; bytes: number }>();
 let parsedBytes = 0;
-const outlines = new Map<string, string>();
+type Outline = Readonly<{
+  id: string;
+  path: string;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}>;
+const outlines = new Map<string, Map<number, Outline>>();
 let outlineBytes = 0;
 function face(file: FontFile) {
   const digest = fontInfo(file).digest;
@@ -28,24 +36,24 @@ function face(file: FontFile) {
   parsedBytes += expanded;
   return font;
 }
-type PositionedGlyph = {
-  id: string;
-  path: string;
-  x: number;
-  y: number;
-  scale: number;
-  ink: { x: number; y: number; width: number; height: number };
+type Line = {
+  glyphs: Outline[];
+  positions: ArrayLike<number>;
+  width: number;
+  geometryKey?: string;
 };
-type Line = { glyphs: PositionedGlyph[]; width: number; geometryKey?: string };
 const lines = new Map<string, Line>();
 let retainedGlyphs = 0;
 function segmentsFor(record: DocumentFont, text: string) {
   const segments: { file: FontFile; text: string }[] = [];
+  const files = record.files.map((file) => ({
+    file,
+    characters: fontInfo(file).characters,
+  }));
   for (const char of Array.from(text)) {
     const file =
-      record.files.find((f) =>
-        fontInfo(f).characters.has(char.codePointAt(0)!),
-      ) ?? record.files[0];
+      files.find((f) => f.characters.has(char.codePointAt(0)!))?.file ??
+      record.files[0];
     const last = segments.at(-1);
     if (last?.file === file) last.text += char;
     else segments.push({ file, text: char });
@@ -189,49 +197,59 @@ export function shapeLine(
   text: string,
 ): Line {
   text = text.normalize("NFC");
-  const key = `${fontKey(record)}:${n.fontSize}:${n.letterSpacing}:${text}`;
+  const faceKey = fontKey(record);
+  const key = `${faceKey}:${n.fontSize}:${n.letterSpacing}:${text}`;
   const old = lines.get(key);
   if (old) return old;
   const segments = segmentsFor(record, text);
   let x = 0,
     y = 0,
     spacing = false;
-  const glyphs: PositionedGlyph[] = [];
+  const glyphs: Outline[] = [];
+  const positions: number[] = [];
   for (const segment of segments) {
     const font = face(segment.file),
       scale = n.fontSize / font.unitsPerEm;
+    const digest = fontInfo(segment.file).digest;
+    let catalog = outlines.get(digest);
     const run = layout(font, record, segment.text, !!n.letterSpacing);
     for (let i = 0; i < run.glyphs.length; i++) {
       const glyph = run.glyphs[i],
-        position = run.positions[i],
-        pathKey = `${fontInfo(segment.file).digest}:${glyph.id}`;
-      let path = outlines.get(pathKey);
-      if (path === undefined) {
-        path = glyph.path.toSVG();
-        if (outlineBytes + path.length > 4_000_000) {
-          outlines.clear();
-          outlineBytes = 0;
+        position = run.positions[i];
+      let outline = catalog?.get(glyph.id);
+      if (!outline) {
+        const path = glyph.path.toSVG();
+        const box = path
+          ? glyph.path.bbox
+          : { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+        outline = Object.freeze({
+          id: `glyph-${digest}-${glyph.id}`,
+          path,
+          minX: box.minX,
+          minY: box.minY,
+          maxX: box.maxX,
+          maxY: box.maxY,
+        });
+        const bytes = path.length + outline.id.length + 64;
+        if (bytes <= 4_000_000) {
+          if (outlineBytes + bytes > 4_000_000) {
+            outlines.clear();
+            outlineBytes = 0;
+            catalog = undefined;
+          }
+          if (!catalog) {
+            catalog = new Map();
+            outlines.set(digest, catalog);
+          }
+          catalog.set(glyph.id, outline);
+          outlineBytes += bytes;
         }
-        outlines.set(pathKey, path);
-        outlineBytes += path.length;
       }
-      if (path) {
-        const box = glyph.path.bbox;
+      if (outline.path) {
         const gx = x + position.xOffset * scale,
           gy = y - position.yOffset * scale;
-        glyphs.push({
-          id: `glyph-${fontInfo(segment.file).digest}-${glyph.id}`,
-          path,
-          x: gx,
-          y: gy,
-          scale,
-          ink: {
-            x: gx + box.minX * scale,
-            y: gy - box.maxY * scale,
-            width: (box.maxX - box.minX) * scale,
-            height: (box.maxY - box.minY) * scale,
-          },
-        });
+        glyphs.push(outline);
+        positions.push(gx, gy, scale);
       }
       x += position.xAdvance * scale;
       y -= position.yAdvance * scale;
@@ -243,8 +261,10 @@ export function shapeLine(
   }
   const result = {
     glyphs,
+    // Keep the original double values without per-size glyph/bounds objects.
+    positions,
     width: x - (spacing ? n.letterSpacing : 0),
-    geometryKey: `${fontKey(record)}:${n.letterSpacing / n.fontSize}:${text}`,
+    geometryKey: `${faceKey}:${n.letterSpacing / n.fontSize}:${text}`,
   };
   while (
     lines.size &&
@@ -264,7 +284,7 @@ const relativeOutlines = new Map<
   { x: number; y: number; rest: string }
 >();
 let relativeBytes = 0;
-function relativeOutline(glyph: PositionedGlyph) {
+function relativeOutline(glyph: Outline) {
   const key = glyph.id;
   const old = relativeOutlines.get(key);
   if (old) return old;
@@ -329,8 +349,8 @@ export function compactLine(line: Line): Compact | null {
     compactLines.set(line, null);
     return null;
   }
-  const scale = line.glyphs[0]?.scale ?? 1;
-  if (line.glyphs.some((glyph) => glyph.scale !== scale)) {
+  const scale = line.positions[2] ?? 1;
+  if (line.glyphs.some((_, i) => line.positions[i * 3 + 2] !== scale)) {
     compactLines.set(line, null);
     return null;
   }
@@ -344,22 +364,27 @@ export function compactLine(line: Line): Compact | null {
   let current = "",
     bytes = 0,
     right = -Infinity;
-  for (const glyph of line.glyphs) {
+  for (let i = 0; i < line.glyphs.length; i++) {
+    const glyph = line.glyphs[i],
+      x = line.positions[i * 3],
+      y = line.positions[i * 3 + 1],
+      inkX = x + glyph.minX * scale,
+      inkWidth = (glyph.maxX - glyph.minX) * scale;
     // Keep overlapping outlines as separate paint operations (combining marks,
     // italic overhangs, RTL and negative tracking). Disjoint contours can share a path.
-    if (glyph.ink.x - glyph.scale <= right) {
+    if (inkX - scale <= right) {
       paths.push(current);
       current = "";
     }
     const outline = relativeOutline(glyph);
-    const path = `M${glyph.x / scale + outline.x} ${-glyph.y / scale + outline.y}${outline.rest}`;
+    const path = `M${x / scale + outline.x} ${-y / scale + outline.y}${outline.rest}`;
     bytes += path.length;
     if (bytes > 500_000) {
       compactLines.set(line, null);
       return null;
     }
     current += path;
-    right = glyph.ink.x + glyph.ink.width + glyph.scale;
+    right = inkX + inkWidth + scale;
   }
   if (current) paths.push(current);
   const result = { id: `compact-${nextGeometry++}`, paths, scale };

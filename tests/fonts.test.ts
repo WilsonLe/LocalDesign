@@ -13,6 +13,8 @@ import type { DocumentFont } from "../src/fonts/schema";
 import { measureText } from "../src/render/text";
 import shapingReference from "./fixtures/fonts/shaping-reference.json" with { type: "json" };
 import { MAX_ASSETS } from "../src/core/limits";
+import { shapeLine } from "../src/render/glyphs";
+import { create } from "fontkit";
 
 const bytes = (path: string) => new Uint8Array(readFileSync(path));
 const serif = () =>
@@ -21,6 +23,36 @@ const serif = () =>
     "SourceSerif4-Regular.otf",
     "SIL OFL 1.1; editable redistribution permitted",
   );
+it("shares immutable glyph shapes while retaining exact per-size positions", () => {
+  const record = serif(),
+    text = "AV ffi Àg repeated glyphs";
+  const sizes = [14.125, 31.75];
+  const shaped = sizes.map((fontSize) =>
+    shapeLine({ fontSize, letterSpacing: -0.75 }, record, text),
+  );
+  expect(shaped[0].glyphs[0]).toBe(shaped[1].glyphs[0]);
+  expect(Object.isFrozen(shaped[0].glyphs[0])).toBe(true);
+  expect(shaped[0].positions).not.toBe(shaped[1].positions);
+  const reference = create(
+    bytes("tests/fixtures/fonts/SourceSerif4-Regular.otf"),
+  );
+  const run = reference.layout(text, { liga: false, clig: false });
+  for (let i = 0; i < sizes.length; i++) {
+    const scale = sizes[i] / reference.unitsPerEm,
+      positions: number[] = [];
+    let x = 0,
+      y = 0;
+    for (let j = 0; j < run.glyphs.length; j++) {
+      const p = run.positions[j];
+      if (run.glyphs[j].path.toSVG())
+        positions.push(x + p.xOffset * scale, y - p.yOffset * scale, scale);
+      x += p.xAdvance * scale;
+      y -= p.yAdvance * scale;
+      if (p.xAdvance) x -= 0.75;
+    }
+    expect(Array.from(shaped[i].positions)).toEqual(positions);
+  }
+});
 function bundledFixtures() {
   return bundledCatalog.map((face) => {
     const slug = families.find((f) => f.family === face.family)!.slug;

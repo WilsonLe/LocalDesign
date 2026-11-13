@@ -5,14 +5,15 @@ it("retains live line references after geometry-cache eviction", () => {
   const retained = {
     geometryKey: "retained-geometry",
     width: 10,
+    positions: new Float64Array([0, 10, 1]),
     glyphs: [
       {
         id: "retained-glyph",
         path: "M0 0L10 10Z",
-        x: 0,
-        y: 10,
-        scale: 1,
-        ink: { x: 0, y: 0, width: 10, height: 10 },
+        minX: 0,
+        minY: 0,
+        maxX: 10,
+        maxY: 10,
       },
     ],
   };
@@ -24,7 +25,12 @@ it("retains live line references after geometry-cache eviction", () => {
   };
   for (let i = 0; i < 40; i++)
     expect(
-      compactLine({ geometryKey: `evict-${i}`, width: 10, glyphs: [large] }),
+      compactLine({
+        geometryKey: `evict-${i}`,
+        width: 10,
+        glyphs: [large],
+        positions: new Float64Array([0, 10, 1]),
+      }),
     ).not.toBeNull();
   const rebuilt = compactLine({ ...retained, glyphs: [...retained.glyphs] })!;
   expect(rebuilt.id).not.toBe(first.id);
@@ -36,14 +42,15 @@ it("shares normalized line geometry while retaining each requested scale", () =>
   const line = (scale: number) => ({
     geometryKey: "shared-geometry-test",
     width: 10 * scale,
+    positions: new Float64Array([0, 10 * scale, scale]),
     glyphs: [
       {
         id: "shared-geometry-glyph",
         path: "M0 0L10 10Z",
-        x: 0,
-        y: 10 * scale,
-        scale,
-        ink: { x: 0, y: 0, width: 10 * scale, height: 10 * scale },
+        minX: 0,
+        minY: 0,
+        maxX: 10,
+        maxY: 10,
       },
     ],
   });
@@ -59,28 +66,30 @@ it("keeps overlapping glyphs in separate paint operations and bounds outline exp
   const glyph = {
     id: "test",
     path: "M0 0L10 10Z",
-    x: 0,
-    y: 20,
-    scale: 2,
-    ink: { x: 0, y: 0, width: 20, height: 20 },
+    minX: 0,
+    minY: 0,
+    maxX: 10,
+    maxY: 10,
   };
   const paths = compactLine({
     width: 100,
-    glyphs: [
-      glyph,
-      { ...glyph, x: 30, ink: { ...glyph.ink, x: 30 } },
-      { ...glyph, x: 40, ink: { ...glyph.ink, x: 40 } },
-    ],
+    glyphs: [glyph, glyph, glyph],
+    positions: new Float64Array([0, 20, 2, 30, 20, 2, 40, 20, 2]),
   })!;
   expect(paths.scale).toBe(2);
   expect(paths.paths).toHaveLength(2);
   expect(paths.paths[0]).toBe("M0 -10l10 10zM15 -10l10 10z");
   expect(paths.paths[1]).toBe("M20 -10l10 10z");
   expect(
-    compactLine({ width: 100, glyphs: [glyph, { ...glyph, scale: 3 }] }),
+    compactLine({
+      width: 100,
+      glyphs: [glyph, glyph],
+      positions: new Float64Array([0, 20, 2, 0, 20, 3]),
+    }),
   ).toBeNull();
   const large = {
     width: 1,
+    positions: new Float64Array([0, 20, 2]),
     glyphs: [{ ...glyph, path: "M0 0L10 10Z".repeat(30000) }],
   };
   expect(compactLine(large)).toBeNull();

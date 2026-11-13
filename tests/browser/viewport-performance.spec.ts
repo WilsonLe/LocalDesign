@@ -80,6 +80,66 @@ test("native paint and retained hit regions keep logical selection for transpare
     await expect(page.locator(`[data-node-id="${id}"] > rect`)).toHaveCount(1);
 });
 
+for (const width of [1440, 390])
+  test(`minimum-zoom navigation immediately reveals editable text at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await harness(page);
+    await open(page);
+    const d = await inspect(page);
+    await tool(page, "apply_edits", {
+      expectedDocumentId: d.documentId,
+      expectedRevision: d.revision,
+      requestId: "edge-text",
+      commands: [
+        {
+          op: "create",
+          node: {
+            id: "edge-text",
+            name: "Edge text",
+            type: "text",
+            pageId: d.pageId,
+            x: -6000,
+            y: 3000,
+            width: 1600,
+            height: 400,
+            text: "Edge navigation",
+            fontSize: 180,
+            fill: "#111111",
+          },
+        },
+      ],
+    });
+    await tool(page, "viewport", { x: 0, y: 0, zoom: 0.05 });
+    const text = page.locator('[data-node-id="edge-text"]');
+    await expect(text).toHaveCount(0);
+    const before = await tool(page, "export_design", {
+      format: "svg",
+      ids: ["edge-text"],
+    });
+    for (const x of [350, 0, 350]) {
+      await tool(page, "viewport", { x, y: 0, zoom: 0.05 });
+      if (x) {
+        await expect(text).toBeVisible();
+        await expect(text).toHaveAccessibleName("Edge navigation");
+      } else await expect(text).toHaveCount(0);
+    }
+    const hit = await text.boundingBox();
+    expect(hit).not.toBeNull();
+    await page.mouse.click(hit!.x + hit!.width / 2, hit!.y + hit!.height / 2);
+    const after = await inspect(page);
+    expect(after.selection).toEqual(["edge-text"]);
+    expect(after.revision).toBe(d.revision + 1);
+    const exported = await tool(page, "export_design", {
+      format: "svg",
+      ids: ["edge-text"],
+    });
+    const read = async (id: string) =>
+      (await tool(page, "artifact", { action: "read", id })).base64;
+    expect(await read(exported.id)).toBe(await read(before.id));
+  });
+
 test("text-heavy multi-screen board renders only the visible area and preserves offscreen work", async ({
   page,
 }, testInfo) => {
