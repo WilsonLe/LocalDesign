@@ -26,6 +26,8 @@ export const NodeShape = memo(
       fill: n.fill,
       stroke: n.stroke,
       strokeWidth: n.strokeWidth,
+      strokeLinecap: n.strokeLinecap,
+      strokeLinejoin: n.strokeLinejoin,
     };
     switch (n.type) {
       case "rectangle":
@@ -45,12 +47,27 @@ export const NodeShape = memo(
         );
       case "line":
         return <line x1={0} y1={0} x2={n.width} y2={n.height} {...style} />;
-      case "path":
-        return <path d={n.path} {...style} />;
+      case "path": {
+        const sx = n.pathViewBox ? n.width / n.pathViewBox.width : 1,
+          sy = n.pathViewBox ? n.height / n.pathViewBox.height : 1;
+        return (
+          <path
+            d={n.path}
+            {...style}
+            strokeWidth={n.strokeWidth / Math.sqrt(sx * sy)}
+            transform={n.pathViewBox ? `scale(${sx} ${sy})` : undefined}
+          />
+        );
+      }
       case "text": {
         const { lines, font } = textShape(n, doc);
         return (
-          <g aria-label={n.text} data-font-id={font.id}>
+          <g
+            aria-label={n.text}
+            data-font-id={font.id}
+            strokeLinecap={n.strokeLinecap}
+            strokeLinejoin={n.strokeLinejoin}
+          >
             <title>{n.text}</title>
             {font.record &&
               lines.map((shaped, i) => {

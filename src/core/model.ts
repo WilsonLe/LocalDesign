@@ -86,6 +86,8 @@ export const NodeSchema = z
     fill: Paint.default("#d9d9d9"),
     stroke: Paint.default("none"),
     strokeWidth: z.number().min(0).max(1000).default(1),
+    strokeLinecap: z.enum(["butt", "round", "square"]).default("butt"),
+    strokeLinejoin: z.enum(["miter", "round", "bevel"]).default("miter"),
     opacity: z.number().min(0).max(1).default(1),
     radius: z.number().min(0).max(50000).default(0),
     hidden: z.boolean().default(false),
@@ -105,6 +107,12 @@ export const NodeSchema = z
       .max(20000)
       .regex(/^[MmLlHhVvCcSsQqTtAaZz\d\s,.+eE-]*$/)
       .default(""),
+    pathViewBox: z
+      .object({ width: dimension, height: dimension })
+      .strict()
+      .nullable()
+      .default(null),
+    attribution: z.string().max(8000).default(""),
     assetId: Id.nullable().default(null),
     layout: Layout.default({
       direction: "none",

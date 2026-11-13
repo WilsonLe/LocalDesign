@@ -11,18 +11,21 @@ import { pngExport } from "../files/export";
 import { validateRasterAssets } from "../files/raster";
 import { base64 } from "../render/fonts";
 import { TokenResources } from "./TokenResources";
-const resourceTabs = ["context", "pages", "tokens"] as const;
+import { IconResources } from "./IconResources";
+const resourceTabs = ["context", "pages", "tokens", "icons"] as const;
 
 export function DesignResources({
   engine,
   document: doc,
   onError,
+  onClose,
 }: {
   engine: DesignEngine;
   document: DesignDocument;
   onError: (message: string) => void;
+  onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"context" | "pages" | "tokens">("context");
+  const [tab, setTab] = useState<(typeof resourceTabs)[number]>("context");
   const [guideId, setGuideId] = useState("");
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
@@ -135,11 +138,25 @@ export function DesignResources({
               ? "Context"
               : value === "tokens"
                 ? "Tokens"
-                : "Pages"}
+                : value === "icons"
+                  ? "Icons"
+                  : "Pages"}
           </Button>
         ))}
       </div>
-      {tab === "tokens" ? (
+      {tab === "icons" ? (
+        <div
+          role="tabpanel"
+          id="resource-panel-icons"
+          aria-labelledby="resource-tab-icons"
+        >
+          <IconResources
+            engine={engine}
+            onError={onError}
+            onInserted={onClose}
+          />
+        </div>
+      ) : tab === "tokens" ? (
         <div
           role="tabpanel"
           id="resource-panel-tokens"

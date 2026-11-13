@@ -9,7 +9,8 @@
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4179 --strictPort",
-    "build": "npm run check:skills && tsc -b && vite build",
+    "build": "npm run check:skills && npm run check:icons && tsc -b && vite build",
+    "check:icons": "node scripts/build-icons.mjs --check",
     "preview": "vite preview --host 127.0.0.1 --port 4179 --strictPort",
     "typecheck": "tsc -b",
     "test": "vitest run",

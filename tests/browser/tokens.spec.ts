@@ -153,6 +153,12 @@ for (const width of [1440, 390])
     ).toBeFocused();
     await page.getByRole("tab", { name: "Pages", exact: true }).press("End");
     await expect(
+      page.getByRole("tab", { name: "Icons", exact: true }),
+    ).toBeFocused();
+    await page
+      .getByRole("tab", { name: "Icons", exact: true })
+      .press("ArrowLeft");
+    await expect(
       page.getByRole("tab", { name: "Tokens", exact: true }),
     ).toBeFocused();
     await expect(

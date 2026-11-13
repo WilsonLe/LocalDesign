@@ -32,8 +32,10 @@ import {
   NodeSchema,
   Paint,
   makeNode,
+  blankDocument,
 } from "../core/model";
 import { inspectNodes } from "../core/inspection";
+import { iconAttribution, iconCatalog, findIcons } from "../icons/catalog";
 import { tokenResolver } from "../core/tokens";
 import { bounds } from "../core/geometry";
 import { Workspace } from "../storage/workspace";
@@ -97,6 +99,8 @@ export const actionParity = {
   "JPEG/PDF/scale/composition crop": "localdesign_export_design",
   "rendered image response": "localdesign_preview",
   "local raster asset ingress": "localdesign_import_asset",
+  "bundled native icons":
+    "localdesign_icons + localdesign_apply_edits:icon_insert",
   "fonts/metrics": "localdesign_catalog + localdesign_inspect_document",
   "font files/assignment/replacement":
     "localdesign_import_font + localdesign_apply_edits:font_add,update (fontFamily,fontWeight,fontStyle,fontId)",
@@ -159,6 +163,7 @@ export function createTools(
               "catalog",
               "list_skills",
               "get_skill",
+              "icons",
               "import_files",
               "artifact",
             ].includes(name)
@@ -530,6 +535,7 @@ export function createTools(
       fontLimitations,
       actionParity,
       features: {
+        nativeIcons: iconCatalog.icons.length,
         documentContext: true,
         tokens: true,
         tokenThemes: true,
@@ -845,6 +851,87 @@ export function createTools(
   );
   const pending = new Map<string, DesignDocument>(),
     importReceipts = shared.importReceipts;
+  add(
+    "icons",
+    "Search the small bundled Lucide catalog offline. List names/keywords with bounded pagination, or get one id for its safe native path, coordinate view box and complete attribution. preview:true with id renders a PNG through the shared renderer with an artifact fallback. Insert with guarded apply_edits icon_insert; resulting native paths stay editable and scale with their bounds. No network catalog or SVG markup ingestion.",
+    z
+      .object({
+        query: z.string().max(200).default(""),
+        id: Id.optional(),
+        preview: z.boolean().default(false),
+        offset: z.number().int().min(0).max(1000).default(0),
+        limit: z.number().int().min(1).max(48).default(24),
+      })
+      .strict(),
+    true,
+    async (input, signal) => {
+      const found = input.id
+        ? iconCatalog.icons.find((icon) => icon.id === input.id)
+        : undefined;
+      requireThat(
+        !input.id || found,
+        "MISSING_ICON",
+        "Choose an icon from the bundled catalog.",
+      );
+      requireThat(
+        !input.preview || found,
+        "ICON_REQUIRED",
+        "Supply id for an icon preview.",
+      );
+      const matches = found ? [found] : findIcons(input.query);
+      const result = {
+        documentId: engine.document.id,
+        revision: engine.document.revision,
+        source: iconCatalog.source,
+        version: iconCatalog.version,
+        total: matches.length,
+        icons: matches
+          .slice(input.offset, input.offset + input.limit)
+          .map(({ path, ...icon }) =>
+            found
+              ? {
+                  ...icon,
+                  path,
+                  viewBox: iconCatalog.viewBox,
+                  attribution: iconAttribution,
+                }
+              : icon,
+          ),
+        nextOffset:
+          input.offset + input.limit < matches.length
+            ? input.offset + input.limit
+            : null,
+      };
+      if (!input.preview || !found) return result;
+      const doc = blankDocument("Icon preview");
+      doc.nodes.push(
+        makeNode("path", doc.pages[0].id, {
+          id: "icon-preview",
+          name: found.name,
+          path: found.path,
+          width: 24,
+          height: 24,
+          fill: "none",
+          stroke: "#222222",
+          strokeWidth: 2,
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+          attribution: iconAttribution,
+        }),
+      );
+      const blob = await pngExport(doc, doc.pages[0].id, ["icon-preview"], {
+        scale: 4,
+        background: "#ffffff",
+      });
+      const data = encodeBase64(new Uint8Array(await blob.arrayBuffer()));
+      assertNotAborted(signal);
+      return {
+        ...result,
+        artifact: artifacts.add(blob, `${found.id}.png`, result.revision),
+        content: [{ type: "image", mimeType: "image/png", data }],
+      };
+    },
+  );
   add(
     "import_asset",
     "Validate supplied PNG/JPEG/WebP bytes and add a browser-local asset, optionally placing an image layer on an explicit page in the same guarded transaction. No host paths, URLs or uploads. Returns stable asset/node IDs. Use place with pageId to keep ingestion and placement in one history step and identical retries independent of the current view.",

@@ -409,6 +409,96 @@ export const Inspector = memo(function Inspector({
                 value={n.path}
                 onChange={(path) => patch({ path })}
               />
+              <label className="check-line">
+                <Input
+                  type="checkbox"
+                  checked={!!n.pathViewBox}
+                  onChange={(event) =>
+                    patch({
+                      pathViewBox: event.target.checked
+                        ? { width: n.width, height: n.height }
+                        : null,
+                    })
+                  }
+                />
+                Scale path with bounds
+              </label>
+              {n.pathViewBox && (
+                <div className="property-grid">
+                  <Field
+                    label="Path width"
+                    type="number"
+                    value={n.pathViewBox.width}
+                    min={0.1}
+                    onChange={(value) =>
+                      patch({
+                        pathViewBox: {
+                          ...n.pathViewBox!,
+                          width: Number(value),
+                        },
+                      })
+                    }
+                  />
+                  <Field
+                    label="Path height"
+                    type="number"
+                    value={n.pathViewBox.height}
+                    min={0.1}
+                    onChange={(value) =>
+                      patch({
+                        pathViewBox: {
+                          ...n.pathViewBox!,
+                          height: Number(value),
+                        },
+                      })
+                    }
+                  />
+                </div>
+              )}
+              <label className="field">
+                <span>Line cap</span>
+                <NativeSelect
+                  aria-label="Line cap"
+                  value={n.strokeLinecap}
+                  onChange={(event) =>
+                    patch({
+                      strokeLinecap: event.target
+                        .value as DesignNode["strokeLinecap"],
+                    })
+                  }
+                >
+                  {["butt", "round", "square"].map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </label>
+              <label className="field">
+                <span>Line join</span>
+                <NativeSelect
+                  aria-label="Line join"
+                  value={n.strokeLinejoin}
+                  onChange={(event) =>
+                    patch({
+                      strokeLinejoin: event.target
+                        .value as DesignNode["strokeLinejoin"],
+                    })
+                  }
+                >
+                  {["miter", "round", "bevel"].map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </label>
+              {n.attribution && (
+                <details className="resource-license">
+                  <summary>Attribution</summary>
+                  <pre>{n.attribution}</pre>
+                </details>
+              )}
             </Section>
           )}
           {n.type === "frame" && (

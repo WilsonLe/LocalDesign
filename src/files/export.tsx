@@ -3,11 +3,13 @@ import {
   MAX_EXPORT_AXIS,
   MAX_EXPORT_SCALE,
   MAX_RASTER_PIXELS,
+  MAX_FILE_BYTES,
 } from "../core/limits";
 import { renderToStaticMarkup } from "react-dom/server";
 import { bounds } from "../core/geometry";
 import { roots, requireThat, Paint, type DesignDocument } from "../core/model";
 import { Scene } from "../render/Scene";
+import { rasterAttributions } from "./attribution";
 import {
   exportFonts,
   fontCSS,
@@ -69,6 +71,14 @@ export async function svgExport(
   ids?: string[],
   options: ExportOptions = {},
 ): Promise<Blob> {
+  return (await svgOutput(doc, pageId, ids, options)).blob;
+}
+async function svgOutput(
+  doc: DesignDocument,
+  pageId: string,
+  ids: string[] | undefined,
+  options: ExportOptions,
+) {
   await fontsReady(doc);
   const selected = ids?.length
     ? roots(doc, ids)
@@ -121,7 +131,14 @@ export async function svgExport(
       : doc;
   const records = exportFonts(sub);
   const css = fontCSS(records);
-  return new Blob(
+  const attributions = [
+    ...new Set(
+      sub.nodes
+        .filter((node) => node.pageId === pageId && node.attribution)
+        .map((node) => node.attribution),
+    ),
+  ];
+  const blob = new Blob(
     [
       '<?xml version="1.0" encoding="UTF-8"?>',
       renderToStaticMarkup(
@@ -141,6 +158,7 @@ export async function svgExport(
                 fileCount: files.length,
               })),
               warnings: fontWarnings(sub),
+              attributions,
             })}
           </metadata>
           {options.background && options.background !== "none" && (
@@ -158,6 +176,12 @@ export async function svgExport(
     ],
     { type: "image/svg+xml" },
   );
+  requireThat(
+    blob.size <= MAX_FILE_BYTES,
+    "EXPORT_LIMIT",
+    "SVG output exceeds the portable file limit.",
+  );
+  return { blob, attributions };
 }
 export async function pngExport(
   doc: DesignDocument,
@@ -193,7 +217,12 @@ export async function rasterExport(
     "EXPORT_QUALITY",
     "JPEG quality must be between 0.1 and 1.",
   );
-  const svg = await svgExport(doc, pageId, ids, options),
+  const { blob: svg, attributions } = await svgOutput(
+      doc,
+      pageId,
+      ids,
+      options,
+    ),
     url = URL.createObjectURL(svg);
   try {
     const image = new Image();
@@ -214,7 +243,7 @@ export async function rasterExport(
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     ctx.drawImage(image, 0, 0);
-    return await new Promise<Blob>((resolve, reject) =>
+    const blob = await new Promise<Blob>((resolve, reject) =>
       canvas.toBlob(
         (b) =>
           b
@@ -224,6 +253,7 @@ export async function rasterExport(
         format === "jpeg" ? (options.quality ?? 0.92) : undefined,
       ),
     );
+    return rasterAttributions(blob, attributions);
   } finally {
     URL.revokeObjectURL(url);
   }

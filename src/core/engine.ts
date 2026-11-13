@@ -1,5 +1,6 @@
 import { indexNodes } from "./tree";
 import { detachToken, resolveTokens } from "./tokens";
+import { iconAttribution, iconCatalog } from "../icons/catalog";
 import {
   CommandSchema,
   EditSchema,
@@ -287,6 +288,43 @@ export class DesignEngine {
       }
     };
     switch (c.op) {
+      case "icon_insert": {
+        const icon = iconCatalog.icons.find((icon) => icon.id === c.iconId);
+        requireThat(
+          icon,
+          "MISSING_ICON",
+          "Choose an icon from the bundled catalog.",
+        );
+        this.apply(
+          d,
+          {
+            op: "create",
+            node: makeNode("path", c.pageId, {
+              id: c.id,
+              parentId: c.parentId,
+              name: icon.name,
+              x: c.x,
+              y: c.y,
+              width: c.size,
+              height: c.size,
+              fill: "none",
+              stroke: c.color,
+              strokeWidth: c.strokeWidth,
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              path: icon.path,
+              pathViewBox: {
+                width: iconCatalog.viewBox,
+                height: iconCatalog.viewBox,
+              },
+              attribution: iconAttribution,
+            }),
+          },
+          created,
+          byId,
+        );
+        break;
+      }
       case "token_set": {
         const index = d.tokens.findIndex((token) => token.id === c.token.id);
         if (index < 0) {

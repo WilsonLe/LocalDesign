@@ -62,6 +62,8 @@ export function svgImport(source: string): {
     "fill",
     "stroke",
     "stroke-width",
+    "stroke-linecap",
+    "stroke-linejoin",
     "opacity",
     "font-family",
     "font-size",
@@ -133,6 +135,12 @@ export function svgImport(source: string): {
       fill: el.getAttribute("fill") ?? inherited.fill ?? "#000000",
       stroke: el.getAttribute("stroke") ?? inherited.stroke ?? "none",
       strokeWidth: num(el, "stroke-width", inherited.strokeWidth ?? 1),
+      strokeLinecap: (el.getAttribute("stroke-linecap") ??
+        inherited.strokeLinecap ??
+        "butt") as DesignNode["strokeLinecap"],
+      strokeLinejoin: (el.getAttribute("stroke-linejoin") ??
+        inherited.strokeLinejoin ??
+        "miter") as DesignNode["strokeLinejoin"],
       opacity: num(el, "opacity", 1),
       fontSize: num(el, "font-size", inherited.fontSize ?? 16),
       fontFamily: family ?? inherited.fontFamily ?? "Inter",

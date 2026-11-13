@@ -49,3 +49,7 @@ harfbuzzjs 1.6.4 (https://github.com/harfbuzz/harfbuzzjs), MIT, packages the Har
 ## Local vector PDF export
 
 jsPDF 4.2.1 (https://github.com/parallax/jsPDF) and svg2pdf.js 2.9.0 (https://github.com/yWorks/svg2pdf.js), MIT, convert LocalDesign's own outlined SVG into local PDF pages. They are loaded only for PDF output; design content is not sent to a service. Font outlines and scene geometry still come from the shared renderer. Full notices ship in public/jspdf-LICENSE.txt and public/svg2pdf-LICENSE.txt; transitive packages retain their packaged notices.
+
+## Bundled native icons
+
+48 icons from lucide-react 1.72.0, https://github.com/lucide-icons/lucide, Copyright (c) 2026 Lucide Icons and Contributors, ISC. Listed Feather-derived icons also retain the MIT notice, Copyright (c) 2013-present Cole Bemis. The complete combined notice ships in public/lucide-LICENSE.txt and src/icons/catalog.json. scripts/build-icons.mjs converts only the explicit pinned inventory into native path geometry; the build verifies both data and notice against the installed lockfile-pinned source. Native nodes retain the notice, and local SVG/PNG/JPEG/PDF outputs include deduplicated attribution metadata.

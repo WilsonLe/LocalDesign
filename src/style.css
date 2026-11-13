@@ -1199,6 +1199,38 @@ kbd {
   max-width: 240px;
   font-size: 10px;
 }
+.resource-license pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  max-height: 240px;
+  overflow: auto;
+}
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.icon-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 64px;
+  gap: 12px;
+  align-items: end;
+}
+.resource-destination {
+  font-size: 12px;
+}
+.icon-grid button {
+  min-height: 76px;
+  height: auto;
+  flex-direction: column;
+  padding: 8px;
+  font-size: 12px;
+}
+.icon-grid span {
+  white-space: normal;
+  text-align: center;
+}
 .skill-browser pre {
   white-space: pre-wrap;
   max-height: 220px;

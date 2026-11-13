@@ -844,7 +844,12 @@ export function App() {
       )}
       {editing && modal === "resources" && (
         <Modal title="Design resources" onClose={() => setModal(null)}>
-          <DesignResources engine={engine} document={doc} onError={setNotice} />
+          <DesignResources
+            engine={engine}
+            document={doc}
+            onError={setNotice}
+            onClose={() => setModal(null)}
+          />
         </Modal>
       )}
       {modal === "agent" && (

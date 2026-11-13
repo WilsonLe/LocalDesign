@@ -1,4 +1,5 @@
 import { requireThat, type DesignDocument } from "../core/model";
+import { svgAttributions } from "./attribution";
 import {
   MAX_FILE_BYTES,
   MAX_RASTER_PIXELS,
@@ -108,6 +109,7 @@ export async function pdfExport(
     import("svg2pdf.js"),
   ]);
   const rasterizedPages: number[] = [];
+  const notices = new Set<string>();
   let pdf: InstanceType<typeof jsPDF> | undefined;
   for (const page of pages) {
     const blob = await svgExport(doc, page.pageId, page.ids, options);
@@ -135,6 +137,7 @@ export async function pdfExport(
       await blob.text(),
       "image/svg+xml",
     );
+    svgAttributions(xml).forEach((notice) => notices.add(notice));
     // PDF's inherited paint alpha differs from SVG's isolated group compositing.
     // Preserve the renderer's actual pixels for these pages, rather than changing overlaps.
     if (
@@ -168,7 +171,11 @@ export async function pdfExport(
     });
   }
   requireThat(pdf, "EMPTY_PDF", "No PDF pages.");
-  pdf.setProperties({ title: doc.name, creator: "LocalDesign" });
+  pdf.setProperties({
+    title: doc.name,
+    creator: "LocalDesign",
+    subject: [...notices].join("\n\n---\n\n"),
+  });
   const bytes = pdf.output("arraybuffer");
   requireThat(
     bytes.byteLength <= MAX_FILE_BYTES,

@@ -2,6 +2,14 @@
 
 Keep evidence-based lessons using the improvement skill. No speculative rules or private design content.
 
+## 2026-11-13 — Give standalone catalog previews a deliberate backdrop
+
+Trigger: the actual built-in browser showed the new dark Lucide preview against its dark transparency backdrop, making the icon difficult to see although the white editor thumbnail was clear. Correction: render standalone icon previews on white through the shared PNG owner; authored-design previews retain their intentional transparency. Evidence: `tests/browser/icons.spec.ts` checks the preview's opaque white corner pixels, plus source geometry and unchanged document state. Scope: catalog previews only. Resume by viewing the actual returned image in the target host; valid bytes and the editor's thumbnail do not establish host contrast.
+
+## 2026-11-13 — Verify shared static catalogs in both Vite and Node consumers
+
+Trigger: issue #23's icon catalog passed the app build but prevented Playwright from starting: Node's ESM loader required a JSON import type attribute. Correction: use the supported JSON import attribute in the shared catalog module, retaining one generated owner for both runtimes. Evidence: the real `tests/browser/icons.spec.ts` imports that catalog, compares every pinned icon's source pixels and reopens the native file; `npm run check:icons` verifies generated geometry and notices. Scope: shared static catalog imports under the pinned Node version. Resume with both a production build and the actual browser-test entry point; a Vite-only success does not establish Node fixture compatibility.
+
 ## 2026-11-13 — Verify PDF pixels with an independent consumer
 
 Trigger: issue #23's PDF export produced a valid file with correct page boxes but silently omitted a browser-decodable PNG with a bad IDAT CRC. Independent Poppler rendering also exposed lost hexadecimal paint alpha and incorrect overlapping-child group opacity; a whole-image average alone initially hid the alpha mismatch. Correction: normalize decoded raster bytes and alpha paint attributes for conversion, clip image viewports, and use the shared PNG renderer with an explicit warning for PDF pages needing isolated group compositing. Evidence: `tests/browser/exports.spec.ts` checks actual PDF page order/geometry, embedded image content and independent rendered pixels, including targeted alpha/overlap/crop samples. Scope: local PDF conversion only; no secondary font/scene model or design uploads. Resume with those consumer pixels and both vector and compositing-fallback pages; a PDF header or screenshot of the original canvas does not establish exported fidelity.

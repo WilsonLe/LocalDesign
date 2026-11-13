@@ -63,6 +63,17 @@ export async function open(page: Page, id?: string) {
 export async function inspect(page: Page) {
   return tool(page, "inspect_document");
 }
+export async function artifactBytes(page: Page, id: string, size: number) {
+  const chunks: Buffer[] = [];
+  for (let offset = 0; offset < size; offset += 262144)
+    chunks.push(
+      Buffer.from(
+        (await tool(page, "artifact", { id, action: "read", offset })).base64,
+        "base64",
+      ),
+    );
+  return Buffer.concat(chunks);
+}
 export async function edits(page: Page, commands: unknown[]) {
   const d = await inspect(page);
   const result = await tool(page, "apply_edits", {

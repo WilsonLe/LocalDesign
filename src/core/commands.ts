@@ -27,6 +27,8 @@ const Patch = z
     fill: NodeSchema.shape.fill.removeDefault().optional(),
     stroke: NodeSchema.shape.stroke.removeDefault().optional(),
     strokeWidth: NodeSchema.shape.strokeWidth.removeDefault().optional(),
+    strokeLinecap: NodeSchema.shape.strokeLinecap.removeDefault().optional(),
+    strokeLinejoin: NodeSchema.shape.strokeLinejoin.removeDefault().optional(),
     opacity: NodeSchema.shape.opacity.removeDefault().optional(),
     radius: NodeSchema.shape.radius.removeDefault().optional(),
     hidden: NodeSchema.shape.hidden.removeDefault().optional(),
@@ -42,12 +44,27 @@ const Patch = z
     letterSpacing: NodeSchema.shape.letterSpacing.removeDefault().optional(),
     textAlign: NodeSchema.shape.textAlign.removeDefault().optional(),
     path: NodeSchema.shape.path.removeDefault().optional(),
+    pathViewBox: NodeSchema.shape.pathViewBox.removeDefault().optional(),
     assetId: NodeSchema.shape.assetId.removeDefault().optional(),
     layout: NodeSchema.shape.layout.removeDefault().optional(),
     tokenTheme: NodeSchema.shape.tokenTheme.removeDefault().optional(),
   })
   .strict();
 export const CommandSchema = z.discriminatedUnion("op", [
+  z
+    .object({
+      op: z.literal("icon_insert"),
+      id: Id,
+      iconId: Id,
+      pageId: Id,
+      parentId: Id.nullable().default(null),
+      x: NodeSchema.shape.x,
+      y: NodeSchema.shape.y,
+      size: z.number().finite().min(1).max(2000).default(24),
+      color: NodeSchema.shape.stroke.removeDefault().default("#222222"),
+      strokeWidth: NodeSchema.shape.strokeWidth.removeDefault().default(2),
+    })
+    .strict(),
   z.object({ op: z.literal("token_set"), token: TokenSchema }).strict(),
   z
     .object({
