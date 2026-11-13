@@ -71,12 +71,13 @@ const primary = (family: string) =>
     .trim()
     .replace(/^['"]|['"]$/g, "")
     .toLowerCase();
+// Only the fixed built-in choice pool is cached. Document font catalogs can
+// change order/content and keep the ordinary resolver, including tie precedence.
+const bundledChoices = new Map<string, Choice>();
 export function resolveFont(node: DesignNode, doc?: DesignDocument) {
-  const choices = availableFonts(doc),
+  const fixedPool = !doc?.fonts.length;
+  const choices = fixedPool ? bundledCatalog : availableFonts(doc),
     requestedFamily = primary(node.fontFamily);
-  const alias = families.find((f) => f.category === requestedFamily)?.family;
-  const family = alias ?? node.fontFamily;
-  const matching = choices.filter((f) => primary(f.family) === primary(family));
   const explicit = node.fontId
     ? choices.find((f) => f.id === node.fontId)
     : undefined;
@@ -88,10 +89,31 @@ export function resolveFont(node: DesignNode, doc?: DesignDocument) {
         ((b.style === node.fontStyle ? 0 : 10000) +
           Math.abs(+b.weight - +node.fontWeight)),
     )[0];
-  const chosen =
-    explicit ??
-    nearest(matching) ??
-    nearest(choices.filter((f) => f.family === "Inter"));
+  const choiceKey = fixedPool
+    ? JSON.stringify([
+        node.fontFamily,
+        node.fontWeight,
+        node.fontStyle,
+        node.fontId,
+      ])
+    : "";
+  let chosen = fixedPool ? bundledChoices.get(choiceKey) : undefined;
+  if (!chosen) {
+    const alias = families.find((f) => f.category === requestedFamily)?.family;
+    const family = alias ?? node.fontFamily;
+    const matching = choices.filter(
+      (f) => primary(f.family) === primary(family),
+    );
+    chosen =
+      explicit ??
+      nearest(matching) ??
+      nearest(choices.filter((f) => f.family === "Inter"));
+    if (fixedPool) {
+      if (bundledChoices.size >= 256)
+        bundledChoices.delete(bundledChoices.keys().next().value!);
+      bundledChoices.set(choiceKey, chosen);
+    }
+  }
   const record =
     doc?.fonts.find((f) => f.id === chosen.id) ?? bundled.get(chosen.id);
   const exact =

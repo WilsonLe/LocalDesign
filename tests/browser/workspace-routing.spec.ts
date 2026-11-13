@@ -184,9 +184,12 @@ test("tool switches, copies, close, root imports and deletion use the same route
   await expect(
     page.getByRole("link", { name: "Original workspace", exact: true }),
   ).toBeVisible();
-  page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("button", { name: "Delete Original workspace", exact: true })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Delete workspace", exact: true })
     .click();
   await expect(
     page.getByRole("link", { name: "Original workspace", exact: true }),
@@ -348,8 +351,11 @@ test("deleting the final closed workspace leaves a durable empty list", async ({
   await open(page);
   await workspaceAction(page, "close");
   await expect(page.getByRole("link")).toHaveCount(1);
-  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: /^Delete / }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Delete workspace", exact: true })
+    .click();
   await expect(
     page.getByText("No workspaces yet", { exact: true }),
   ).toBeVisible();

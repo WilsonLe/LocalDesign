@@ -19,7 +19,7 @@ function compute(
   doc: DesignDocument,
   font: ReturnType<typeof resolveFont>,
 ) {
-  const measurement = measureText(node, doc);
+  const measurement = measureText(node, doc, font);
   return {
     font,
     measurement,

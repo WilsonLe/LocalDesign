@@ -20,10 +20,12 @@ export function WindowedList({
   const virtual = ids.length > 200;
   useLayoutEffect(() => {
     const element = list.current!;
-    const measure = () =>
-      setView({ top: element.scrollTop, height: element.clientHeight });
-    measure();
-    const observer = new ResizeObserver(measure);
+    // A synchronous clientHeight read here lays out the newly mounted SVG too.
+    // The observer supplies the initial/updated list size without forcing that work.
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry)
+        setView({ top: element.scrollTop, height: entry.contentRect.height });
+    });
     observer.observe(element);
     return () => observer.disconnect();
   }, []);

@@ -1,5 +1,12 @@
 import { BrandMark } from "../components/BrandMark";
-import { Dialog, DialogContent, DialogTitle } from "../components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { ThemeToggle, applyTheme, readTheme } from "./ThemeToggle";
+import { surfaceTextFill } from "./surface";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { NativeSelect } from "../components/ui/native-select";
@@ -10,6 +17,7 @@ import {
   useState,
   useSyncExternalStore,
   type ReactNode,
+  type CSSProperties,
 } from "react";
 import {
   ArrowDownToLine,
@@ -89,16 +97,15 @@ function Modal({
       }}
     >
       <DialogContent
-        className="modal"
         aria-describedby={undefined}
         finalFocus={() => returnFocus}
       >
-        <div className="modal-heading">
+        <DialogHeader>
           <DialogTitle id="dialog-title">{title}</DialogTitle>
-          <Button aria-label="Close dialog" onClick={onClose}>
+          <Button size="icon-sm" aria-label="Close dialog" onClick={onClose}>
             <X size={18} />
           </Button>
-        </div>
+        </DialogHeader>
         {children}
       </DialogContent>
     </Dialog>
@@ -115,7 +122,42 @@ const tools = [
   ["text", "Text", "T", Type],
   ["image", "Image", "I", ImagePlus],
 ] as const;
+function HistoryActions({
+  canUndo,
+  canRedo,
+  onAction,
+  compact = false,
+}: {
+  canUndo: boolean;
+  canRedo: boolean;
+  onAction: (action: "undo" | "redo") => void;
+  compact?: boolean;
+}) {
+  return (
+    <div className="history-actions">
+      <Button
+        size={compact ? "icon-xs" : "icon-sm"}
+        aria-label="Undo"
+        title="Undo (⌘/Ctrl Z)"
+        disabled={!canUndo}
+        onClick={() => onAction("undo")}
+      >
+        <Undo2 />
+      </Button>
+      <Button
+        size={compact ? "icon-xs" : "icon-sm"}
+        aria-label="Redo"
+        title="Redo (⌘/Ctrl Shift Z)"
+        disabled={!canRedo}
+        onClick={() => onAction("redo")}
+      >
+        <Redo2 />
+      </Button>
+    </div>
+  );
+}
 export function App() {
+  const [theme, setTheme] = useState(readTheme);
   const snapshot = useSyncExternalStore(engine.subscribe, engine.getSnapshot),
     { document: doc, selection, viewport } = snapshot;
   const [tool, setTool] = useState<Tool>("select"),
@@ -480,9 +522,9 @@ export function App() {
   };
   return (
     <div className="app">
-      <header className="topbar">
+      <header className={`topbar ${editing ? "" : "workspace-topbar"}`}>
         <Button
-          className="brand"
+          className="brand max-[850px]:px-0"
           title="Workspaces"
           aria-label="Workspaces"
           onClick={() => void navigator.navigate({ kind: "list" })}
@@ -495,6 +537,7 @@ export function App() {
             <span className="top-divider" />
             <div className="document-title">
               <Input
+                className="w-40 max-[1150px]:w-36 max-[850px]:w-full"
                 ref={nameRef}
                 aria-label="Design name"
                 disabled={!ready}
@@ -515,6 +558,8 @@ export function App() {
                 }}
               />
               <Button
+                className="max-[850px]:hidden"
+                size="icon-sm"
                 aria-label="Open workspace"
                 onClick={() => void navigator.navigate({ kind: "list" })}
               >
@@ -543,54 +588,49 @@ export function App() {
               </span>
             </span>
             <div className="top-spacer" />
-            <div className="history-actions">
-              <Button
-                aria-label="Undo"
-                title="Undo (⌘/Ctrl Z)"
-                disabled={!snapshot.canUndo}
-                onClick={() =>
-                  perform(() => engine.history("undo", engine.guard()))
-                }
-              >
-                <Undo2 size={16} />
-              </Button>
-              <Button
-                aria-label="Redo"
-                title="Redo (⌘/Ctrl Shift Z)"
-                disabled={!snapshot.canRedo}
-                onClick={() =>
-                  perform(() => engine.history("redo", engine.guard()))
-                }
-              >
-                <Redo2 size={16} />
-              </Button>
-            </div>
+            <HistoryActions
+              canUndo={snapshot.canUndo}
+              canRedo={snapshot.canRedo}
+              onAction={(action) =>
+                perform(() => engine.history(action, engine.guard()))
+              }
+            />
             <span className="top-divider" />
           </>
         )}
         {!editing && <div className="top-spacer" />}
+        <ThemeToggle
+          theme={theme}
+          onChange={(next) => {
+            applyTheme(next);
+            setTheme(next);
+          }}
+        />
         <Button
+          size="icon-sm"
           className={`agent-button ${connection === "connected" ? "connected" : ""}`}
-          title="Connect an agent"
+          title={
+            connection === "connected" ? "Agent ready" : "Connect an agent"
+          }
           aria-label="Connect an agent"
           onClick={() => setModal("agent")}
         >
           <Plug size={14} />
-          <span>
-            {connection === "connected" ? "Agent ready" : "Connect agent"}
-          </span>
         </Button>
         <Button
-          className="import-button"
+          className="import-button max-[850px]:size-8 max-[850px]:p-0"
+          aria-label="Import"
           onClick={() => fileInput.current?.click()}
           disabled={busy || navigation.loading || !workspace.initialized}
         >
           <ArrowUpFromLine size={14} />
-          <span>Import</span>
+          <span className="max-[850px]:hidden">Import</span>
         </Button>
         {editing ? (
           <Button
-            className="primary export-button"
+            variant="default"
+            size="default"
+            className="export-button"
             onClick={() => setModal("export")}
             disabled={busy || !ready}
           >
@@ -599,7 +639,9 @@ export function App() {
           </Button>
         ) : (
           <Button
-            className="primary new-workspace-button"
+            variant="default"
+            size="default"
+            className="new-workspace-button"
             disabled={busy || navigation.loading || !workspace.initialized}
             onClick={() => perform(() => workspace.create())}
           >
@@ -630,13 +672,23 @@ export function App() {
         <>
           <div className="mobile-controls">
             <Button
+              size="xs"
               aria-expanded={drawer === "layers"}
               onClick={() => setDrawer(drawer === "layers" ? null : "layers")}
             >
               <LayersIcon size={15} />
               Pages & layers
             </Button>
+            <HistoryActions
+              compact
+              canUndo={snapshot.canUndo}
+              canRedo={snapshot.canRedo}
+              onAction={(action) =>
+                perform(() => engine.history(action, engine.guard()))
+              }
+            />
             <Button
+              size="xs"
               aria-expanded={drawer === "inspector"}
               onClick={() =>
                 setDrawer(drawer === "inspector" ? null : "inspector")
@@ -652,7 +704,7 @@ export function App() {
               aria-label="Pages and layers"
             >
               <Button
-                className="drawer-close"
+                className="drawer-close min-[851px]:hidden"
                 aria-label="Close layers"
                 onClick={() => setDrawer(null)}
               >
@@ -667,7 +719,21 @@ export function App() {
                 onFocusLayer={focusLayer}
               />
             </aside>
-            <div ref={canvasWrap} className="canvas-area">
+            <div
+              ref={canvasWrap}
+              className="canvas-area"
+              style={
+                {
+                  "--canvas-foreground": surfaceTextFill(
+                    [
+                      doc.pages.find((p) => p.id === snapshot.pageId)!
+                        .background,
+                    ],
+                    theme === "dark",
+                  ),
+                } as CSSProperties
+              }
+            >
               {ready && !navigation.loading ? (
                 <Canvas
                   engine={engine}
@@ -693,7 +759,9 @@ export function App() {
                 {tools.map(([id, title, key, Icon], i) => (
                   <Button
                     key={id}
-                    className={`${tool === id ? "active" : ""} ${i === 2 || i === 7 ? "tool-separated" : ""}`}
+                    size="icon-sm"
+                    variant={tool === id ? "default" : "ghost"}
+                    className={`max-[570px]:size-7 ${tool === id ? "active" : ""} ${i === 2 || i === 7 ? "tool-separated" : ""}`}
                     aria-label={title}
                     aria-pressed={tool === id}
                     title={`${title} (${key})`}
@@ -708,20 +776,30 @@ export function App() {
                 ))}
               </div>
               <div className="zoom-controls">
-                <Button aria-label="Zoom out" onClick={() => zoom(0.8)}>
+                <Button
+                  size="icon-xs"
+                  aria-label="Zoom out"
+                  onClick={() => zoom(0.8)}
+                >
                   <Minus size={14} />
                 </Button>
                 <Button
+                  size="xs"
                   aria-label="Reset zoom"
                   onClick={() => engine.setViewport({ zoom: 1 })}
                 >
                   {Math.round(viewport.zoom * 100)}%
                 </Button>
-                <Button aria-label="Zoom in" onClick={() => zoom(1.25)}>
+                <Button
+                  size="icon-xs"
+                  aria-label="Zoom in"
+                  onClick={() => zoom(1.25)}
+                >
                   <Plus size={14} />
                 </Button>
                 <span />
                 <Button
+                  size="icon-xs"
                   aria-label="Fit canvas"
                   title="Fit canvas (1)"
                   onClick={() => fit()}
@@ -730,6 +808,8 @@ export function App() {
                 </Button>
               </div>
               <Button
+                size="icon-sm"
+                variant="outline"
                 className="help-button"
                 aria-label="Help and shortcuts"
                 onClick={() => setModal("help")}
@@ -742,13 +822,14 @@ export function App() {
               aria-label="Properties"
             >
               <Button
-                className="drawer-close"
+                className="drawer-close min-[851px]:hidden"
                 aria-label="Close properties"
                 onClick={() => setDrawer(null)}
               >
                 <X size={18} />
               </Button>
               <Inspector
+                theme={theme}
                 ready={ready}
                 engine={engine}
                 document={doc}

@@ -95,7 +95,7 @@ export const PageSchema = z
   .object({
     id: Id,
     name: z.string().min(1).max(200),
-    background: Paint.default("#202020"),
+    background: Paint.default("none"),
   })
   .strict();
 export type DesignPage = z.infer<typeof PageSchema>;
@@ -133,7 +133,7 @@ export function blankDocument(name = "Untitled design"): DesignDocument {
     id: uid(),
     revision: 0,
     name,
-    pages: [{ id: uid(), name: "Page 1", background: "#202020" }],
+    pages: [{ id: uid(), name: "Page 1", background: "none" }],
     nodes: [],
     assets: [],
     fonts: [],

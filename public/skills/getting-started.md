@@ -103,7 +103,7 @@ State actual document/revision, edited nodes, dimensions, font IDs/styles, metri
 
 ## Attribution and version
 
-Local adaptation 1.2.0; bundle 1.2.0. Original LocalDesign guide. Source https://github.com/WilsonLe/agentic-workflows/tree/e29fcb3f80371841d529eaea047fa13619378563; Copyright (c) 2026 Wilson Le, MIT. Upstream links are optional provenance only; all required instructions are included above. Full MIT notice accompanies this app in THIRD_PARTY_NOTICES.md.
+Local adaptation 1.2.1; bundle 1.2.1. Original LocalDesign guide. Source https://github.com/WilsonLe/agentic-workflows/tree/e29fcb3f80371841d529eaea047fa13619378563; Copyright (c) 2026 Wilson Le, MIT. Upstream links are optional provenance only; all required instructions are included above. Full MIT notice accompanies this app in THIRD_PARTY_NOTICES.md.
 
 ### MIT notice for adapted guidance
 
