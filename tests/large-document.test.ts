@@ -1,11 +1,29 @@
 import { expect, it } from "vitest";
 import { strToU8, zipSync } from "fflate";
-import { blankDocument, makeNode, validateDocument } from "../src/core/model";
+import {
+  blankDocument,
+  makeNode,
+  validateDocument,
+  nativeDocumentData,
+} from "../src/core/model";
 import { DesignEngine } from "../src/core/engine";
 import { nativeImport } from "../src/files/native";
 import { MAX_ASSETS, MAX_PAGES, MAX_NODES } from "../src/core/limits";
 import { CommandSchema } from "../src/core/commands";
 import { bounds } from "../src/core/geometry";
+
+it("schema-default metadata does not shrink the supported native node ceiling", () => {
+  const doc = blankDocument("Supported node ceiling"),
+    template = makeNode("rectangle", doc.pages[0].id, { width: 1, height: 1 });
+  doc.nodes = Array.from({ length: MAX_NODES }, (_, i) => ({
+    ...template,
+    id: `capacity-${i}`,
+  }));
+  expect(() => validateDocument(doc)).not.toThrow();
+  const data = strToU8(JSON.stringify(nativeDocumentData(doc)));
+  const reopened = nativeImport(zipSync({ "document.json": data }), true);
+  expect(reopened.nodes).toEqual(doc.nodes);
+}, 20000);
 
 it("calculates fit/export bounds for large visible selections without argument spreading", () => {
   const doc = blankDocument();

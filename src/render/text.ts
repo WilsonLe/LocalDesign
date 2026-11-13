@@ -3,6 +3,27 @@ import { resolveFont } from "./fonts";
 import { fontKey } from "../fonts/data";
 import { lineWidth, prefixWidths, shapeLine } from "./glyphs";
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+const paragraphs = new Map<string, { clusters: string[]; bytes: number }>();
+let paragraphBytes = 0;
+function paragraphClusters(text: string) {
+  const prior = paragraphs.get(text);
+  if (prior) return prior.clusters;
+  const clusters = Array.from(graphemes.segment(text), (part) => part.segment);
+  const bytes = text.length * 2 + clusters.length * 24 + 32;
+  while (
+    paragraphs.size &&
+    (paragraphs.size >= 2048 || paragraphBytes + bytes > 1_000_000)
+  ) {
+    const first = paragraphs.keys().next().value!;
+    paragraphBytes -= paragraphs.get(first)!.bytes;
+    paragraphs.delete(first);
+  }
+  if (bytes <= 1_000_000) {
+    paragraphs.set(text, { clusters, bytes });
+    paragraphBytes += bytes;
+  }
+  return clusters;
+}
 export function textLineOrigin(n: DesignNode, width: number, index: number) {
   return {
     x:
@@ -78,7 +99,7 @@ function computeMeasurement(
   for (const paragraph of n.text.normalize("NFC").split("\n")) {
     prepare(paragraph);
     let line = "";
-    for (const { segment: char } of graphemes.segment(paragraph)) {
+    for (const char of paragraphClusters(paragraph)) {
       if (line && width(line + char) > n.width) {
         const split = line.lastIndexOf(" ");
         if (split > line.length * 0.4) {

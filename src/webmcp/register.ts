@@ -1,6 +1,5 @@
-import type { Workspace } from "../storage/workspace";
-import { Artifacts } from "../files/artifacts";
-import { createTools, type SiteTool } from "./tools";
+import type { SiteTool } from "./tools";
+import type { PageToolRuntime } from "./runtime";
 export type ModelContext = {
   registerTool: (
     tool: SiteTool,
@@ -8,69 +7,55 @@ export type ModelContext = {
   ) => void | Promise<void>;
 };
 export function connectWebMCP(
-  workspace: Workspace,
-  onPicker: () => void,
+  runtime: PageToolRuntime,
   onStatus: (state: "connected" | "unavailable" | "error") => void,
 ) {
   const context = (document as Document & { modelContext?: ModelContext })
     .modelContext;
-  const artifacts = new Artifacts();
   if (!context?.registerTool) {
     onStatus("unavailable");
-    return () => artifacts.clear();
+    return () => {};
   }
-  let registration: AbortController | undefined;
-  let activeId: string | undefined;
-  let sequence = Promise.resolve();
-  let closed = false;
-  let suspended = false;
+  let sequence = Promise.resolve(),
+    closed = false;
+  let registration = new AbortController();
   const refresh = () => {
-    if (suspended) return;
-    const id = workspace.active ? workspace.engine.document.id : "";
-    if (id === activeId) return;
-    activeId = id;
-    registration?.abort();
-    artifacts.clear();
-    const controller = new AbortController();
-    registration = controller;
+    registration.abort();
+    registration = new AbortController();
+    const transport = registration;
+    const controller = runtime.controller,
+      tools = runtime.tools;
     sequence = sequence.then(async () => {
       if (closed || controller.signal.aborted) return;
       try {
-        for (const tool of createTools(
-          workspace,
-          artifacts,
-          controller.signal,
-          onPicker,
-        )) {
+        for (const tool of tools) {
           if (controller.signal.aborted) return;
-          await context.registerTool(tool, { signal: controller.signal });
+          const signal = AbortSignal.any([controller.signal, transport.signal]);
+          await context.registerTool(
+            {
+              ...tool,
+              execute: (input, options) =>
+                tool.execute(input, {
+                  signal: options?.signal
+                    ? AbortSignal.any([signal, options.signal])
+                    : signal,
+                }),
+            },
+            { signal },
+          );
         }
-        onStatus("connected");
+        if (!closed && !controller.signal.aborted) onStatus("connected");
       } catch {
-        controller.abort();
+        transport.abort();
         if (!closed) onStatus("error");
       }
     });
   };
+  const unsubscribe = runtime.subscribe(refresh);
   refresh();
-  const unsubscribe = workspace.subscribe(refresh);
-  const hide = () => {
-    suspended = true;
-    registration?.abort();
-    artifacts.clear();
-  };
-  const show = () => {
-    suspended = false;
-    activeId = undefined;
-    refresh();
-  };
-  window.addEventListener("pagehide", hide);
-  window.addEventListener("pageshow", show);
   return () => {
     closed = true;
+    registration.abort();
     unsubscribe();
-    hide();
-    window.removeEventListener("pagehide", hide);
-    window.removeEventListener("pageshow", show);
   };
 }

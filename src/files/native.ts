@@ -6,6 +6,7 @@ import {
   requireThat,
   uid,
   validateDocument,
+  nativeDocumentData,
   type DesignDocument,
 } from "../core/model";
 import { base64, exportFonts, fontsReady } from "../render/fonts";
@@ -27,7 +28,7 @@ export async function nativeExport(doc: DesignDocument): Promise<Blob> {
   await validateRasterAssets(doc.assets);
   await fontsReady(doc);
   const portable = structuredClone(doc);
-  portable.fonts = structuredClone(exportFonts(doc));
+  portable.fonts = structuredClone(exportFonts(doc, true));
   validateDocument(portable);
   const files: Record<string, Uint8Array> = {};
   for (const a of portable.assets) {
@@ -51,7 +52,9 @@ export async function nativeExport(doc: DesignDocument): Promise<Blob> {
   portable.fonts = portable.fonts.filter((f) => f.source !== "bundled");
   if (bundled.length)
     files["fonts/catalog.json"] = strToU8(JSON.stringify(bundled));
-  files["document.json"] = strToU8(JSON.stringify(portable));
+  files["document.json"] = strToU8(
+    JSON.stringify(nativeDocumentData(portable)),
+  );
   const archive = zipSync(files, { level: 6 });
   requireThat(
     archive.length <= MAX_FILE_BYTES,
@@ -123,11 +126,11 @@ export function nativeImport(
   );
   const d = raw as DesignDocument;
   requireThat(
-    [1, 2].includes(d.schemaVersion),
+    [1, 2, 3].includes(d.schemaVersion),
     "UNSUPPORTED_VERSION",
     "This file needs a different version of LocalDesign.",
   );
-  if (d.schemaVersion === 2 && files["fonts/catalog.json"]) {
+  if (d.schemaVersion >= 2 && files["fonts/catalog.json"]) {
     requireThat(
       files["fonts/catalog.json"].length <= FONT_ARCHIVE_RESERVE,
       "FONT_LIMIT",
@@ -206,7 +209,7 @@ export function nativeImport(
     }
   }
   const result = validateDocument(d);
-  if (d.schemaVersion === 2 && files["fonts/order.json"]) {
+  if (d.schemaVersion >= 2 && files["fonts/order.json"]) {
     requireThat(
       files["fonts/order.json"].length <= MAX_DOCUMENT_FONTS * 104 + 2,
       "INVALID_FONT",

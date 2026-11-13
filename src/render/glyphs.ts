@@ -104,29 +104,67 @@ export function prefixWidths(
 }
 const widths = new Map<string, number>();
 let widthCharacters = 0;
+type WidthRun = { unitsPerEm: number; advances: number[] };
+const widthRuns = new Map<string, { runs: WidthRun[]; bytes: number }>();
+let widthRunBytes = 0;
+function widthLayout(
+  record: DocumentFont,
+  text: string,
+  tracking: boolean,
+  faceKey: string,
+) {
+  // Prefix wrapping repeats the same shaping at many font sizes. Retain only
+  // the unscaled advances; accumulate them in the original order at each size.
+  const key = `${record.source}:${faceKey}:${tracking}:${text}`;
+  const prior = widthRuns.get(key);
+  if (prior) return prior.runs;
+  const runs = segmentsFor(record, text).map((segment) => {
+    const font = face(segment.file);
+    return {
+      unitsPerEm: font.unitsPerEm,
+      advances: layout(
+        font,
+        record,
+        segment.text,
+        tracking,
+        false,
+      ).positions.map((position) => position.xAdvance),
+    };
+  });
+  const bytes =
+    key.length * 2 +
+    runs.reduce((sum, run) => sum + 64 + run.advances.length * 8, 0);
+  while (
+    widthRuns.size &&
+    (widthRuns.size >= 8192 || widthRunBytes + bytes > 4_000_000)
+  ) {
+    const first = widthRuns.keys().next().value!;
+    widthRunBytes -= widthRuns.get(first)!.bytes;
+    widthRuns.delete(first);
+  }
+  if (bytes <= 4_000_000) {
+    widthRuns.set(key, { runs, bytes });
+    widthRunBytes += bytes;
+  }
+  return runs;
+}
 export function lineWidth(
   n: Pick<DesignNode, "fontSize" | "letterSpacing">,
   record: DocumentFont,
   text: string,
 ) {
   text = text.normalize("NFC");
-  const key = `${fontKey(record)}:${n.fontSize}:${n.letterSpacing}:${text}`;
+  const faceKey = fontKey(record);
+  const key = `${faceKey}:${n.fontSize}:${n.letterSpacing}:${text}`;
   const prior = widths.get(key);
   if (prior !== undefined) return prior;
   let x = 0,
     spacing = false;
-  for (const segment of segmentsFor(record, text)) {
-    const font = face(segment.file),
-      scale = n.fontSize / font.unitsPerEm;
-    for (const position of layout(
-      font,
-      record,
-      segment.text,
-      !!n.letterSpacing,
-      false,
-    ).positions) {
-      x += position.xAdvance * scale;
-      if (position.xAdvance) {
+  for (const run of widthLayout(record, text, !!n.letterSpacing, faceKey)) {
+    const scale = n.fontSize / run.unitsPerEm;
+    for (const advance of run.advances) {
+      x += advance * scale;
+      if (advance) {
         x += n.letterSpacing;
         spacing = true;
       }
@@ -277,9 +315,10 @@ function relativeOutline(glyph: PositionedGlyph) {
   return result;
 }
 
-type Compact = { paths: string[]; scale: number };
-const geometries = new Map<string, string[]>();
+type Compact = { id: string; paths: string[]; scale: number };
+const geometries = new Map<string, Pick<Compact, "id" | "paths">>();
 let geometryBytes = 0;
+let nextGeometry = 0;
 const compactLines = new WeakMap<Line, Compact | null>();
 export function compactLine(line: Line): Compact | null {
   if (compactLines.has(line)) return compactLines.get(line)!;
@@ -297,7 +336,7 @@ export function compactLine(line: Line): Compact | null {
   }
   const geometry = line.geometryKey && geometries.get(line.geometryKey);
   if (geometry) {
-    const result = { paths: geometry, scale };
+    const result = { ...geometry, scale };
     compactLines.set(line, result);
     return result;
   }
@@ -323,19 +362,23 @@ export function compactLine(line: Line): Compact | null {
     right = glyph.ink.x + glyph.ink.width + glyph.scale;
   }
   if (current) paths.push(current);
-  const result = { paths, scale };
+  const result = { id: `compact-${nextGeometry++}`, paths, scale };
   if (line.geometryKey) {
     const size =
       line.geometryKey.length +
+      result.id.length +
       paths.reduce((sum, path) => sum + path.length, 0);
     while (geometries.size && geometryBytes + size > 4_000_000) {
       const first = geometries.keys().next().value!;
       geometryBytes -=
         first.length +
-        geometries.get(first)!.reduce((sum, path) => sum + path.length, 0);
+        geometries.get(first)!.id.length +
+        geometries
+          .get(first)!
+          .paths.reduce((sum, path) => sum + path.length, 0);
       geometries.delete(first);
     }
-    geometries.set(line.geometryKey, paths);
+    geometries.set(line.geometryKey, result);
     geometryBytes += size;
   }
   compactLines.set(line, result);

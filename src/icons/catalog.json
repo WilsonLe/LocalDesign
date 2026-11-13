@@ -1,0 +1,291 @@
+{
+  "source": "https://github.com/lucide-icons/lucide",
+  "version": "1.72.0",
+  "viewBox": 24,
+  "license": "ISC License\n\nCopyright (c) 2026 Lucide Icons and Contributors\n\nPermission to use, copy, modify, and/or distribute this software for any\npurpose with or without fee is hereby granted, provided that the above\ncopyright notice and this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES\nWITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF\nMERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR\nANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES\nWHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN\nACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF\nOR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.\n\n---\n\nThe following Lucide icons are derived from the Feather project:\n\nairplay, alert-circle, alert-octagon, alert-triangle, aperture, arrow-down-circle, arrow-down-left, arrow-down-right, arrow-down, arrow-left-circle, arrow-left, arrow-right-circle, arrow-right, arrow-up-circle, arrow-up-left, arrow-up-right, arrow-up, at-sign, calendar, cast, check, chevron-down, chevron-left, chevron-right, chevron-up, chevrons-down, chevrons-left, chevrons-right, chevrons-up, circle, clipboard, clock, code, columns, command, compass, corner-down-left, corner-down-right, corner-left-down, corner-left-up, corner-right-down, corner-right-up, corner-up-left, corner-up-right, crosshair, database, divide-circle, divide-square, dollar-sign, download, external-link, feather, frown, hash, headphones, help-circle, info, italic, key, layout, life-buoy, link-2, link, loader, lock, log-in, log-out, maximize, meh, minimize, minimize-2, minus-circle, minus-square, minus, monitor, moon, more-horizontal, more-vertical, move, music, navigation-2, navigation, octagon, pause-circle, percent, plus-circle, plus-square, plus, power, radio, rss, search, server, share, shopping-bag, sidebar, smartphone, smile, square, table-2, tablet, target, terminal, trash-2, trash, triangle, tv, type, upload, x-circle, x-octagon, x-square, x, zoom-in, zoom-out\n\nThe MIT License (MIT) (for the icons listed above)\n\nCopyright (c) 2013-present Cole Bemis\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n",
+  "icons": [
+    {
+      "id": "house",
+      "name": "House",
+      "keywords": ["home"],
+      "path": "M0 0 M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8 M0 0 M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+    },
+    {
+      "id": "search",
+      "name": "Search",
+      "keywords": ["find"],
+      "path": "M0 0 m21 21-4.34-4.34 M3 11a8 8 0 1 0 16 0a8 8 0 1 0 -16 0Z"
+    },
+    {
+      "id": "menu",
+      "name": "Menu",
+      "keywords": [],
+      "path": "M0 0 M4 5h16 M0 0 M4 12h16 M0 0 M4 19h16"
+    },
+    {
+      "id": "x",
+      "name": "X",
+      "keywords": ["close", "cancel"],
+      "path": "M0 0 M18 6 6 18 M0 0 m6 6 12 12"
+    },
+    {
+      "id": "check",
+      "name": "Check",
+      "keywords": [],
+      "path": "M0 0 M20 6 9 17l-5-5"
+    },
+    {
+      "id": "plus",
+      "name": "Plus",
+      "keywords": [],
+      "path": "M0 0 M5 12h14 M0 0 M12 5v14"
+    },
+    { "id": "minus", "name": "Minus", "keywords": [], "path": "M0 0 M5 12h14" },
+    {
+      "id": "arrow-left",
+      "name": "Arrow Left",
+      "keywords": [],
+      "path": "M0 0 m12 19-7-7 7-7 M0 0 M19 12H5"
+    },
+    {
+      "id": "arrow-right",
+      "name": "Arrow Right",
+      "keywords": [],
+      "path": "M0 0 M5 12h14 M0 0 m12 5 7 7-7 7"
+    },
+    {
+      "id": "arrow-up",
+      "name": "Arrow Up",
+      "keywords": [],
+      "path": "M0 0 m5 12 7-7 7 7 M0 0 M12 19V5"
+    },
+    {
+      "id": "arrow-down",
+      "name": "Arrow Down",
+      "keywords": [],
+      "path": "M0 0 M12 5v14 M0 0 m19 12-7 7-7-7"
+    },
+    {
+      "id": "chevron-left",
+      "name": "Chevron Left",
+      "keywords": [],
+      "path": "M0 0 m15 18-6-6 6-6"
+    },
+    {
+      "id": "chevron-right",
+      "name": "Chevron Right",
+      "keywords": [],
+      "path": "M0 0 m9 18 6-6-6-6"
+    },
+    {
+      "id": "chevron-down",
+      "name": "Chevron Down",
+      "keywords": [],
+      "path": "M0 0 m6 9 6 6 6-6"
+    },
+    {
+      "id": "user",
+      "name": "User",
+      "keywords": [],
+      "path": "M0 0 M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M8 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0Z"
+    },
+    {
+      "id": "users",
+      "name": "Users",
+      "keywords": [],
+      "path": "M0 0 M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M0 0 M16 3.128a4 4 0 0 1 0 7.744 M0 0 M22 21v-2a4 4 0 0 0-3-3.87 M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0Z"
+    },
+    {
+      "id": "settings",
+      "name": "Settings",
+      "keywords": ["gear", "preferences"],
+      "path": "M0 0 M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915 M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0Z"
+    },
+    {
+      "id": "bell",
+      "name": "Bell",
+      "keywords": [],
+      "path": "M0 0 M10.268 21a2 2 0 0 0 3.464 0 M0 0 M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"
+    },
+    {
+      "id": "mail",
+      "name": "Mail",
+      "keywords": ["email", "message"],
+      "path": "M0 0 m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7 M4 4H20a2 2 0 0 1 2 2V18a2 2 0 0 1 -2 2H4a2 2 0 0 1 -2 -2V6a2 2 0 0 1 2 -2Z"
+    },
+    {
+      "id": "calendar",
+      "name": "Calendar",
+      "keywords": [],
+      "path": "M0 0 M8 2v3 M0 0 M16 2v3 M5 3H19a2 2 0 0 1 2 2V19a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2Z M0 0 M3 9h18"
+    },
+    {
+      "id": "clock",
+      "name": "Clock",
+      "keywords": [],
+      "path": "M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0Z M0 0 M12 6v6l4 2"
+    },
+    {
+      "id": "heart",
+      "name": "Heart",
+      "keywords": [],
+      "path": "M0 0 M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"
+    },
+    {
+      "id": "star",
+      "name": "Star",
+      "keywords": [],
+      "path": "M0 0 M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"
+    },
+    {
+      "id": "bookmark",
+      "name": "Bookmark",
+      "keywords": [],
+      "path": "M0 0 M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"
+    },
+    {
+      "id": "folder",
+      "name": "Folder",
+      "keywords": [],
+      "path": "M0 0 M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"
+    },
+    {
+      "id": "file",
+      "name": "File",
+      "keywords": [],
+      "path": "M0 0 M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z M0 0 M14 2v5a1 1 0 0 0 1 1h5"
+    },
+    {
+      "id": "image",
+      "name": "Image",
+      "keywords": [],
+      "path": "M5 3H19a2 2 0 0 1 2 2V19a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V5a2 2 0 0 1 2 -2Z M7 9a2 2 0 1 0 4 0a2 2 0 1 0 -4 0Z M0 0 m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"
+    },
+    {
+      "id": "download",
+      "name": "Download",
+      "keywords": [],
+      "path": "M0 0 M12 15V3 M0 0 M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M0 0 m7 10 5 5 5-5"
+    },
+    {
+      "id": "upload",
+      "name": "Upload",
+      "keywords": [],
+      "path": "M0 0 M12 3v12 M0 0 m17 8-5-5-5 5 M0 0 M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+    },
+    {
+      "id": "link",
+      "name": "Link",
+      "keywords": [],
+      "path": "M0 0 M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M0 0 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+    },
+    {
+      "id": "external-link",
+      "name": "External Link",
+      "keywords": [],
+      "path": "M0 0 M15 3h6v6 M0 0 M10 14 21 3 M0 0 M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+    },
+    {
+      "id": "copy",
+      "name": "Copy",
+      "keywords": [],
+      "path": "M10 8H20a2 2 0 0 1 2 2V20a2 2 0 0 1 -2 2H10a2 2 0 0 1 -2 -2V10a2 2 0 0 1 2 -2Z M0 0 M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
+    },
+    {
+      "id": "trash",
+      "name": "Trash",
+      "keywords": ["trash-2", "delete", "remove"],
+      "path": "M0 0 M10 11v6 M0 0 M14 11v6 M0 0 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6 M0 0 M3 6h18 M0 0 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+    },
+    {
+      "id": "pencil",
+      "name": "Pencil",
+      "keywords": ["edit"],
+      "path": "M0 0 M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z M0 0 m15 5 4 4"
+    },
+    {
+      "id": "lock",
+      "name": "Lock",
+      "keywords": [],
+      "path": "M5 11H19a2 2 0 0 1 2 2V20a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2V13a2 2 0 0 1 2 -2Z M0 0 M7 11V7a5 5 0 0 1 10 0v4"
+    },
+    {
+      "id": "eye",
+      "name": "Eye",
+      "keywords": [],
+      "path": "M0 0 M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0 M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0Z"
+    },
+    {
+      "id": "eye-off",
+      "name": "Eye Off",
+      "keywords": [],
+      "path": "M0 0 M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49 M0 0 M14.084 14.158a3 3 0 0 1-4.242-4.242 M0 0 M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143 M0 0 m2 2 20 20"
+    },
+    {
+      "id": "play",
+      "name": "Play",
+      "keywords": [],
+      "path": "M0 0 M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"
+    },
+    {
+      "id": "pause",
+      "name": "Pause",
+      "keywords": [],
+      "path": "M15 3H18a1 1 0 0 1 1 1V20a1 1 0 0 1 -1 1H15a1 1 0 0 1 -1 -1V4a1 1 0 0 1 1 -1Z M6 3H9a1 1 0 0 1 1 1V20a1 1 0 0 1 -1 1H6a1 1 0 0 1 -1 -1V4a1 1 0 0 1 1 -1Z"
+    },
+    {
+      "id": "info",
+      "name": "Info",
+      "keywords": [],
+      "path": "M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0Z M0 0 M12 16v-4 M0 0 M12 8h.01"
+    },
+    {
+      "id": "circle-question-mark",
+      "name": "Circle Question Mark",
+      "keywords": ["help-circle", "circle-help", "help", "question"],
+      "path": "M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0Z M0 0 M9 9.5a3 2.5 0 016 0c0 2-2 2-3 3.5 M0 0 M12 17h.01"
+    },
+    {
+      "id": "triangle-exclamation-point",
+      "name": "Triangle Exclamation Point",
+      "keywords": ["alert-triangle", "triangle-alert", "warning", "alert"],
+      "path": "M0 0 m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3 M0 0 M12 9v4 M0 0 M12 17h.01"
+    },
+    {
+      "id": "shopping-cart",
+      "name": "Shopping Cart",
+      "keywords": ["basket", "store"],
+      "path": "M0 0 m2.05 2.05 1.099-.028a1 1 0 0 1 1.008.815l2.69 14.347A1 1 0 0 0 7.83 18H18 M0 0 M4.563 5h16.435a1 1 0 0 1 .981 1.204l-1.026 6.226A2 2 0 0 1 18.962 14H6.25 M16 20a2 2 0 1 0 4 0a2 2 0 1 0 -4 0Z M6 20a2 2 0 1 0 4 0a2 2 0 1 0 -4 0Z"
+    },
+    {
+      "id": "credit-card",
+      "name": "Credit Card",
+      "keywords": ["payment"],
+      "path": "M4 5H20a2 2 0 0 1 2 2V17a2 2 0 0 1 -2 2H4a2 2 0 0 1 -2 -2V7a2 2 0 0 1 2 -2Z M2 10L22 10 M0 0 M6 14h2"
+    },
+    {
+      "id": "globe",
+      "name": "Globe",
+      "keywords": [],
+      "path": "M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0Z M0 0 M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20 M0 0 M2 12h20"
+    },
+    {
+      "id": "map-pin",
+      "name": "Map Pin",
+      "keywords": ["location"],
+      "path": "M0 0 M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0 M9 10a3 3 0 1 0 6 0a3 3 0 1 0 -6 0Z"
+    },
+    {
+      "id": "sun",
+      "name": "Sun",
+      "keywords": [],
+      "path": "M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0Z M0 0 M12 2v2 M0 0 M12 20v2 M0 0 m4.93 4.93 1.41 1.41 M0 0 m17.66 17.66 1.41 1.41 M0 0 M2 12h2 M0 0 M20 12h2 M0 0 m6.34 17.66-1.41 1.41 M0 0 m19.07 4.93-1.41 1.41"
+    },
+    {
+      "id": "moon",
+      "name": "Moon",
+      "keywords": [],
+      "path": "M0 0 M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"
+    }
+  ]
+}

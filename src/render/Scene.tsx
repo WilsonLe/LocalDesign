@@ -1,5 +1,6 @@
 import {
   memo,
+  useId,
   useMemo,
   type CSSProperties,
   type PointerEventHandler,
@@ -16,16 +17,20 @@ export const NodeShape = memo(
     doc,
     glyphPrefix = "",
     compactText = false,
+    compactPrefix = "",
   }: {
     node: DesignNode;
     doc: DesignDocument;
     glyphPrefix?: string;
     compactText?: boolean;
+    compactPrefix?: string;
   }) {
     const style = {
       fill: n.fill,
       stroke: n.stroke,
       strokeWidth: n.strokeWidth,
+      strokeLinecap: n.strokeLinecap,
+      strokeLinejoin: n.strokeLinejoin,
     };
     switch (n.type) {
       case "rectangle":
@@ -45,8 +50,18 @@ export const NodeShape = memo(
         );
       case "line":
         return <line x1={0} y1={0} x2={n.width} y2={n.height} {...style} />;
-      case "path":
-        return <path d={n.path} {...style} />;
+      case "path": {
+        const sx = n.pathViewBox ? n.width / n.pathViewBox.width : 1,
+          sy = n.pathViewBox ? n.height / n.pathViewBox.height : 1;
+        return (
+          <path
+            d={n.path}
+            {...style}
+            strokeWidth={n.strokeWidth / Math.sqrt(sx * sy)}
+            transform={n.pathViewBox ? `scale(${sx} ${sy})` : undefined}
+          />
+        );
+      }
       case "text": {
         const { lines, font } = textShape(n, doc);
         return (
@@ -60,15 +75,15 @@ export const NodeShape = memo(
                     ? compactLine(shaped)
                     : null;
                 if (compact)
-                  return compact.paths.map((d, j) => (
-                    <path
-                      key={`${i}-${j}`}
-                      d={d}
+                  return (
+                    <use
+                      key={i}
+                      href={`#${compactPrefix}${compact.id}`}
                       transform={`translate(${origin.x} ${origin.y}) scale(${compact.scale} ${-compact.scale})`}
                       fill={n.fill}
                       data-compact-text=""
                     />
-                  ));
+                  );
                 return (
                   <g key={i} transform={`translate(${origin.x} ${origin.y})`}>
                     {shaped.glyphs.map((glyph, j) => (
@@ -105,7 +120,8 @@ export const NodeShape = memo(
     previous.doc.assets === next.doc.assets &&
     previous.doc.fonts === next.doc.fonts &&
     previous.glyphPrefix === next.glyphPrefix &&
-    previous.compactText === next.compactText,
+    previous.compactText === next.compactText &&
+    previous.compactPrefix === next.compactPrefix,
 );
 
 export function SceneNode({
@@ -117,12 +133,14 @@ export function SceneNode({
   index,
   visible,
   compactText = false,
+  compactPrefix = "",
 }: {
   node: DesignNode;
   doc: DesignDocument;
   index: NodeIndex;
   visible?: Set<string>;
   compactText?: boolean;
+  compactPrefix?: string;
   onPointerDown?: PointerEventHandler<SVGGElement>;
   interactive?: boolean;
   glyphPrefix?: string;
@@ -132,6 +150,8 @@ export function SceneNode({
   return (
     <g
       data-node-id={interactive ? n.id : undefined}
+      strokeLinecap={n.type === "text" ? n.strokeLinecap : undefined}
+      strokeLinejoin={n.type === "text" ? n.strokeLinejoin : undefined}
       aria-label={n.type === "text" ? n.text : undefined}
       data-font-id={n.type === "text" ? textShape(n, doc).font.id : undefined}
       transform={`translate(${n.x} ${n.y}) rotate(${n.rotation})`}
@@ -155,16 +175,22 @@ export function SceneNode({
         doc={doc}
         glyphPrefix={glyphPrefix}
         compactText={compactText}
+        compactPrefix={compactPrefix}
       />
-      {interactive && (
-        <rect
-          width={n.width}
-          height={n.height}
-          fill="transparent"
-          stroke="none"
-          style={{ pointerEvents: "all" } as CSSProperties}
-        />
-      )}
+      {interactive &&
+        !(
+          (n.type === "frame" || n.type === "rectangle") &&
+          n.radius === 0 &&
+          n.fill !== "none"
+        ) && (
+          <rect
+            width={n.width}
+            height={n.height}
+            fill="transparent"
+            stroke="none"
+            style={{ pointerEvents: "all" } as CSSProperties}
+          />
+        )}
       {children.length > 0 && (
         <g
           clipPath={
@@ -178,6 +204,7 @@ export function SceneNode({
               index={index}
               visible={visible}
               compactText={compactText}
+              compactPrefix={compactPrefix}
               doc={doc}
               onPointerDown={onPointerDown}
               interactive={interactive}
@@ -209,6 +236,7 @@ export const Scene = memo(function Scene({
   glyphPrefix?: string;
 }) {
   const index = useMemo(() => indexNodes(doc), [doc.nodes]);
+  const compactPrefix = `${glyphPrefix}${useId()}-`;
   const roots = doc.nodes.filter((n) =>
     rootIds ? rootIds.includes(n.id) : n.pageId === pageId && !n.parentId,
   );
@@ -216,6 +244,7 @@ export const Scene = memo(function Scene({
     ? visibleNodes(doc, roots, index, viewBox)
     : undefined;
   const glyphs = new Map<string, string>();
+  const compactGlyphs = new Map<string, string[]>();
   for (const node of doc.nodes.filter(
     (n) =>
       (!visible || visible.has(n.id)) &&
@@ -225,13 +254,25 @@ export const Scene = memo(function Scene({
       !ancestors(doc, n, index.byId).some((p) => p.hidden),
   )) {
     for (const line of textShape(node, doc).lines) {
-      if (compactText && node.stroke === "none" && compactLine(line)) continue;
+      const compact =
+        compactText && node.stroke === "none" ? compactLine(line) : null;
+      if (compact) {
+        compactGlyphs.set(compact.id, compact.paths);
+        continue;
+      }
       for (const glyph of line.glyphs) glyphs.set(glyph.id, glyph.path);
     }
   }
   return (
     <>
       <defs>
+        {[...compactGlyphs].map(([id, paths]) => (
+          <g key={id} id={`${compactPrefix}${id}`}>
+            {paths.map((d, i) => (
+              <path key={i} d={d} />
+            ))}
+          </g>
+        ))}
         {[...glyphs].map(([id, d]) => (
           <path key={id} id={`${glyphPrefix}${id}`} d={d} />
         ))}
@@ -243,6 +284,7 @@ export const Scene = memo(function Scene({
           index={index}
           visible={visible}
           compactText={compactText}
+          compactPrefix={compactPrefix}
           doc={doc}
           interactive={interactive}
           onPointerDown={onPointerDown}

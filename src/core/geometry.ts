@@ -32,8 +32,15 @@ export function localPoint(
     q = transform(q, n, true);
   return transform(q, parent, true);
 }
-export function worldRotation(d: DesignDocument, n: DesignNode) {
-  return n.rotation + ancestors(d, n).reduce((s, n) => s + n.rotation, 0);
+export function worldRotation(
+  d: DesignDocument,
+  n: DesignNode,
+  index?: NodeIndex,
+) {
+  return (
+    n.rotation +
+    ancestors(d, n, index?.byId).reduce((s, n) => s + n.rotation, 0)
+  );
 }
 export function bounds(
   d: DesignDocument,

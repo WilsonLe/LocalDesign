@@ -47,6 +47,7 @@ import {
   Copy,
   Scissors,
   ClipboardPaste,
+  Play,
 } from "lucide-react";
 import { DesignEngine } from "../core/engine";
 import { makeNode, roots, uid, type DesignNode } from "../core/model";
@@ -55,10 +56,13 @@ import { bounds } from "../core/geometry";
 import { Workspace } from "../storage/workspace";
 import { importFile } from "../files/import";
 import { nativeExport } from "../files/native";
-import { pngExport, svgExport } from "../files/export";
+import { rasterExport, svgExport } from "../files/export";
 import { Artifacts } from "../files/artifacts";
 import { fontsReady } from "../render/fonts";
 import { connectWebMCP } from "../webmcp/register";
+import { PageToolRuntime } from "../webmcp/runtime";
+import { LoopbackConnection } from "../webmcp/loopback";
+import { LocalMCPConnection } from "./LocalMCPConnection";
 import { listSkills, getSkill } from "../skills/catalog";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
@@ -66,6 +70,9 @@ import { Layers } from "./Layers";
 import { copySelection, pasteSelection } from "./clipboard";
 import { blocksCanvasShortcuts } from "./shortcuts";
 import { WorkspaceList } from "./WorkspaceList";
+import { DesignResources } from "./DesignResources";
+import { ExportPanel, type ExportRequest } from "./ExportPanel";
+import { PrototypePlayer } from "./Prototype";
 import {
   WorkspaceNavigation,
   readWorkspaceRoute,
@@ -101,7 +108,7 @@ function Modal({
         finalFocus={() => returnFocus}
       >
         <DialogHeader>
-          <DialogTitle id="dialog-title">{title}</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <Button size="icon-sm" aria-label="Close dialog" onClick={onClose}>
             <X size={18} />
           </Button>
@@ -160,6 +167,8 @@ export function App() {
   const [theme, setTheme] = useState(readTheme);
   const snapshot = useSyncExternalStore(engine.subscribe, engine.getSnapshot),
     { document: doc, selection, viewport } = snapshot;
+  const [loopback, setLoopback] = useState<LoopbackConnection | null>(null);
+  const [localConnected, setLocalConnected] = useState(false);
   const [tool, setTool] = useState<Tool>("select"),
     [notice, setNotice] = useState(""),
     [storage, setStorage] = useState(workspace.status),
@@ -167,7 +176,9 @@ export function App() {
     [connection, setConnection] = useState<
       "connected" | "unavailable" | "error"
     >("unavailable"),
-    [modal, setModal] = useState<"export" | "help" | "agent" | null>(null),
+    [modal, setModal] = useState<
+      "export" | "help" | "agent" | "resources" | null
+    >(null),
     [drawer, setDrawer] = useState<"layers" | "inspector" | null>(null),
     [navigation, setNavigation] = useState<NavigationState>({
       route: readWorkspaceRoute(location.pathname),
@@ -260,14 +271,17 @@ export function App() {
         if (!cancelled) setReady(true);
       })
       .catch(report);
-    const dispose = connectWebMCP(
-      workspace,
-      () =>
-        setNotice(
-          "Use Import to choose a file. Your browser may require a click before opening its file picker.",
-        ),
-      setConnection,
+    const runtime = new PageToolRuntime(workspace, () =>
+      setNotice(
+        "Use Import to choose a file. Your browser may require a click before opening its file picker.",
+      ),
     );
+    const localConnection = new LoopbackConnection(runtime);
+    setLoopback(localConnection);
+    const stopLocalStatus = localConnection.subscribe(() =>
+      setLocalConnected(localConnection.getSnapshot().status === "connected"),
+    );
+    const dispose = connectWebMCP(runtime, setConnection);
     const before = (e: BeforeUnloadEvent) => {
       if (workspace.status === "error" || workspace.status === "saving") {
         e.preventDefault();
@@ -280,6 +294,9 @@ export function App() {
       unsub();
       stopNavigation?.();
       dispose();
+      stopLocalStatus();
+      localConnection.dispose();
+      runtime.dispose();
       window.removeEventListener("beforeunload", before);
     };
   }, []);
@@ -290,7 +307,9 @@ export function App() {
   }, [notice]);
   useEffect(() => {
     const id = doc.id;
-    setModal((current) => (current === "export" ? null : current));
+    setModal((current) =>
+      current === "export" || current === "resources" ? null : current,
+    );
     setDrawer(null);
     return () => {
       void id;
@@ -303,6 +322,7 @@ export function App() {
         !editing ||
         navigation.loading ||
         modal ||
+        snapshot.player.open ||
         blocksCanvasShortcuts(e.target)
       )
         return;
@@ -416,7 +436,14 @@ export function App() {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [doc, selection, modal, editing, navigation.loading]);
+  }, [
+    doc,
+    selection,
+    modal,
+    editing,
+    navigation.loading,
+    snapshot.player.open,
+  ]);
   const importSelected = async (file: File, asImage = false) => {
     setBusy(true);
     workspace.commitPendingEdits();
@@ -470,39 +497,49 @@ export function App() {
       setBusy(false);
     }
   };
-  const exportFile = async (
-    format: "native" | "svg" | "png",
-    selected = false,
-  ) => {
+  const exportFile = async ({
+    format,
+    ids,
+    options,
+    frameIds,
+  }: ExportRequest) => {
     setBusy(true);
     try {
       if (!workspace.active)
         throw new Error("Open a workspace before exporting.");
       const d = engine.document,
-        id = d.id,
-        blob =
-          format === "native"
-            ? await nativeExport(d)
-            : format === "svg"
-              ? await svgExport(
+        id = d.id;
+      const pdf =
+        format === "pdf"
+          ? await (
+              await import("../files/pdf")
+            ).pdfExport(d, engine.pageId, ids, options, frameIds)
+          : null;
+      const blob =
+        format === "native"
+          ? await nativeExport(d)
+          : format === "svg"
+            ? await svgExport(d, engine.pageId, ids, options)
+            : format === "pdf"
+              ? pdf!.blob
+              : await rasterExport(
                   d,
                   engine.pageId,
-                  selected ? engine.selection : undefined,
-                )
-              : await pngExport(
-                  d,
-                  engine.pageId,
-                  selected ? engine.selection : undefined,
+                  format === "jpeg" ? "jpeg" : "png",
+                  ids,
+                  options,
                 );
       if (id !== engine.document.id)
         throw new Error("Document changed during export. Export again.");
       const a = artifacts.add(
         blob,
-        `${d.name.replace(/[^\w -]/g, "_")}.${format === "native" ? "localdesign" : format}`,
+        `${d.name.replace(/[^\w -]/g, "_")}.${format === "native" ? "localdesign" : format === "jpeg" ? "jpg" : format}`,
         d.revision,
       );
       artifacts.download(a.id);
-      setNotice(`Exported ${a.name}.`);
+      setNotice(
+        `Exported ${a.name}.${pdf?.warnings.length ? ` ${pdf.warnings.join(" ")}` : ""}`,
+      );
       setModal(null);
     } catch (e) {
       report(e);
@@ -599,6 +636,32 @@ export function App() {
           </>
         )}
         {!editing && <div className="top-spacer" />}
+        {editing && (
+          <>
+            <Button
+              size="icon-sm"
+              aria-label="Design resources"
+              title="Design resources"
+              onClick={() => setModal("resources")}
+            >
+              <LayersIcon size={16} />
+            </Button>
+            <Button
+              size="icon-sm"
+              className="max-[851px]:hidden"
+              aria-label="Play prototype"
+              title="Play prototype"
+              disabled={!doc.prototype.entryFrameId}
+              onClick={() =>
+                void perform(() =>
+                  engine.playPrototype(doc.id, { action: "start" }),
+                )
+              }
+            >
+              <Play size={15} />
+            </Button>
+          </>
+        )}
         <ThemeToggle
           theme={theme}
           onChange={(next) => {
@@ -608,9 +671,11 @@ export function App() {
         />
         <Button
           size="icon-sm"
-          className={`agent-button ${connection === "connected" ? "connected" : ""}`}
+          className={`agent-button ${connection === "connected" || localConnected ? "connected" : ""}`}
           title={
-            connection === "connected" ? "Agent ready" : "Connect an agent"
+            connection === "connected" || localConnected
+              ? "Agent ready"
+              : "Connect an agent"
           }
           aria-label="Connect an agent"
           onClick={() => setModal("agent")}
@@ -630,12 +695,13 @@ export function App() {
           <Button
             variant="default"
             size="default"
-            className="export-button"
+            className="export-button max-[850px]:size-8 max-[850px]:p-0"
+            aria-label="Export"
             onClick={() => setModal("export")}
             disabled={busy || !ready}
           >
             <ArrowDownToLine size={14} />
-            <span>Export</span>
+            <span className="max-[850px]:hidden">Export</span>
           </Button>
         ) : (
           <Button
@@ -855,6 +921,19 @@ export function App() {
           onList={() => void navigator.navigate({ kind: "list" })}
         />
       )}
+      {editing && snapshot.activity && (
+        <div className="agent-activity" role="status">
+          <span>
+            {snapshot.activity.actor}: {snapshot.activity.message}
+          </span>
+          <Button
+            aria-label="Clear agent status"
+            onClick={() => engine.setActivity(doc.id, "You", "", 1000)}
+          >
+            <X size={14} />
+          </Button>
+        </div>
+      )}
       {notice && (
         <div className="toast" role="status">
           <span>{notice}</span>
@@ -889,40 +968,35 @@ export function App() {
       />
       {editing && modal === "export" && (
         <Modal title="Take your design with you" onClose={() => setModal(null)}>
-          <Button
-            className="export-option"
-            disabled={busy}
-            onClick={() => exportFile("native")}
-          >
-            <div className="file-type">LD</div>
-            <div>
-              <strong>LocalDesign file</strong>
-            </div>
-            <ArrowDownToLine size={16} />
-          </Button>
-          <div className="export-scope">
-            <span>
-              {selection.length
-                ? `${selection.length} layers selected`
-                : "Current page"}
-            </span>
-          </div>
-          <div className="button-row">
-            <Button
-              className="export-format"
-              disabled={busy}
-              onClick={() => exportFile("svg", selection.length > 0)}
-            >
-              <strong>SVG</strong>
-            </Button>
-            <Button
-              className="export-format"
-              disabled={busy}
-              onClick={() => exportFile("png", selection.length > 0)}
-            >
-              <strong>PNG</strong>
-            </Button>
-          </div>
+          <ExportPanel
+            document={doc}
+            pageId={snapshot.pageId}
+            selection={selection}
+            busy={busy}
+            onExport={(request) => void exportFile(request)}
+          />
+        </Modal>
+      )}
+      {editing && modal === "resources" && (
+        <Modal title="Design resources" onClose={() => setModal(null)}>
+          <DesignResources
+            engine={engine}
+            document={doc}
+            onError={setNotice}
+            onClose={() => setModal(null)}
+          />
+        </Modal>
+      )}
+      {editing && snapshot.player.open && (
+        <Modal
+          title="Prototype player"
+          onClose={() => engine.playPrototype(doc.id, { action: "stop" })}
+        >
+          <PrototypePlayer
+            engine={engine}
+            snapshot={snapshot}
+            onError={setNotice}
+          />
         </Modal>
       )}
       {modal === "agent" && (
@@ -944,6 +1018,7 @@ export function App() {
               </strong>
             </div>
           </div>
+          {loopback && <LocalMCPConnection connection={loopback} />}
           <ol className="agent-steps">
             <li>Open this page in your agent’s WebMCP-capable browser.</li>
             <li>

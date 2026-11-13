@@ -45,3 +45,15 @@ Fontkit 3.0.0 by Devon Govett, MIT (https://github.com/foliojs/fontkit); static 
 ## Fast bundled-font shaping
 
 harfbuzzjs 1.6.4 (https://github.com/harfbuzz/harfbuzzjs), MIT, packages the HarfBuzz WASM shaping engine. Full notices ship in public/harfbuzzjs-LICENSE.txt and public/harfbuzz-LICENSE.txt. It operates locally on the existing validated bundled font bytes; Fontkit retains outline parsing and the fallback shaping path.
+
+## Local vector PDF export
+
+jsPDF 4.2.1 (https://github.com/parallax/jsPDF) and svg2pdf.js 2.9.0 (https://github.com/yWorks/svg2pdf.js), MIT, convert LocalDesign's own outlined SVG into local PDF pages. They are loaded only for PDF output; design content is not sent to a service. Font outlines and scene geometry still come from the shared renderer. Full notices ship in public/jspdf-LICENSE.txt and public/svg2pdf-LICENSE.txt; transitive packages retain their packaged notices.
+
+## Bundled native icons
+
+48 icons from lucide-react 1.72.0, https://github.com/lucide-icons/lucide, Copyright (c) 2026 Lucide Icons and Contributors, ISC. Listed Feather-derived icons also retain the MIT notice, Copyright (c) 2013-present Cole Bemis. The complete combined notice ships in public/lucide-LICENSE.txt and src/icons/catalog.json. scripts/build-icons.mjs converts only the explicit pinned inventory into native path geometry; the build verifies both data and notice against the installed lockfile-pinned source. Native nodes retain the notice, and local SVG/PNG/JPEG/PDF outputs include deduplicated attribution metadata.
+
+## Optional local MCP companion
+
+The Node-only companion uses pinned `@modelcontextprotocol/server` 2.4.0 and `@modelcontextprotocol/client` 2.4.0 (Apache-2.0), from https://github.com/modelcontextprotocol/typescript-sdk, and `ws` 8.23.0 (MIT), from https://github.com/websockets/ws. Complete licenses/NOTICE files accompany the installed packages in node_modules; these packages are not imported into the browser bundle. The client SDK is used by interoperability acceptance tests. The application retains its own MIT license.

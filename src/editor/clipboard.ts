@@ -1,138 +1,144 @@
-import { MAX_NODES, MAX_ASSETS, MAX_CLIPBOARD_CHARS } from "../core/limits";
+import { MAX_CLIPBOARD_CHARS } from "../core/limits";
 import { validateRasterAssets } from "../files/raster";
-import { DocumentFonts } from "../fonts/schema";
-import { resolveFont, validateFontFaces } from "../render/fonts";
+import { resolveFont, validateFontFaces, fontsReady } from "../render/fonts";
 import { z } from "zod";
+import { indexNodes } from "../core/tree";
 import type { DesignEngine } from "../core/engine";
 import {
-  AssetSchema,
+  LibraryPayloadSchema,
+  Id,
   descendants,
-  NodeSchema,
   requireThat,
   roots,
   uid,
-  type DesignAsset,
-  type DesignNode,
 } from "../core/model";
 import { worldPoint, worldRotation } from "../core/geometry";
-const schema = z
-  .object({
-    format: z.literal("localdesign-clipboard-v1"),
-    nodes: z.array(NodeSchema).max(MAX_NODES),
-    assets: z.array(AssetSchema).max(MAX_ASSETS),
-    fonts: DocumentFonts,
-  })
-  .strict();
+import { libraryPayload } from "../files/component-package";
+import { libraryDigest, validateLibrary } from "../core/packages";
+const schema = LibraryPayloadSchema.extend({
+  format: z.literal("localdesign-clipboard-v1"),
+  originId: Id.default("clipboard"),
+  sourceRevision: z.number().int().min(0).default(0),
+  components: LibraryPayloadSchema.shape.components.default([]),
+  tokens: LibraryPayloadSchema.shape.tokens.default([]),
+  tokenThemes: LibraryPayloadSchema.shape.tokenThemes.default([]),
+  activeTokenTheme: Id.nullable().default(null),
+}).strict();
 let clipboard: z.infer<typeof schema> | null = null;
 export async function copySelection(engine: DesignEngine) {
-  const d = engine.document;
+  const doc = engine.document;
   requireThat(
     engine.selection.length,
     "EMPTY_SELECTION",
     "Select layers to copy.",
   );
-  const selected = roots(d, engine.selection),
-    nodes = selected
-      .flatMap((n) => [n, ...descendants(d, n.id)])
-      .map((n) => {
-        const root = selected.some((x) => x.id === n.id);
-        return root
-          ? {
-              ...n,
-              ...worldPoint(d, n),
-              rotation: worldRotation(d, n),
-              parentId: null,
-            }
-          : structuredClone(n);
-      });
-  const assetIds = new Set(nodes.map((n) => n.assetId));
-  const fonts = new Map(
-    nodes
-      .filter((n) => n.type === "text")
-      .flatMap((n) => {
-        const font = resolveFont(n, d);
-        if (!font.record) return [];
-        if (font.status !== "substituted") n.fontId = font.id;
-        return [[font.id, font.record] as const];
-      }),
+  const index = indexNodes(doc);
+  const selected = roots(doc, engine.selection, index.byId);
+  const selectedIds = new Set(selected.map((node) => node.id));
+  await fontsReady(doc);
+  const nodes = selected
+    .flatMap((node) => [node, ...descendants(doc, node.id, index)])
+    .map((node) => {
+      const copy = structuredClone(node);
+      if (selectedIds.has(node.id)) {
+        Object.assign(copy, worldPoint(doc, node, undefined, index), {
+          rotation: worldRotation(doc, node, index),
+          parentId: null,
+        });
+        let current: typeof node | undefined = node;
+        while (current) {
+          if (current.tokenTheme) {
+            copy.tokenTheme = current.tokenTheme;
+            break;
+          }
+          current = current.parentId
+            ? index.byId.get(current.parentId)
+            : undefined;
+        }
+      }
+      copy.componentSource = null;
+      return copy;
+    });
+  const owners = new Set(
+    nodes.filter((node) => node.component).map((node) => node.id),
   );
+  for (const node of nodes) {
+    if (node.componentPart && !owners.has(node.componentPart.instanceId))
+      node.componentPart = null;
+    if (node.type === "text") {
+      const font = resolveFont(node, doc);
+      if (font.record && font.status !== "substituted") node.fontId = font.id;
+    }
+  }
+  const payload = libraryPayload(doc, [], nodes);
+  validateLibrary(payload);
   clipboard = {
     format: "localdesign-clipboard-v1",
-    nodes,
-    assets: d.assets.filter((a) => assetIds.has(a.id)),
-    fonts: [...fonts.values()],
+    originId: doc.id,
+    sourceRevision: doc.revision,
+    ...payload,
   };
+  const text = JSON.stringify(clipboard);
+  requireThat(
+    text.length <= MAX_CLIPBOARD_CHARS,
+    "SIZE_LIMIT",
+    "Clipboard is too large.",
+  );
   try {
-    await navigator.clipboard.writeText(JSON.stringify(clipboard));
+    await navigator.clipboard.writeText(text);
   } catch {
-    /* In-memory clipboard works where browser permissions deny the OS clipboard. */
+    /* Explicitly copied content stays available when OS clipboard permission is denied. */
   }
 }
 export async function pasteSelection(engine: DesignEngine) {
-  const guard = engine.guard();
-  let input = clipboard;
+  const guard = engine.guard(),
+    pageId = engine.pageId;
+  let text = "";
   try {
-    const text = await navigator.clipboard.readText();
-    if (text.startsWith('{"format":"localdesign-clipboard-v1"')) {
-      requireThat(
-        text.length <= MAX_CLIPBOARD_CHARS,
-        "SIZE_LIMIT",
-        "Clipboard is too large.",
-      );
-      input = schema.parse(JSON.parse(text));
-    }
+    text = await navigator.clipboard.readText();
   } catch {
-    /* Reuse the last explicitly copied LocalDesign selection. */
+    /* Use the last explicit in-memory copy. */
+  }
+  let input = clipboard;
+  if (text.startsWith('{"format":"localdesign-clipboard-v1"')) {
+    requireThat(
+      text.length <= MAX_CLIPBOARD_CHARS,
+      "SIZE_LIMIT",
+      "Clipboard is too large.",
+    );
+    input = schema.parse(JSON.parse(text));
   }
   requireThat(input, "EMPTY_CLIPBOARD", "Copy some LocalDesign layers first.");
   input = schema.parse(input);
-  const current = engine.document;
-  const map = new Map(input.nodes.map((n) => [n.id, uid()])),
-    assets = new Map(input.assets.map((a) => [a.id, uid()]));
-  const newAssets: DesignAsset[] = input.assets.map((a) => ({
-    ...a,
-    id: assets.get(a.id)!,
-  }));
-  const fontIds = new Map<string, string>();
-  const fonts: typeof input.fonts = [];
-  for (const font of input.fonts) {
-    const old = current.fonts.find((f) => f.id === font.id);
-    if (
-      old &&
-      (JSON.stringify(old) === JSON.stringify(font) ||
-        (old.source === "bundled" && font.source === "bundled"))
-    )
-      fontIds.set(font.id, old.id);
-    else {
-      const id = old ? uid() : font.id;
-      fontIds.set(font.id, id);
-      fonts.push({ ...font, id, source: old ? "local" : font.source });
-    }
-  }
-  const nodes: DesignNode[] = input.nodes.map((n) => ({
-    ...n,
-    id: map.get(n.id)!,
-    pageId: engine.pageId,
-    parentId: n.parentId ? (map.get(n.parentId) ?? null) : null,
-    x: n.parentId ? n.x : n.x + 24,
-    y: n.parentId ? n.y : n.y + 24,
-    assetId: n.assetId ? (assets.get(n.assetId) ?? n.assetId) : null,
-    fontId: n.fontId ? (fontIds.get(n.fontId) ?? n.fontId) : null,
-  }));
-  requireThat(
-    current.id === guard.expectedDocumentId,
-    "STALE_REVISION",
-    "Document changed while reading clipboard.",
-  );
-  await validateRasterAssets(newAssets);
-  await validateFontFaces(fonts);
-  engine.edit({
+  const { format: _, originId, sourceRevision, ...payload } = input;
+  void _;
+  await validateRasterAssets(payload.assets);
+  await validateFontFaces(payload.fonts);
+  validateLibrary(payload);
+  const receipt = engine.edit({
     ...guard,
     commands: [
-      ...newAssets.map((asset) => ({ op: "asset_add" as const, asset })),
-      ...fonts.map((font) => ({ op: "font_add" as const, font })),
-      ...nodes.map((node) => ({ op: "create" as const, node })),
+      {
+        op: "library_import",
+        namespace: uid(),
+        payload,
+        originId,
+        version: sourceRevision + 1,
+        digest: libraryDigest(payload),
+        mode: "copy",
+        replaceLocalEdits: false,
+        conflictPolicy: "reject",
+        pageId,
+        dx: 24,
+        dy: 24,
+      },
     ],
   });
-  engine.select(nodes.filter((n) => !n.parentId).map((n) => n.id));
+  const created = new Set(receipt.createdIds);
+  engine.select(
+    engine.document.nodes
+      .filter((node) => created.has(node.id) && !node.parentId)
+      .map((node) => node.id),
+    pageId,
+  );
 }

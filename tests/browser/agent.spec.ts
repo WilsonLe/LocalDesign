@@ -6,6 +6,16 @@ test("scripted cold start uses only served schemas/skills, validates, authors, p
   await harness(page);
   await open(page);
   await page.route("https://github.com/**", (r) => r.abort());
+  const registeredBytes = await page.evaluate(
+    () =>
+      JSON.stringify(
+        [...(window as any).__testSiteTools.values()].map(
+          ({ execute: _, ...tool }: any) => tool,
+        ),
+      ).length,
+  );
+  // Stay within the catalog size accepted by the actual browser host.
+  expect(registeredBytes).toBeLessThan(100_000);
   const before = await inspect(page);
   const catalog = await tool(page, "list_skills");
   expect(catalog.skills.map((s: any) => s.id)).toEqual([

@@ -120,6 +120,12 @@ describe("shared engine transactions", () => {
     const { engine, a } = scene();
     engine.select([a.id]);
     engine.setViewport({ zoom: 2, x: -200 });
+    const snapshot = engine.getSnapshot();
+    engine.select([a.id, a.id]);
+    engine.setViewport({ ...snapshot.viewport });
+    expect(engine.getSnapshot()).toBe(snapshot);
+    engine.setViewport({ x: -201 });
+    expect(engine.getSnapshot()).not.toBe(snapshot);
     expect(engine.getSnapshot().selection).toEqual([a.id]);
     expect(engine.document.revision).toBe(0);
     expect(engine.getSnapshot().canUndo).toBe(false);
@@ -155,7 +161,7 @@ describe("shared engine transactions", () => {
       ]),
     ).toThrow(/asset/);
     expect(() =>
-      validateDocument({ ...engine.document, schemaVersion: 3 }),
+      validateDocument({ ...engine.document, schemaVersion: 4 }),
     ).toThrow();
   });
   it("blocks edits to locked nodes/ancestors and permits unlocking", () => {

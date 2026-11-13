@@ -21,6 +21,32 @@ const serif = () =>
     "SourceSerif4-Regular.otf",
     "SIL OFL 1.1; editable redistribution permitted",
   );
+function bundledFixtures() {
+  return bundledCatalog.map((face) => {
+    const slug = families.find((f) => f.family === face.family)!.slug;
+    const font: DocumentFont = {
+      id: face.id,
+      family: face.family,
+      weight: face.weight,
+      style: face.style,
+      source: "bundled",
+      files: ["latin", "latin-ext", "vietnamese"].map((subset) => ({
+        format: "woff2",
+        data: base64(
+          bytes(
+            `node_modules/@fontsource/${slug}/files/${slug}-${subset}-${face.weight}-${face.style}.woff2`,
+          ),
+        ),
+      })),
+      license: readFileSync(`public/${slug}-OFL.txt`, "utf8").trim(),
+      provenance: "x".repeat(1000),
+      redistributionAllowed: true,
+    };
+    expect(() => validateFontRecord(font)).not.toThrow();
+    return font;
+  });
+}
+
 it("cached built-in font choices do not hide a document face or its removal", () => {
   const doc = blankDocument();
   const node = makeNode("text", doc.pages[0].id, {
@@ -113,29 +139,7 @@ it("shapes exact pinned bytes against independent HarfBuzz kerning and ligature 
 });
 it("every bundled face matches its real bytes, license and total portable reserve", async () => {
   const doc = blankDocument();
-  doc.fonts = bundledCatalog.map((face) => {
-    const slug = families.find((f) => f.family === face.family)!.slug;
-    const font: DocumentFont = {
-      id: face.id,
-      family: face.family,
-      weight: face.weight,
-      style: face.style,
-      source: "bundled",
-      files: ["latin", "latin-ext", "vietnamese"].map((subset) => ({
-        format: "woff2",
-        data: base64(
-          bytes(
-            `node_modules/@fontsource/${slug}/files/${slug}-${subset}-${face.weight}-${face.style}.woff2`,
-          ),
-        ),
-      })),
-      license: readFileSync(`public/${slug}-OFL.txt`, "utf8").trim(),
-      provenance: "x".repeat(1000),
-      redistributionAllowed: true,
-    };
-    expect(() => validateFontRecord(font)).not.toThrow();
-    return font;
-  });
+  doc.fonts = bundledFixtures();
   expect(() => validateDocument(doc)).not.toThrow();
   const bad = structuredClone(doc.fonts[0]);
   bad.files[0] = doc.fonts[1].files[0];
@@ -257,10 +261,10 @@ it("font edits use guarded atomic history, retain requested identity and never r
     validateFontRecord({ ...font, redistributionAllowed: false } as never),
   ).toThrow();
 });
-it("native v2 embeds the actual local face, notices and requested/mapped identity; v1 remains editable", async () => {
+it("native files embed the actual local face, notices and requested/mapped identity; legacy files remain editable", async () => {
   const doc = blankDocument(),
     font = serif();
-  doc.fonts.push(font);
+  doc.fonts.push(font, ...bundledFixtures());
   doc.nodes.push(
     makeNode("text", doc.pages[0].id, {
       fontFamily: "Original serif",
@@ -273,7 +277,7 @@ it("native v2 embeds the actual local face, notices and requested/mapped identit
   const file = new Uint8Array(await (await nativeExport(doc)).arrayBuffer()),
     entries = unzipSync(file);
   const raw = JSON.parse(strFromU8(entries["document.json"]));
-  expect(raw.schemaVersion).toBe(2);
+  expect(raw.schemaVersion).toBe(3);
   expect(raw.fonts[0].files[0].data).toBe(`fonts/${font.id}-0.otf`);
   expect(entries[raw.fonts[0].files[0].data]).toEqual(
     bytes("tests/fixtures/fonts/SourceSerif4-Regular.otf"),
@@ -302,7 +306,7 @@ it("native v2 embeds the actual local face, notices and requested/mapped identit
   const old = nativeImport(
     zipSync({ "document.json": strToU8(JSON.stringify(legacy)) }),
   );
-  expect(old.schemaVersion).toBe(2);
+  expect(old.schemaVersion).toBe(3);
   expect(old.fonts).toEqual([]);
   expect(validateDocument(old)).toEqual(old);
 });
