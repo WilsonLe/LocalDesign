@@ -7,7 +7,15 @@ import type { DesignNode } from "../core/model";
 type Font = ReturnType<typeof create>;
 const parsed = new Map<string, { font: Font; bytes: number }>();
 let parsedBytes = 0;
-const outlines = new Map<string, string>();
+type Outline = {
+  id: string;
+  path: string;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+const outlines = new Map<string, Map<number, Outline>>();
 let outlineBytes = 0;
 function face(file: FontFile) {
   const digest = fontInfo(file).digest;
@@ -41,11 +49,14 @@ const lines = new Map<string, Line>();
 let retainedGlyphs = 0;
 function segmentsFor(record: DocumentFont, text: string) {
   const segments: { file: FontFile; text: string }[] = [];
+  const files = record.files.map((file) => ({
+    file,
+    characters: fontInfo(file).characters,
+  }));
   for (const char of Array.from(text)) {
     const file =
-      record.files.find((f) =>
-        fontInfo(f).characters.has(char.codePointAt(0)!),
-      ) ?? record.files[0];
+      files.find((f) => f.characters.has(char.codePointAt(0)!))?.file ??
+      record.files[0];
     const last = segments.at(-1);
     if (last?.file === file) last.text += char;
     else segments.push({ file, text: char });
@@ -189,7 +200,8 @@ export function shapeLine(
   text: string,
 ): Line {
   text = text.normalize("NFC");
-  const key = `${fontKey(record)}:${n.fontSize}:${n.letterSpacing}:${text}`;
+  const faceKey = fontKey(record);
+  const key = `${faceKey}:${n.fontSize}:${n.letterSpacing}:${text}`;
   const old = lines.get(key);
   if (old) return old;
   const segments = segmentsFor(record, text);
@@ -200,36 +212,55 @@ export function shapeLine(
   for (const segment of segments) {
     const font = face(segment.file),
       scale = n.fontSize / font.unitsPerEm;
+    const digest = fontInfo(segment.file).digest;
+    let catalog = outlines.get(digest);
     const run = layout(font, record, segment.text, !!n.letterSpacing);
     for (let i = 0; i < run.glyphs.length; i++) {
       const glyph = run.glyphs[i],
-        position = run.positions[i],
-        pathKey = `${fontInfo(segment.file).digest}:${glyph.id}`;
-      let path = outlines.get(pathKey);
-      if (path === undefined) {
-        path = glyph.path.toSVG();
-        if (outlineBytes + path.length > 4_000_000) {
-          outlines.clear();
-          outlineBytes = 0;
+        position = run.positions[i];
+      let outline = catalog?.get(glyph.id);
+      if (!outline) {
+        const path = glyph.path.toSVG();
+        const box = path
+          ? glyph.path.bbox
+          : { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+        outline = {
+          id: `glyph-${digest}-${glyph.id}`,
+          path,
+          minX: box.minX,
+          minY: box.minY,
+          maxX: box.maxX,
+          maxY: box.maxY,
+        };
+        const bytes = path.length + outline.id.length + 64;
+        if (bytes <= 4_000_000) {
+          if (outlineBytes + bytes > 4_000_000) {
+            outlines.clear();
+            outlineBytes = 0;
+            catalog = undefined;
+          }
+          if (!catalog) {
+            catalog = new Map();
+            outlines.set(digest, catalog);
+          }
+          catalog.set(glyph.id, outline);
+          outlineBytes += bytes;
         }
-        outlines.set(pathKey, path);
-        outlineBytes += path.length;
       }
-      if (path) {
-        const box = glyph.path.bbox;
+      if (outline.path) {
         const gx = x + position.xOffset * scale,
           gy = y - position.yOffset * scale;
         glyphs.push({
-          id: `glyph-${fontInfo(segment.file).digest}-${glyph.id}`,
-          path,
+          id: outline.id,
+          path: outline.path,
           x: gx,
           y: gy,
           scale,
           ink: {
-            x: gx + box.minX * scale,
-            y: gy - box.maxY * scale,
-            width: (box.maxX - box.minX) * scale,
-            height: (box.maxY - box.minY) * scale,
+            x: gx + outline.minX * scale,
+            y: gy - outline.maxY * scale,
+            width: (outline.maxX - outline.minX) * scale,
+            height: (outline.maxY - outline.minY) * scale,
           },
         });
       }
@@ -244,7 +275,7 @@ export function shapeLine(
   const result = {
     glyphs,
     width: x - (spacing ? n.letterSpacing : 0),
-    geometryKey: `${fontKey(record)}:${n.letterSpacing / n.fontSize}:${text}`,
+    geometryKey: `${faceKey}:${n.letterSpacing / n.fontSize}:${text}`,
   };
   while (
     lines.size &&
