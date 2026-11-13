@@ -2,11 +2,15 @@
 
 Date: 13 November 2026 (Australia/Brisbane).
 
-Status: implementation authorized by the user's 13 November 2026 goal, including all Recommended later items, merge, GitHub Pages deployment and verification. Delivery owner: [issue #23](https://github.com/WilsonLe/LocalDesign/issues/23). The original comparison below remains the scope inventory; its evidence section records the pre-implementation baseline.
+The 13 November 2026 comparison led to the feature release tracked in [issue #23](https://github.com/WilsonLe/LocalDesign/issues/23). Its evidence section records the pre-implementation baseline.
 
-## Implementation progress
+## Current integration scope
 
-All Ready and Conditional → Recommended rows and F01–F12 are in scope. Ignore remains excluded. The candidate was developed on `wilsonle/agent-tool-integration`. This section records candidate evidence; [issue #23](https://github.com/WilsonLe/LocalDesign/issues/23) owns the final review, CI and deployed release receipt.
+LocalDesign exposes 26 agent tools through browser WebMCP. The Ready and Conditional Recommended features through F11 were delivered in 0.3.0. The standalone MCP companion (F12) was an extra transport recommendation in the original comparison. The owner requested WebMCP only, so 0.3.1 retires F12. [Current delivery and verification](https://github.com/WilsonLe/LocalDesign/issues/28) · [Architecture decision](adr/0005-optional-loopback-mcp-companion.md)
+
+## Historical implementation and acceptance
+
+The original 0.3.0 implementation included all Ready and Conditional Recommended rows and F01–F12. The candidate was developed on `wilsonle/agent-tool-integration`. This section records candidate evidence; [issue #23](https://github.com/WilsonLe/LocalDesign/issues/23) owns the final review, CI and deployed release receipt.
 
 | Scope                   | Current evidence / remaining work                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -57,7 +61,7 @@ The built-browser token workload (1,000 bound nodes, 500 tokens, 12 themes) rena
 
 PR #26 merged as `4f053ca0cec42ac4d2b1df2890af7e7a9d59ee02` after the two roadmap reviews finished at `386e409b40d0957fcf583e6c348a6516cb980455`. The candidate integrates its enforced shadcn/cascade foundation, confirmation-based workspace deletion, light/dark preference and theme-following blank pages, plus its independently reviewed font-choice/mounting performance corrections. Existing document paints remain explicit.
 
-The merge preserves roadmap commands/resources and both transports. Runtime bundle 1.3.0 reconciles the theme instructions and all native workflows. Resource and player actions use shared icon controls; at widths through 850 px, prototype playback is reached in Design resources → Prototype, and the header retains resources, theme, agent, import and export without clipping. Initial combined-header checks exposed an outdated grid-column count and the exact 850 px boundary; corrected geometry and the narrow player journey retain the complete light/dark/breakpoint suite. This merged source needs current-head full checks and an independent integration review before release.
+That 0.3.0 merge included both transports. Runtime bundle 1.3.0 reconciles the theme instructions and all native workflows. Resource and player actions use shared icon controls; at widths through 850 px, prototype playback is reached in Design resources → Prototype, and the header retains resources, theme, agent, import and export without clipping. Initial combined-header checks exposed an outdated grid-column count and the exact 850 px boundary; corrected geometry and the narrow player journey retain the complete light/dark/breakpoint suite. This merged source needs current-head full checks and an independent integration review before release.
 
 The merged commit `738557d96461c870d3b787383a6d62200526420e` passed the complete local check (114 unit tests, 2 companion contracts and 110 browser journeys), but hosted cold navigation reached 528.7 ms against its unchanged 500 ms ceiling. That hosted failure remains recorded, not cleared by local timing. Actual in-app-browser inspection then exposed resource-dialog min-content overflow that the existing keyboard checks missed: an explicit zero-minimum grid column in the shared dialog, wrapping action rows and a concise variant label now keep all ten resource panels within their surface. Four responsive journeys assert dialog/field bounds at 320/390/850/1440 px in both themes; all 15 focused resource/component/token/export checks pass. The user explicitly authorized one additional integration-review pass after the concurrent merge; current-head full checks, that review and hosted/deployed evidence remain on issue #23.
 
@@ -78,10 +82,10 @@ Keep LocalDesign a browser-local native design editor. Improve agent inspection 
 | Category                  | Doop tools | Decision                                                                                                        |
 | ------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------- |
 | Ready to integrate        | 12         | Eight useful equivalents already exist; improve three agent workflows and optionally add a local asset helper.  |
-| Conditional → Recommended | 34         | Build the stated native feature before exposing its agent operation. Some capabilities belong in a later phase. |
+| Conditional → Recommended | 35         | Build the stated native feature before exposing its agent operation. Some capabilities belong in a later phase. |
 | Conditional → Ignore      | 24         | Exclude these integrations from the planned work. Use the external agent's tools where appropriate.             |
 
-The 70 tool names are source identifiers for comparison. Integrating a capability means designing a LocalDesign equivalent, retaining our scene JSON, command engine, browser-local assets and current limits. It does not mean copying Doop's code or promising its complete payloads, account model, HTML behavior or public URL contracts.
+The 71 tool names are source identifiers for comparison. Integrating a capability means designing a LocalDesign equivalent, retaining our scene JSON, command engine, browser-local assets and current limits. It does not mean copying Doop's code or promising its complete payloads, account model, HTML behavior or public URL contracts.
 
 Readiness is scoped to the behavior stated in each row. For example, native frame creation and font-byte import are ready even though Doop also accepts HTML or remote font URLs. Recommended frame export covers local output formats; its hosted URLs and PSD output are deliberately excluded.
 
@@ -130,6 +134,7 @@ Each feature includes its native data model, engine operations, appropriate huma
 | F08 | Native icon catalog         | A small searchable licensed bundled set with attribution, previews and insertion as validated native paths. Avoid arbitrary imported SVG markup, provider credentials and runtime catalog downloads.                                           |
 | F09 | Local prototypes            | A native interaction graph and local player with entry frames, navigation, overlays and broken-target validation. Use the shared scene renderer; do not execute imported HTML or arbitrary scripts.                                            |
 | F10 | Portable component packages | Explicit local package export/import with dependency, asset and licensed-font closure; stable origin/version identifiers; and user-selected revision updates in one document. No automatic fetches or multi-document writes.                   |
+| F11 | Human approval and handoff  | Bind approval to the reviewed frame and its dependency versions. Preserve approved evidence and invalidate sign-off when rendered content changes. Agents can request, read and revoke. The human interface grants approval.                   |
 
 #### Tool decisions
 
@@ -169,17 +174,9 @@ Each feature includes its native data model, engine operations, appropriate huma
 | `search_icons`              | F08       | Recommended         | Add a small searchable licensed icon catalog that inserts safe native paths. Prefer a coherent bundled set over a network service or a huge catalog.                                |
 | `get_prototype`             | F09       | Recommended later   | Inspect and validate a native interaction graph once design-system and review foundations work. Flag broken targets before presentation.                                            |
 | `set_prototype_start`       | F09       | Recommended later   | Choose the entry frame for a local prototype player. Start with navigation and overlays; arbitrary scripts and remote hosting are excluded.                                         |
+| `set_frame_approval`        | F11       | Recommended, scoped | Expose approval status, requests and withdrawal with content and dependency evidence. Granting approval stays in the human interface.                                               |
 
-#### Additional recommended capabilities
-
-These are cross-cutting capabilities, not additional entries in the 70-tool count.
-
-| ID  | Capability                             | Condition and reasoning                                                                                                                                                                                                                                                                                                                                                                                                       |
-| --- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| F11 | Human approval and development handoff | Add a human-controlled approval record bound to the reviewed content and dependency versions. Agents may read approval but cannot self-approve. A change to a token, component, font, geometry or other rendered content must invalidate sign-off or preserve an immutable approved snapshot. This extends overview/frame reads after the feature exists.                                                                     |
-| F12 | Optional local MCP bridge              | Add a companion bridge only after validating the intended client and browser connection. Reuse the active editor's engine, registration lifetime and guards; keep editing in the same document as the human. This can broaden agent compatibility without hosted designs or provider credentials. It needs a separate architecture decision because ADR 0001 currently specifies page WebMCP rather than a companion service. |
-
-F11 should follow checkpoints and stable dependency tracking. F12 belongs after the native page-tool workflow is reliable and should target a tested client, rather than promising compatibility with every MCP host.
+F11 follows checkpoints and stable dependency tracking.
 
 ### 2.2 Ignore
 
@@ -214,6 +211,8 @@ The missing prerequisite is recorded so the decision is explicit. It is not a re
 
 #### Additional ignored scope
 
+The standalone MCP companion (originally F12) is retired. Use browser WebMCP for agent access.
+
 Hosted public render URLs, cloud asset/font libraries, team identity/access management, multiplayer infrastructure, resident model roles, provider credentials and built-in AI remain outside this integration roadmap. Portable local component packages under F10 are the recommended reuse path.
 
 Arbitrary HTML/CSS rendering, native Figma/Canva/PSD parity and executable imported scripts are not prerequisites for the recommended native scene capabilities.
@@ -225,9 +224,9 @@ Arbitrary HTML/CSS rendering, native Figma/Canva/PSD parity and executable impor
 3. Add F02 document tokens and F08 the small native icon catalog.
 4. Add F03 components and F04 checkpoints. Component version restoration depends on both; do not expose it early as a thin wrapper.
 5. Add F05 local review and activity, then F11 human approval bound to reviewed dependency versions.
-6. Add F10 portable component reuse and F09 local prototypes. Add token themes after ordinary bindings are stable; undertake F12 separately with a concrete supported client.
+6. Add F10 portable component reuse and F09 local prototypes. Add token themes after ordinary bindings are stable.
 
-This was the comparison-stage prioritization. The subsequent implementation authorization covers every Ready and Recommended item, including those originally labeled later; the candidate evidence above follows that complete scope.
+This order records the original feature dependencies. The release included the Ready and Conditional Recommended features through F11.
 
 ## Integration requirements
 
@@ -242,7 +241,7 @@ This was the comparison-stage prioritization. The subsequent implementation auth
 
 LocalDesign source was inspected at commit `768d9b59eb0d2d99f3b66b50513bda2d2a1e8573`. It exposes 14 canonical page tools and 16 edit command variants. Source evidence includes the strict document schema, tool schemas, export implementation and accepted local architecture.
 
-Doop's connected tool definitions exposed 70 names on 13 November 2026. Its guide and exposed contracts were inspected during this comparison; editing, import and external integration behavior was not exercised. The public documentation provides supporting context and may lag the connected catalog.
+The original comparison found 70 tools on 13 November 2026. The release recheck found 71, adding `set_frame_approval`. We inspected Doop’s guide and exposed contracts during this comparison, but editing, import and external integration behavior was not exercised. The public documentation provides supporting context and may lag the connected catalog.
 
 Earlier in this chat, the built-in browser discovered LocalDesign's deployed tools and successfully read its skill catalog and getting-started guide. That establishes the observed discovery/guidance calls, not execution of every operation or deployment of the source snapshot above. No new runtime, hosted CI or deployment verification was performed for this decision document.
 
@@ -258,7 +257,7 @@ Earlier in this chat, the built-in browser discovered LocalDesign's deployed too
 
 ### Doop sources
 
-- Connected Doop MCP tool definitions and get_guide response observed in this chat; these supply the 70-name inventory and detailed operation contracts.
+- Connected Doop MCP tool definitions and get_guide response observed in this chat; these supply the 71-name inventory and detailed operation contracts.
 - [Agent connection and public tool reference](https://doop.design/docs/get-started).
 - [Design tokens](https://doop.design/docs/tokens).
 - [Documentation index for collaboration, history, prototypes, imports and exports](https://doop.design/docs).

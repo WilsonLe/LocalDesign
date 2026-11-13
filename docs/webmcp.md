@@ -2,7 +2,7 @@
 
 Try the agent host’s built-in browser and page-tool discovery before opening Chrome, unless the user chose a browser or already attached a LocalDesign tab. Fall back only when the built-in browser is unavailable or lacks the required capability, explaining the observed reason; check the connection state and retry discovery before switching after a discovery failure. Working copies are browser-local: preserve existing work with a native export or resolve unsaved storage errors, then rediscover tools and inspect the destination document/revision before editing. The same URL does not transfer a working copy between browsers.
 
-Open the deployed app in a browser host that supports `document.modelContext.registerTool`. The desktop built-in browser used during development supports site-tool discovery. Ordinary browsers can edit without WebMCP; the Connect agent dialog explains the current registration state. A standard MCP host can optionally use the explicitly connected [loopback stdio companion](local-mcp.md). There is no hosted HTTP MCP endpoint, provider token, in-app chat or built-in agent.
+WebMCP is LocalDesign’s agent interface. Open the deployed app in a browser host that supports `document.modelContext.registerTool`. The desktop built-in browser used during development supports site-tool discovery. You can edit manually in ordinary browsers. The Connect agent dialog reports whether the browser registered the page tools.
 
 Ask the external agent: “Discover this page's tools, call localdesign_list_skills, read getting-started using localdesign_get_skill, then help me design …”. Runtime tool names may have a browser-generated suffix: use exactly the names returned by the host's discovery API. Guides refer to canonical names. The served instructions include the complete tool loop, model, boundaries, recovery and examples. UI design and typography packages require no prior plugin knowledge or network checkout.
 
@@ -66,7 +66,7 @@ Tool JSON schemas use document-local `$defs`/`$ref` for repeated structures, inc
 
 ## Native reuse, history and review
 
-The three complete runtime packages at bundle 1.3.0 contain the native resource workflow and two executable schema examples. Read them through list_skills/get_skill; no external workflow installation is required. The catalog exposes 26 canonical page tools, plus the optional companion's own connection-status tool on that transport only.
+The three complete runtime packages at bundle 1.3.1 contain the native resource workflow and two executable schema examples. Read them through list_skills/get_skill. The catalog exposes 26 canonical WebMCP tools.
 
 Components retain scoped stable parts, typed properties, ordered conditional variants and explicit nested references. Scene instances materialize ordinary native nodes for rendering. Style/text updates record sparse overrides; root placement remains independent. Structural changes inside an instance require detach. Existing definition writes require expectedComponentRevision; stale authoring source copies require an explicit reviewed opt-in. validate_edits returns bounded componentImpact; incompatible properties/overrides reject by default. preview_variants renders up to 16 labeled states through native rendering. Recoverable deletion retains definitions and frozen direct uses; nested references remain usable. checkpoint_restore supplies guarded version restoration as a new component/document revision.
 

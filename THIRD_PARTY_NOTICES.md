@@ -53,7 +53,3 @@ jsPDF 4.2.1 (https://github.com/parallax/jsPDF) and svg2pdf.js 2.9.0 (https://gi
 ## Bundled native icons
 
 48 icons from lucide-react 1.72.0, https://github.com/lucide-icons/lucide, Copyright (c) 2026 Lucide Icons and Contributors, ISC. Listed Feather-derived icons also retain the MIT notice, Copyright (c) 2013-present Cole Bemis. The complete combined notice ships in public/lucide-LICENSE.txt and src/icons/catalog.json. scripts/build-icons.mjs converts only the explicit pinned inventory into native path geometry; the build verifies both data and notice against the installed lockfile-pinned source. Native nodes retain the notice, and local SVG/PNG/JPEG/PDF outputs include deduplicated attribution metadata.
-
-## Optional local MCP companion
-
-The Node-only companion uses pinned `@modelcontextprotocol/server` 2.4.0 and `@modelcontextprotocol/client` 2.4.0 (Apache-2.0), from https://github.com/modelcontextprotocol/typescript-sdk, and `ws` 8.23.0 (MIT), from https://github.com/websockets/ws. Complete licenses/NOTICE files accompany the installed packages in node_modules; these packages are not imported into the browser bundle. The client SDK is used by interoperability acceptance tests. The application retains its own MIT license.

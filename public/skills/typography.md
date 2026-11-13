@@ -13,7 +13,7 @@ Reference guidance embedded: font discovery/license/coverage distinction, index 
 
 ## Available capabilities and limits
 
-LocalDesign is a browser-local native design editor with no built-in AI, account, cloud design store, provider key or host-path reader. Use the active page tools, or an explicitly connected optional local MCP companion. Supported features include native shapes/text/layout, context/references, tokens/themes, components/variants, persistent checkpoints, local review, prototypes, portable component packages, human handoff and native/SVG/PNG/JPEG/PDF outputs. Native Figma/vendor conversion, arbitrary HTML/SVG CSS/filters, variable/color fonts, vector booleans, multiplayer and animation remain unsupported. Read current catalog schemas and resource limits.
+LocalDesign is a browser-local native design editor with no built-in AI, account, cloud design store, provider key or host-path reader. Use the active page’s WebMCP tools. Supported features include native shapes/text/layout, context/references, tokens/themes, components/variants, persistent checkpoints, local review, prototypes, portable component packages, human handoff and native/SVG/PNG/JPEG/PDF outputs. Native Figma/vendor conversion, arbitrary HTML/SVG CSS/filters, variable/color fonts, vector booleans, multiplayer and animation remain unsupported. Read current catalog schemas and resource limits.
 
 ## Browser preference
 
@@ -134,13 +134,11 @@ prototype_set replaces prototype {entryFrameId,interactions}. Each click interac
 
 handoff_request creates {id,frameId,requestedBy,note}. localdesign_handoffs reads pending/approved/changed/unverified/missing-frame status and retained evidence. Agents cannot grant approval: ask the human to use Handoff's trusted Approve current frame control, then read back status. Sign-off binds rendered native content and component/token/font/image dependencies plus that frame's interactions, retaining a checkpoint. Changes invalidate it while approved evidence stays viewable. Browser-local trust is stored separately from design data; imported/copied or history-recreated claims require fresh human review. handoff_revoke/delete are ordinary guarded changes. Never describe an automated fixture check as the user's approval of a design.
 
-### Outputs and optional companion
+### Outputs
 
 localdesign_export_design supports native,svg,png,jpeg,pdf; scale 0.01–4, mode isolated/composition, background and JPEG quality. Composition crops original artwork including overlaps/ancestor clips; JPEG uses a white underlay. PDF frameIds is an explicit ordered list of 1–100 frames, across pages. Alpha/image crops follow the shared owner; group-opacity pages use raster output and return a warning. Maximum output axis is 16,384 px; raster output is 40 million pixels. Native preserves the whole editable scene, resources and persistent review data.
 
 Native schema v3 migrates v1/v2 and rejects unknown future versions before replacement. Backups include the complete small bundled font set, including inactive theme/reuse needs. Export and reopen complete file bytes when portability matters. Storage errors keep the working copy and expose backup, save-copy and retry.
-
-A standard MCP host can optionally launch the documented loopback companion and explicitly connect the intended tab through Connect agent. It uses the same active engine, tools, artifacts, guards and epoch. It is not a hosted endpoint or model. The session code stays out of URLs/documents/storage. Disconnect, page retirement and document switches retire stale operations; rediscover tools and inspect after transitions. Report the actual client/browser tested, not universal compatibility. Use the setup link in Connect agent; runtime guidance does not authorize installing software or accepting new permissions.
 
 ## Native resource example
 
@@ -272,7 +270,7 @@ State actual document/revision, edited nodes, dimensions, font IDs/styles, metri
 
 ## Attribution and version
 
-Local adaptation 1.3.0; bundle 1.3.0. Adapted from Agentic Workflows `typography`. Source https://github.com/WilsonLe/agentic-workflows/tree/e29fcb3f80371841d529eaea047fa13619378563; Copyright (c) 2026 Wilson Le, MIT. Upstream links are optional provenance only; all required instructions are included above. Full MIT notice accompanies this app in THIRD_PARTY_NOTICES.md.
+Local adaptation 1.3.1, bundle 1.3.1. Adapted from Agentic Workflows `typography`. Source https://github.com/WilsonLe/agentic-workflows/tree/e29fcb3f80371841d529eaea047fa13619378563; Copyright (c) 2026 Wilson Le, MIT. Upstream links are optional provenance only; all required instructions are included above. Full MIT notice accompanies this app in THIRD_PARTY_NOTICES.md.
 
 ### MIT notice for adapted guidance
 

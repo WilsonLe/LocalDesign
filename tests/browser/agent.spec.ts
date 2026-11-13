@@ -29,6 +29,8 @@ test("scripted cold start uses only served schemas/skills, validates, authors, p
       expectedBundleVersion: catalog.bundleVersion,
     });
     expect(p.instructions).toContain("## Tool loop");
+    expect(p.instructions).toContain("Use the active page’s WebMCP tools.");
+    expect(p.instructions).not.toMatch(/companion|loopback/i);
     expect(p.instructions).toContain(
       "Hero → Selected work → Get in touch → Footer",
     );
@@ -203,6 +205,25 @@ test("agent/human interleaving, atomic errors, idempotent retries, shared select
   });
   expect(bad.code).toBe("MISSING_NODE");
   expect((await inspect(page)).name).toBe("Untitled design");
+  const artifact = await tool(page, "export_design", { format: "svg" });
+  const reopened = await tool(page, "workspace", {
+    action: "open",
+    id: d.documentId,
+    guard: {
+      expectedDocumentId: d.documentId,
+      expectedRevision: d.revision,
+      requestId: "reopen-active-doc",
+    },
+  });
+  expect(reopened.isError, reopened.message).not.toBe(true);
+  const afterReopen = await inspect(page);
+  expect(afterReopen.documentId).toBe(d.documentId);
+  expect(afterReopen.revision).toBe(d.revision);
+  expect(afterReopen.nodes[0].x).toBe(80);
+  expect(
+    (await tool(page, "artifact", { action: "metadata", id: artifact.id }))
+      .code,
+  ).toBe("MISSING_ARTIFACT");
   await page.evaluate(() => {
     const t = (window as any).__testSiteTools.get("localdesign_apply_edits");
     (window as any).__retiredTool = t;

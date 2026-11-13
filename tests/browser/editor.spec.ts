@@ -355,6 +355,11 @@ test("normal editing without WebMCP, wide/narrow drawers, keyboard focus and cur
   await expect(
     page.getByText("WebMCP is unavailable in this browser", { exact: true }),
   ).toBeVisible();
+  const agentDialog = page.getByRole("dialog", {
+    name: "A canvas your agent can use",
+  });
+  await expect(agentDialog.getByText("localdesign_list_skills")).toBeVisible();
+  await expect(agentDialog.getByLabel("Loopback endpoint")).toHaveCount(0);
   await page.getByRole("button", { name: "Close dialog" }).click();
   await expect(
     page.getByRole("button", { name: "Connect an agent" }),
