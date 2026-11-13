@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { FolderOpen, LoaderCircle, Trash2 } from "lucide-react";
 import { Button } from "../components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+} from "../components/ui/alert-dialog";
 import type { Workspace } from "../storage/workspace";
 import { workspacePath } from "./workspaceRoute";
 
@@ -23,8 +31,15 @@ export function WorkspaceList({
       ReturnType<Workspace["list"]>
     > | null>(null),
     [listError, setListError] = useState(""),
-    [deleting, setDeleting] = useState(false);
+    [deleting, setDeleting] = useState(false),
+    [pendingDelete, setPendingDelete] = useState<{
+      id: string;
+      name: string;
+    } | null>(null),
+    [deleteError, setDeleteError] = useState("");
   const heading = useRef<HTMLHeadingElement>(null);
+  const cancelDelete = useRef<HTMLButtonElement>(null);
+  const deleteTrigger = useRef<HTMLButtonElement>(null);
   const refresh = async () => {
     setListError("");
     try {
@@ -57,20 +72,16 @@ export function WorkspaceList({
       window.removeEventListener("focus", changed);
     };
   }, [workspace, loading]);
-  const remove = async (id: string, name: string) => {
-    if (
-      !confirm(
-        `Delete “${name}” from this browser? Exported files are unaffected.`,
-      )
-    )
-      return;
+  const remove = async () => {
+    if (!pendingDelete || deleting) return;
     setDeleting(true);
+    setDeleteError("");
     try {
-      await workspace.remove(id);
+      await workspace.remove(pendingDelete.id);
       await refresh();
-      heading.current?.focus();
+      setPendingDelete(null);
     } catch (e) {
-      setListError(e instanceof Error ? e.message : String(e));
+      setDeleteError(e instanceof Error ? e.message : String(e));
     } finally {
       setDeleting(false);
     }
@@ -124,10 +135,15 @@ export function WorkspaceList({
                   <strong title={d.name}>{d.name}</strong>
                 </a>
                 <Button
+                  size="icon-lg"
                   aria-label={`Delete ${d.name}`}
                   title="Delete workspace"
                   disabled={deleting || loading}
-                  onClick={() => void remove(d.id, d.name)}
+                  onClick={(e) => {
+                    deleteTrigger.current = e.currentTarget;
+                    setDeleteError("");
+                    setPendingDelete({ id: d.id, name: d.name });
+                  }}
                 >
                   <Trash2 size={16} />
                 </Button>
@@ -143,6 +159,54 @@ export function WorkspaceList({
           )
         )}
       </div>
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent
+          initialFocus={cancelDelete}
+          finalFocus={() =>
+            deleteTrigger.current?.isConnected
+              ? deleteTrigger.current
+              : heading.current
+          }
+          aria-busy={deleting}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete workspace?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogDescription>
+            Delete “{pendingDelete?.name}” from this browser? This cannot be
+            undone. Exported files are unaffected.
+          </AlertDialogDescription>
+          {deleteError && (
+            <p role="alert" className="text-sm text-destructive break-words">
+              Could not delete this workspace. {deleteError} Try again.
+            </p>
+          )}
+          <AlertDialogFooter>
+            <Button
+              ref={cancelDelete}
+              variant="outline"
+              size="default"
+              disabled={deleting}
+              onClick={() => setPendingDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="default"
+              disabled={deleting}
+              onClick={() => void remove()}
+            >
+              {deleting ? "Deleting…" : "Delete workspace"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

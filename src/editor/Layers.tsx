@@ -41,7 +41,18 @@ export const Layers = memo(function Layers({
     [collapsed, setCollapsed] = useState(new Set<string>());
   const activePage = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    activePage.current?.scrollIntoView({ block: "nearest" });
+    const page = activePage.current;
+    if (!page) return;
+    // Size notifications arrive after layout, so revealing the page does not
+    // force a synchronous reflow of the newly mounted SVG. A closed drawer
+    // keeps its observer until it is opened and has a real scroll area.
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry?.contentRect.height) return;
+      page.scrollIntoView({ block: "nearest" });
+      observer.disconnect();
+    });
+    observer.observe(page.parentElement!);
+    return () => observer.disconnect();
   }, [pageId]);
   const run = (commands: Command[]) => {
     try {
@@ -197,7 +208,7 @@ export const Layers = memo(function Layers({
                   page: {
                     id,
                     name: `Page ${doc.pages.length + 1}`,
-                    background: "#202020",
+                    background: "none",
                   },
                 },
               ]);

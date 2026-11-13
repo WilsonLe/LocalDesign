@@ -46,6 +46,25 @@ function bundledFixtures() {
     return font;
   });
 }
+
+it("cached built-in font choices do not hide a document face or its removal", () => {
+  const doc = blankDocument();
+  const node = makeNode("text", doc.pages[0].id, {
+    fontFamily: "Source Serif 4",
+    text: "Visible choice",
+  });
+  const builtin = resolveFont(node, doc);
+  expect(builtin.id).toBe("bundle-source-serif-4-400-normal");
+  const local = serif();
+  doc.fonts.push(local);
+  expect(resolveFont(node, doc).id).toBe(local.id);
+  doc.fonts = [];
+  expect(resolveFont(node, doc).id).toBe(builtin.id);
+  node.fontWeight = "700";
+  expect(resolveFont(node, doc).weight).toBe("700");
+  node.fontId = "missing-face";
+  expect(resolveFont(node, doc).warning).toContain("Missing font ID");
+});
 it("opens a full image catalog with portable multi-file local fonts in the same archive", () => {
   const doc = blankDocument(),
     font = localFont(

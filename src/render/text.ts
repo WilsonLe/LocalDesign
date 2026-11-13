@@ -17,8 +17,11 @@ export function textLineOrigin(n: DesignNode, width: number, index: number) {
 type Measurement = ReturnType<typeof computeMeasurement>;
 const measurements = new Map<string, Measurement>();
 let retainedCharacters = 0;
-export function measureText(n: DesignNode, doc?: DesignDocument): Measurement {
-  const font = resolveFont(n, doc);
+export function measureText(
+  n: DesignNode,
+  doc?: DesignDocument,
+  font = resolveFont(n, doc),
+): Measurement {
   // Position, rotation and paint do not change wrapping or glyph metrics.
   // Include resolved bytes and request identity so replacement/readiness cannot go stale.
   const key = JSON.stringify([

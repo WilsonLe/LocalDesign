@@ -54,7 +54,7 @@ describe("shared engine transactions", () => {
     engine.dispatch([
       { op: "page_update", id: engine.pageId, patch: { name: "Another name" } },
     ]);
-    expect(engine.document.pages[0].background).toBe("#202020");
+    expect(engine.document.pages[0].background).toBe("none");
   });
   it("rejects an entire invalid batch, including earlier valid operations, without history", () => {
     const { engine, a } = scene(),

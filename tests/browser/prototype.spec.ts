@@ -116,6 +116,12 @@ for (const width of [1440, 390])
       },
     ]);
     const revision = (await inspect(page)).revision;
+    if (width <= 850) {
+      await page
+        .getByRole("button", { name: "Design resources", exact: true })
+        .click();
+      await page.getByRole("tab", { name: "Prototype", exact: true }).click();
+    }
     await page
       .getByRole("button", { name: "Play prototype", exact: true })
       .click();

@@ -20,6 +20,7 @@ import { uid, type DesignNode } from "../core/model";
 import { measureText } from "../render/text";
 import { FontControls, FontManager } from "./Fonts";
 import { ComponentSelection } from "./ComponentResources";
+import type { Theme } from "./ThemeToggle";
 function Field({
   label,
   value,
@@ -102,6 +103,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 export const Inspector = memo(function Inspector({
+  theme,
   ready,
   engine,
   document: doc,
@@ -109,6 +111,7 @@ export const Inspector = memo(function Inspector({
   selection,
   onError,
 }: {
+  theme: Theme;
   ready: boolean;
   engine: DesignEngine;
   document: Snapshot["document"];
@@ -181,7 +184,13 @@ export const Inspector = memo(function Inspector({
             <Input
               aria-label="Page background color"
               type="color"
-              value={page.background === "none" ? "#202023" : page.background}
+              value={
+                page.background === "none"
+                  ? theme === "dark"
+                    ? "#0a0a0a"
+                    : "#ffffff"
+                  : page.background
+              }
               onChange={(e) =>
                 run([
                   {
@@ -192,6 +201,21 @@ export const Inspector = memo(function Inspector({
                 ])
               }
             />
+            <Button
+              variant="outline"
+              disabled={page.background === "none"}
+              onClick={() =>
+                run([
+                  {
+                    op: "page_update",
+                    id: page.id,
+                    patch: { background: "none" },
+                  },
+                ])
+              }
+            >
+              Use app theme
+            </Button>
           </Section>
           <FontManager engine={engine} snapshot={snapshot} />
         </>
