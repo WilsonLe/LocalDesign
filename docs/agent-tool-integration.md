@@ -69,6 +69,8 @@ The prefix correction passed its complete local check and independent final-stat
 
 The last green Ubuntu 26.04 run used hosted image `20261111.82.6`; later failures, including `95b64fb` at538.1ms, used `20261111.196.1`. This is an environment lead rather than a proven cause. CI/Pages now select the explicit supported Ubuntu24.04 target; the full suite,500ms ceiling, every first sample and retry policy remain unchanged. Actual final-head hosted results, not this platform choice or local timings, determine release readiness.
 
+The runner pin alone still failed at 587.8 ms. Removing duplicate hit rectangles only where native filled square-corner paint already supplies the same hit box preserves selection for transparent/opacity-zero paint, rounded corners, empty groups, unpainted shapes and paths. The candidate passes all 116 local unit tests, 2 companion contracts and 119 browser journeys; independent hit-region review adds seven browser journeys and six transformed/clipped/locked corner probes. A controlled same-runner [comparison](https://github.com/WilsonLe/LocalDesign/actions/runs/43387468879) retained all 42 first samples: three fresh-browser runs before the full suite, the ordinary cold test, and three after. Their means were 374.6/375.7/376.1 ms; the ordinary maximum was 456.9 ms. This does not support changing test order or process isolation, so both remain unchanged. Temporary diagnostic steps were removed before the final ordinary release check; issue #23 owns that check and the deployment receipts.
+
 ## Decision summary
 
 Keep LocalDesign a browser-local native design editor. Improve agent inspection and visual review first, then add the document features that make repeated design work consistent and recoverable.
