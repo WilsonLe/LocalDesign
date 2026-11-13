@@ -1,9 +1,6 @@
-name: Cold profile (diagnostic)
+name: Matched cold source comparison (diagnostic)
 on:
   workflow_dispatch:
-  pull_request:
-  push:
-    branches: [main]
 permissions:
   contents: read
 jobs:
@@ -18,15 +15,30 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: lscpu
-      - run: npm run build
-      - run: npx playwright test tests/browser/cold-navigation.spec.ts --grep 'first visits'
-        env:
-          LOCALDESIGN_PROFILE: "1"
-          LOCALDESIGN_TRACE: "1"
+      - name: Matched baseline and candidate, retaining every first sample
+        run: |
+          python3 - <<'PYCODE'
+          import subprocess, pathlib, json, os, sys
+          output=pathlib.Path('/tmp/localdesign-source-comparison'); output.mkdir()
+          candidate=os.environ['GITHUB_SHA']
+          results=[]
+          for label,sha in [('baseline','9cccd2d2746192daf783e51a116df85098cd935d'),('candidate',candidate)]:
+              subprocess.run(['git','switch','--detach',sha],check=True)
+              with (output/f'{label}-build.log').open('w') as f:
+                  subprocess.run(['npm','run','build'],stdout=f,stderr=subprocess.STDOUT,check=True)
+              for i in range(3):
+                  log=output/f'{label}-{i}.log'
+                  with log.open('w') as f:
+                      run=subprocess.run(['npx','playwright','test','tests/browser/cold-navigation.spec.ts','--grep','first visits','--output',str(output/f'{label}-{i}')],stdout=f,stderr=subprocess.STDOUT)
+                  text=log.read_text(); line=next(l for l in text.splitlines() if l.startswith('COLD_NAVIGATION '))
+                  result={'phase':label,'run':i,'sha':sha,'exitCode':run.returncode,'metrics':json.loads(line.removeprefix('COLD_NAVIGATION '))}
+                  results.append(result); print(json.dumps(result),flush=True)
+                  (output/'results.json').write_text(json.dumps(results,indent=2))
+          sys.exit(1 if any(r['exitCode'] for r in results) else 0)
+          PYCODE
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: browser-diagnostics
-          path: test-results/
+          name: cold-source-comparison
+          path: /tmp/localdesign-source-comparison/
           retention-days: 7

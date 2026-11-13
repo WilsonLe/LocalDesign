@@ -9,7 +9,7 @@ import { indexNodes, type NodeIndex } from "../core/tree";
 import { ancestors, type DesignDocument, type DesignNode } from "../core/model";
 import { textLineOrigin } from "./text";
 import { textShape } from "./textShape";
-import { compactLine } from "./glyphs";
+import { compactRuns } from "./glyphs";
 import { visibleNodes, type ViewBox } from "./visibility";
 export const NodeShape = memo(
   function NodeShape({
@@ -74,18 +74,18 @@ export const NodeShape = memo(
                 const origin = textLineOrigin(n, shaped.width, i);
                 const compact =
                   compactText && n.stroke === "none"
-                    ? compactLine(shaped)
+                    ? compactRuns(shaped)
                     : null;
                 if (compact)
-                  return (
+                  return compact.map((run, j) => (
                     <use
-                      key={i}
-                      href={`#${compactPrefix}${compact.id}`}
-                      transform={`translate(${origin.x} ${origin.y}) scale(${compact.scale} ${-compact.scale})`}
+                      key={`${i}-${j}`}
+                      href={`#${compactPrefix}${run.compact.id}`}
+                      transform={`translate(${origin.x + run.x} ${origin.y + run.y}) scale(${run.compact.scale} ${-run.compact.scale})`}
                       fill={n.fill}
                       data-compact-text=""
                     />
-                  );
+                  ));
                 return (
                   <g key={i} transform={`translate(${origin.x} ${origin.y})`}>
                     {shaped.glyphs.map((glyph, j) => (
@@ -263,9 +263,10 @@ export const Scene = memo(function Scene({
   )) {
     for (const line of textShape(node, doc).lines) {
       const compact =
-        compactText && node.stroke === "none" ? compactLine(line) : null;
+        compactText && node.stroke === "none" ? compactRuns(line) : null;
       if (compact) {
-        compactGlyphs.set(compact.id, compact.paths);
+        for (const run of compact)
+          compactGlyphs.set(run.compact.id, run.compact.paths);
         continue;
       }
       for (const glyph of line.glyphs) glyphs.set(glyph.id, glyph.path);
@@ -274,13 +275,17 @@ export const Scene = memo(function Scene({
   return (
     <>
       <defs>
-        {[...compactGlyphs].map(([id, paths]) => (
-          <g key={id} id={`${compactPrefix}${id}`}>
-            {paths.map((d, i) => (
-              <path key={i} d={d} />
-            ))}
-          </g>
-        ))}
+        {[...compactGlyphs].map(([id, paths]) =>
+          paths.length === 1 ? (
+            <path key={id} id={`${compactPrefix}${id}`} d={paths[0]} />
+          ) : (
+            <g key={id} id={`${compactPrefix}${id}`}>
+              {paths.map((d, i) => (
+                <path key={i} d={d} />
+              ))}
+            </g>
+          ),
+        )}
         {[...glyphs].map(([id, d]) => (
           <path key={id} id={`${glyphPrefix}${id}`} d={d} />
         ))}

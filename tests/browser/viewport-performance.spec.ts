@@ -422,6 +422,9 @@ test("compact canvas text preserves outlined glyph pixels, overlaps, alpha and s
         "Outlined text",
         "Shared geometry",
         "Shared geometry",
+        "First prefix: Typography remains editable and shared geometry stays local.",
+        "Second prefix: Typography remains editable and shared geometry stays local.",
+        "Third prefix: Typography remains editable and shared geometry stays local.",
       ].map((text, i) => ({
         op: "create",
         node: {
@@ -432,11 +435,25 @@ test("compact canvas text preserves outlined glyph pixels, overlaps, alpha and s
           parentId: "sample-root",
           x: 20,
           y: i * 120,
-          width: 900,
+          width: i >= 8 ? 4000 : 900,
           height: 100,
-          fontSize: i === 7 ? 42.125 : i === 6 ? 64.5 : 56,
+          fontSize:
+            i >= 8
+              ? [40.125, 26.75, 29.75][i - 8]
+              : i === 7
+                ? 42.125
+                : i === 6
+                  ? 64.5
+                  : 56,
           text,
-          fill: i === 7 ? "#ff000080" : i === 4 ? "#ffffff80" : "#fff",
+          fill:
+            i === 9
+              ? "#00ff0080"
+              : i === 7
+                ? "#ff000080"
+                : i === 4
+                  ? "#ffffff80"
+                  : "#fff",
           fontFamily: i === 3 ? "Source Serif 4" : "Inter",
           fontStyle: i === 3 ? "italic" : "normal",
           letterSpacing: i === 2 ? -15 : 0,
@@ -448,6 +465,10 @@ test("compact canvas text preserves outlined glyph pixels, overlaps, alpha and s
   });
   await expect(
     page.locator('[data-node-id="sample-0"] use').last(),
+  ).toBeAttached();
+  await tool(page, "viewport", { x: 100, y: 100, zoom: 0.5 });
+  await expect(
+    page.locator('[data-node-id="sample-10"] use').last(),
   ).toBeAttached();
   const capture = () =>
     page.evaluate(() => ({
@@ -477,18 +498,32 @@ test("compact canvas text preserves outlined glyph pixels, overlaps, alpha and s
     await page.locator('[data-node-id="sample-5"] use').count(),
   ).toBeGreaterThan(5);
   const compact = await capture();
+  expect(
+    await page.locator('[data-node-id="sample-9"] [data-compact-text]').count(),
+  ).toBe(2);
+  expect(
+    await page
+      .locator('[data-node-id="sample-9"] [data-compact-text]')
+      .last()
+      .getAttribute("href"),
+  ).toBe(
+    await page
+      .locator('[data-node-id="sample-10"] [data-compact-text]')
+      .last()
+      .getAttribute("href"),
+  );
   const pixels = await page.evaluate(
     async ({ detailed, compact }) => {
       const decode = async (part: { node: string; defs: string }) => {
         const image = new Image();
-        image.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="260" height="200"><g transform="translate(30 10) scale(.2)">${part.defs}${part.node}</g></svg>`)))}`;
+        image.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="420" height="320"><g transform="translate(30 10) scale(.2)">${part.defs}${part.node}</g></svg>`)))}`;
         await image.decode();
         const canvas = document.createElement("canvas");
-        canvas.width = 260;
-        canvas.height = 200;
+        canvas.width = 420;
+        canvas.height = 320;
         const ctx = canvas.getContext("2d")!;
         ctx.drawImage(image, 0, 0);
-        return ctx.getImageData(0, 0, 260, 200).data;
+        return ctx.getImageData(0, 0, 420, 320).data;
       };
       const a = await decode(detailed),
         b = await decode(compact);
