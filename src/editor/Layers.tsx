@@ -197,7 +197,7 @@ export const Layers = memo(function Layers({
                   page: {
                     id,
                     name: `Page ${doc.pages.length + 1}`,
-                    background: "#202020",
+                    background: "none",
                   },
                 },
               ]);

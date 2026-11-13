@@ -23,6 +23,7 @@ import {
 } from "../core/geometry";
 import { Scene } from "../render/Scene";
 import { blocksCanvasShortcuts } from "./shortcuts";
+import { initialTextFill } from "./surface";
 export type Tool =
   | "select"
   | "hand"
@@ -197,6 +198,9 @@ export function Canvas({
         width: tool === "frame" ? 360 : tool === "text" ? 240 : 160,
         height: tool === "frame" ? 240 : tool === "text" ? 80 : 100,
         ...(tool === "path" ? { path: "M0 0 L160 100" } : {}),
+        ...(tool === "text"
+          ? { fill: initialTextFill(doc, pageId, parent) }
+          : {}),
       });
       mode = "draw";
     } else if (clicked) {
@@ -445,7 +449,10 @@ export function Canvas({
         onPointerMove={move}
         onPointerUp={end}
         onPointerCancel={cancel}
-        style={{ background: page.background }}
+        style={{
+          background:
+            page.background === "none" ? "var(--background)" : page.background,
+        }}
       >
         <defs>
           <pattern
@@ -456,7 +463,13 @@ export function Canvas({
             x={v.x}
             y={v.y}
           >
-            <circle cx="1" cy="1" r="0.8" fill="#ffffff" opacity="0.14" />
+            <circle
+              cx="1"
+              cy="1"
+              r="0.8"
+              fill="var(--muted-foreground)"
+              opacity="0.25"
+            />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#dots)" />
