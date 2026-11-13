@@ -1,5 +1,89 @@
 import { expect, test } from "@playwright/test";
-import { edits, harness, inspect, open, tool } from "./helpers";
+import { artifactBytes, edits, harness, inspect, open, tool } from "./helpers";
+import { strFromU8, unzipSync } from "fflate";
+
+test("native backups retain font bytes needed only by an inactive token theme", async ({
+  page,
+}) => {
+  await harness(page);
+  await open(page);
+  const before = await inspect(page);
+  const themes = [{ id: "serif-mode", name: "Serif" }];
+  await edits(page, [
+    { op: "token_themes_set", themes, activeThemeId: null },
+    {
+      op: "token_set",
+      token: {
+        id: "type-family",
+        name: "type-family",
+        type: "fontFamily",
+        value: "Inter",
+        themes: { "serif-mode": "Source Serif 4" },
+        description: "Heading family",
+      },
+    },
+    {
+      op: "create",
+      node: {
+        id: "heading",
+        type: "text",
+        pageId: before.pageId,
+        name: "Portable heading",
+        text: "Tiếng Việt",
+        fontSize: 32,
+        fontStyle: "italic",
+        fontWeight: "600",
+        width: 300,
+        height: 80,
+        bindings: { fontFamily: "type-family" },
+      },
+    },
+  ]);
+  const native = await tool(page, "export_design", { format: "native" });
+  const bytes = await artifactBytes(page, native.id, native.size);
+  const files = unzipSync(bytes);
+  const catalog = JSON.parse(strFromU8(files["fonts/catalog.json"]));
+  expect(
+    catalog.some(
+      (font: { family: string; weight: string; style: string }) =>
+        font.family === "Source Serif 4" &&
+        font.weight === "600" &&
+        font.style === "italic",
+    ),
+  ).toBe(true);
+  await edits(page, [
+    { op: "token_themes_set", themes, activeThemeId: "serif-mode" },
+  ]);
+  const reference = await tool(page, "export_design", { format: "png" });
+  const referenceBytes = await artifactBytes(
+    page,
+    reference.id,
+    reference.size,
+  );
+  const prepared = await tool(page, "import_files", {
+    action: "prepare",
+    name: "inactive-fonts.localdesign",
+    base64: bytes.toString("base64"),
+  });
+  const current = await inspect(page);
+  const reopened = await tool(page, "import_files", {
+    action: "commit",
+    artifactId: prepared.importId,
+    guard: {
+      expectedDocumentId: current.documentId,
+      expectedRevision: current.revision,
+      requestId: "inactive-font-reopen",
+    },
+  });
+  expect(reopened.isError, reopened.message).not.toBe(true);
+  await edits(page, [
+    { op: "token_themes_set", themes, activeThemeId: "serif-mode" },
+  ]);
+  const exported = await tool(page, "export_design", { format: "png" });
+  expect(await artifactBytes(page, exported.id, exported.size)).toEqual(
+    referenceBytes,
+  );
+});
 
 test("human token binding, alias/theme edits and undo share rendered/exported/native state", async ({
   page,

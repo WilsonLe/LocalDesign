@@ -258,8 +258,22 @@ export async function fontsReady(doc?: DesignDocument) {
   await ready;
   if (doc) await validateFontFaces(doc.fonts);
 }
-export function exportFonts(doc: DesignDocument) {
+export function exportFonts(doc: DesignDocument, includeAllBundled = false) {
   const records = new Map(doc.fonts.map((f) => [f.id, f]));
+  // A native backup can activate an unused theme or insert a reusable definition later.
+  // Keep the small complete bundled set inside its existing reserved byte budget.
+  if (includeAllBundled)
+    for (const choice of availableFonts(doc)) {
+      const record =
+        doc.fonts.find((font) => font.id === choice.id) ??
+        bundled.get(choice.id);
+      requireThat(
+        record,
+        "FONT_UNAVAILABLE",
+        "Wait for fonts before exporting.",
+      );
+      records.set(choice.id, record);
+    }
   for (const node of doc.nodes.filter((n) => n.type === "text")) {
     const resolved = resolveFont(node, doc);
     requireThat(

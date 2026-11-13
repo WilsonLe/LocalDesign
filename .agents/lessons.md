@@ -2,6 +2,10 @@
 
 Keep evidence-based lessons using the improvement skill. No speculative rules or private design content.
 
+## 2026-11-13 — Capture inactive authoring dependencies in native backups
+
+Trigger: issue #23's new regression exported an Inter-default design whose inactive theme requested Source Serif 4 600 italic; the native archive omitted that face because font collection inspected only current text. Correction: native backup collection includes the complete small bundled set within its existing byte/count reserve, preserving document-local faces and resolver order. Render-output collection remains separate. Evidence: `tests/browser/tokens.spec.ts` inspects archive bytes, reopens the backup, activates the other theme and compares identical PNG bytes; font-order/replacement and large-native journeys also pass. Scope: portable dependency collection. Resume with unused theme/reuse dependencies, not only the active visible design, and retain the existing import/budget rejection checks.
+
 ## 2026-11-13 — Give standalone catalog previews a deliberate backdrop
 
 Trigger: the actual built-in browser showed the new dark Lucide preview against its dark transparency backdrop, making the icon difficult to see although the white editor thumbnail was clear. Correction: render standalone icon previews on white through the shared PNG owner; authored-design previews retain their intentional transparency. Evidence: `tests/browser/icons.spec.ts` checks the preview's opaque white corner pixels, plus source geometry and unchanged document state. Scope: catalog previews only. Resume by viewing the actual returned image in the target host; valid bytes and the editor's thumbnail do not establish host contrast.

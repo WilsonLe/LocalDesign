@@ -27,7 +27,7 @@ export async function nativeExport(doc: DesignDocument): Promise<Blob> {
   await validateRasterAssets(doc.assets);
   await fontsReady(doc);
   const portable = structuredClone(doc);
-  portable.fonts = structuredClone(exportFonts(doc));
+  portable.fonts = structuredClone(exportFonts(doc, true));
   validateDocument(portable);
   const files: Record<string, Uint8Array> = {};
   for (const a of portable.assets) {
