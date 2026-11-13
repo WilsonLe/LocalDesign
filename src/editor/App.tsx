@@ -61,8 +61,6 @@ import { Artifacts } from "../files/artifacts";
 import { fontsReady } from "../render/fonts";
 import { connectWebMCP } from "../webmcp/register";
 import { PageToolRuntime } from "../webmcp/runtime";
-import { LoopbackConnection } from "../webmcp/loopback";
-import { LocalMCPConnection } from "./LocalMCPConnection";
 import { listSkills, getSkill } from "../skills/catalog";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
@@ -167,8 +165,6 @@ export function App() {
   const [theme, setTheme] = useState(readTheme);
   const snapshot = useSyncExternalStore(engine.subscribe, engine.getSnapshot),
     { document: doc, selection, viewport } = snapshot;
-  const [loopback, setLoopback] = useState<LoopbackConnection | null>(null);
-  const [localConnected, setLocalConnected] = useState(false);
   const [tool, setTool] = useState<Tool>("select"),
     [notice, setNotice] = useState(""),
     [storage, setStorage] = useState(workspace.status),
@@ -276,11 +272,6 @@ export function App() {
         "Use Import to choose a file. Your browser may require a click before opening its file picker.",
       ),
     );
-    const localConnection = new LoopbackConnection(runtime);
-    setLoopback(localConnection);
-    const stopLocalStatus = localConnection.subscribe(() =>
-      setLocalConnected(localConnection.getSnapshot().status === "connected"),
-    );
     const dispose = connectWebMCP(runtime, setConnection);
     const before = (e: BeforeUnloadEvent) => {
       if (workspace.status === "error" || workspace.status === "saving") {
@@ -294,8 +285,6 @@ export function App() {
       unsub();
       stopNavigation?.();
       dispose();
-      stopLocalStatus();
-      localConnection.dispose();
       runtime.dispose();
       window.removeEventListener("beforeunload", before);
     };
@@ -671,11 +660,9 @@ export function App() {
         />
         <Button
           size="icon-sm"
-          className={`agent-button ${connection === "connected" || localConnected ? "connected" : ""}`}
+          className={`agent-button ${connection === "connected" ? "connected" : ""}`}
           title={
-            connection === "connected" || localConnected
-              ? "Agent ready"
-              : "Connect an agent"
+            connection === "connected" ? "Agent ready" : "Connect an agent"
           }
           aria-label="Connect an agent"
           onClick={() => setModal("agent")}
@@ -1018,7 +1005,6 @@ export function App() {
               </strong>
             </div>
           </div>
-          {loopback && <LocalMCPConnection connection={loopback} />}
           <ol className="agent-steps">
             <li>Open this page in your agent’s WebMCP-capable browser.</li>
             <li>

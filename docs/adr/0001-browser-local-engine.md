@@ -4,6 +4,8 @@ Status: accepted for v0.1 (issue #1). The implementation request approves plan v
 
 The font follow-up in [ADR 0003](0003-portable-fonts.md) supersedes the Inter-only font scope and schema-v1 export decision below; those statements record the initial v0.1 decision.
 
+[ADR 0005](0005-optional-loopback-mcp-companion.md) records the retired companion and confirms WebMCP as the sole agent interface.
+
 React/TypeScript/Vite render a static app. `src/core/commands.ts` owns runtime schemas and tool JSON schemas. `src/core/engine.ts` owns all document edits, layout, atomic validation, monotonic revisions, retry receipts and undo/redo. UI gestures preview transient clones and submit one batch on pointer release; selection/view state has no undo entries. Browser-local IndexedDB copies save before document switching. Explicit native file exports are the portable backup.
 
 SVG scene rendering is shared by canvas, SVG and rasterized PNG export. Native `.localdesign` ZIP archives hold schema-v1 `document.json`, embedded images and the bundled licensed fonts. Safe SVG import intentionally rejects unsupported constructs rather than inserting markup. Versions, hierarchy, sizes, paths and assets validate before replacement. Text is browser-canvas measured and rendered by the same scene path; unsupported-script fallback is explicit. Arbitrary font installation, .fig files, vector booleans, advanced constraints and multiplayer remain outside v0.1.

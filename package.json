@@ -1,6 +1,6 @@
 {
   "name": "localdesign",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -17,11 +17,9 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "check:skills": "node scripts/check-skills.mjs && vitest run tests/skills.test.ts",
-    "check": "npm run build && npm test && npm run check:companion && npm run test:e2e",
-    "format": "prettier --write src tests scripts companion docs .agents AGENTS.md README.md CONTRIBUTING.md THIRD_PARTY_NOTICES.md package.json tsconfig.json vite.config.ts playwright.config.ts .github",
-    "format:check": "prettier --check src tests scripts companion docs .agents AGENTS.md README.md CONTRIBUTING.md THIRD_PARTY_NOTICES.md package.json tsconfig.json vite.config.ts playwright.config.ts .github",
-    "mcp": "node --experimental-strip-types companion/server.mjs",
-    "check:companion": "node --experimental-strip-types --test companion/server.test.mjs"
+    "check": "npm run build && npm test && npm run test:e2e",
+    "format": "prettier --write src tests scripts docs .agents AGENTS.md README.md CONTRIBUTING.md THIRD_PARTY_NOTICES.md package.json tsconfig.json vite.config.ts playwright.config.ts .github",
+    "format:check": "prettier --check src tests scripts docs .agents AGENTS.md README.md CONTRIBUTING.md THIRD_PARTY_NOTICES.md package.json tsconfig.json vite.config.ts playwright.config.ts .github"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
@@ -43,8 +41,6 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "2.4.0",
-    "@modelcontextprotocol/server": "2.4.0",
     "@playwright/test": "1.65.0",
     "@tailwindcss/vite": "4.3.5",
     "@types/node": "22.19.7",
@@ -55,7 +51,6 @@
     "tailwindcss": "4.3.5",
     "typescript": "5.9.3",
     "vite": "8.3.8",
-    "vitest": "5.1.0",
-    "ws": "8.23.0"
+    "vitest": "5.1.0"
   }
 }

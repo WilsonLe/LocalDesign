@@ -1,12 +1,10 @@
 import type { Workspace } from "../storage/workspace";
 import { Artifacts } from "../files/artifacts";
 import { createTools, type SiteTool } from "./tools";
-import { requireThat } from "../core/model";
-/** One active page session owns artifacts, tool implementations and retirement for both transports. */
+/** One active page session owns artifacts, WebMCP tools and their retirement. */
 export class PageToolRuntime {
-  readonly artifacts = new Artifacts();
+  private readonly artifacts = new Artifacts();
   tools: SiteTool[] = [];
-  epoch = crypto.randomUUID();
   controller = new AbortController();
   private activeId: string | undefined;
   private closed = false;
@@ -14,7 +12,7 @@ export class PageToolRuntime {
   private listeners = new Set<() => void>();
   private unsubscribe: () => void;
   constructor(
-    readonly workspace: Workspace,
+    private readonly workspace: Workspace,
     private onPicker: () => void,
   ) {
     this.unsubscribe = workspace.subscribe(this.refresh);
@@ -39,7 +37,6 @@ export class PageToolRuntime {
     this.controller.abort();
     this.artifacts.clear();
     this.controller = new AbortController();
-    this.epoch = crypto.randomUUID();
     this.tools = createTools(
       this.workspace,
       this.artifacts,
@@ -53,7 +50,6 @@ export class PageToolRuntime {
     this.controller.abort();
     this.artifacts.clear();
     this.tools = [];
-    this.epoch = crypto.randomUUID();
     this.notify();
   };
   private show = () => {
@@ -61,35 +57,6 @@ export class PageToolRuntime {
     this.activeId = undefined;
     this.refresh();
   };
-  catalog() {
-    return {
-      epoch: this.epoch,
-      documentId: this.workspace.engine.document.id,
-      documentOpen: this.workspace.active,
-      tools: this.tools.map(({ execute: _, ...tool }) => {
-        void _;
-        return tool;
-      }),
-    };
-  }
-  async invoke(
-    name: string,
-    input: unknown,
-    epoch: string,
-    signal: AbortSignal,
-  ) {
-    requireThat(
-      !this.closed &&
-        !this.suspended &&
-        !this.controller.signal.aborted &&
-        epoch === this.epoch,
-      "DISPOSED",
-      "The page tool session changed; discover its current catalog.",
-    );
-    const tool = this.tools.find((tool) => tool.name === name);
-    requireThat(tool, "MISSING_TOOL", "Discover the active page tools again.");
-    return tool.execute(input, { signal });
-  }
   dispose() {
     this.closed = true;
     this.unsubscribe();

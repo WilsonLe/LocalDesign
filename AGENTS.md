@@ -14,6 +14,7 @@ All required references resolve inside this repository. Upstream provenance is a
 
 ## Invariants and completion
 
+- Browser WebMCP is the sole agent integration. Keep the page as the owner of agent registration and do not add a standalone MCP transport.
 - `src/core/commands.ts` owns runtime/JSON schemas; `engine.ts` owns document mutations. UI, shortcuts and WebMCP must use that owner. Keep atomic failure, revision guards/retries, single-gesture history, selection/view separation and action parity.
 - Never insert imported SVG markup into the app. Preserve size/path/asset limits and import-before-replacement validation. Keep user working copies on failures and expose backup/retry. Never upload designs or add provider credentials/built-in AI without a new user request.
 - Shared controls use LocalCut’s shadcn base-vega/Base UI pattern in `src/components/ui`; neutral light/dark theme tokens live in `src/theme.css`, with editor-specific geometry in `src/style.css`. Keep the default light theme, explicit light/dark switch, theme-following blank canvas and monochrome drafting mark aligned with the user’s current direction. Use shared control variants rather than native controls or CSS appearance overrides; npm run check:ui enforces the boundary.

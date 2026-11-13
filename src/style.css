@@ -1743,21 +1743,4 @@
     object-fit: contain;
     background: var(--muted);
   }
-  .local-mcp-connection {
-    margin: 16px 0;
-  }
-  .local-mcp-connection summary {
-    cursor: pointer;
-    font-size: 13px;
-  }
-  .local-mcp-connection form {
-    display: grid;
-    gap: 12px;
-    margin: 14px 0;
-  }
-  .local-mcp-connection label {
-    display: grid;
-    gap: 6px;
-    font-size: 12px;
-  }
 }

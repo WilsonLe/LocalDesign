@@ -1,5 +1,5 @@
 {
-  "bundleVersion": "1.3.0",
+  "bundleVersion": "1.3.1",
   "maxResponseBytes": 48000,
   "source": {
     "url": "https://github.com/WilsonLe/agentic-workflows",
@@ -19,10 +19,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.3.0",
+      "version": "1.3.1",
       "path": "getting-started.md",
-      "sha256": "cf9c0e4226f4f1d3b670a50ae8a643b3711fb9ad8b1d4d2dbe590b6086b09326",
-      "bytes": 32300,
+      "sha256": "37b767a44b16634612eb5848a73075374feec7f37d1c36a51d8280403f3a0c81",
+      "bytes": 31615,
       "originalSkillIds": []
     },
     {
@@ -36,10 +36,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.3.0",
+      "version": "1.3.1",
       "path": "ui-design.md",
-      "sha256": "a0ec09b9b20a69d0a40e30004b390e79ec54c5be561e28ffbca92ee5a87b9254",
-      "bytes": 34495,
+      "sha256": "48ee7940a17727bf3698423bf1e4072aebc2cef265e6c5585d77360b8ebcfc91",
+      "bytes": 33810,
       "originalSkillIds": [
         "ui-design"
       ]
@@ -55,10 +55,10 @@
         "rendered verification",
         "portable export"
       ],
-      "version": "1.3.0",
+      "version": "1.3.1",
       "path": "typography.md",
-      "sha256": "8fd3e55bd12538b47f04186952cdc4b552ed607e9d22941424ccc4523bad71bf",
-      "bytes": 34891,
+      "sha256": "8fec78ce71df29b7dbae0e5e380dd451e97400f78a502cecf376860b391a6bf5",
+      "bytes": 34206,
       "originalSkillIds": [
         "typography"
       ]
@@ -402,5 +402,5 @@
       "reason": "Host orchestration, source-only examples, generator metadata, or unrelated workflows are outside this static editor and its concise development adaptations."
     }
   ],
-  "adaptationNotes": "Bundle 1.3.0 covers the native agent-tool integration: context, bounded inspection/previews, raster ingress, tokens/themes, icons, components/variants/source publishing, checkpoints, dependency-closed local packages/clipboard, local review/activity, prototypes and human-only handoff. Documents shared guards/lifecycle, bounded outputs/artifacts, schema-v3 migration, scaled JPEG/PDF/composition exports and the optional explicit loopback transport. Original upstream provenance and browser preference remain unchanged; these are original native integrations rather than claims of Doop runtime equivalence."
+  "adaptationNotes": "Bundle 1.3.1 documents WebMCP as the sole agent interface. It covers native context, inspection/previews, raster ingress, tokens/themes, icons, components, checkpoints, portable packages/clipboard, local review/activity, prototypes, human handoff and exports. The shared action guards, artifact limits, schema-v3 migration and browser preference remain documented."
 }
