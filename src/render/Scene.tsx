@@ -18,12 +18,14 @@ export const NodeShape = memo(
     glyphPrefix = "",
     compactText = false,
     compactPrefix = "",
+    includeTitle = true,
   }: {
     node: DesignNode;
     doc: DesignDocument;
     glyphPrefix?: string;
     compactText?: boolean;
     compactPrefix?: string;
+    includeTitle?: boolean;
   }) {
     const style = {
       fill: n.fill,
@@ -66,7 +68,7 @@ export const NodeShape = memo(
         const { lines, font } = textShape(n, doc);
         return (
           <>
-            <title>{n.text}</title>
+            {includeTitle && <title>{n.text}</title>}
             {font.record &&
               lines.map((shaped, i) => {
                 const origin = textLineOrigin(n, shaped.width, i);
@@ -121,7 +123,8 @@ export const NodeShape = memo(
     previous.doc.fonts === next.doc.fonts &&
     previous.glyphPrefix === next.glyphPrefix &&
     previous.compactText === next.compactText &&
-    previous.compactPrefix === next.compactPrefix,
+    previous.compactPrefix === next.compactPrefix &&
+    previous.includeTitle === next.includeTitle,
 );
 
 export function SceneNode({
@@ -150,12 +153,16 @@ export function SceneNode({
   return (
     <g
       data-node-id={interactive ? n.id : undefined}
-      strokeLinecap={n.type === "text" ? n.strokeLinecap : undefined}
-      strokeLinejoin={n.type === "text" ? n.strokeLinejoin : undefined}
+      strokeLinecap={
+        n.type === "text" && n.stroke !== "none" ? n.strokeLinecap : undefined
+      }
+      strokeLinejoin={
+        n.type === "text" && n.stroke !== "none" ? n.strokeLinejoin : undefined
+      }
       aria-label={n.type === "text" ? n.text : undefined}
       data-font-id={n.type === "text" ? textShape(n, doc).font.id : undefined}
       transform={`translate(${n.x} ${n.y}) rotate(${n.rotation})`}
-      opacity={n.opacity}
+      opacity={n.opacity === 1 ? undefined : n.opacity}
       onPointerDown={onPointerDown}
       style={
         interactive
@@ -176,6 +183,7 @@ export function SceneNode({
         glyphPrefix={glyphPrefix}
         compactText={compactText}
         compactPrefix={compactPrefix}
+        includeTitle={!interactive}
       />
       {interactive &&
         !(
