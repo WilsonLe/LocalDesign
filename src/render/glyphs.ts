@@ -34,16 +34,9 @@ type PositionedGlyph = {
   x: number;
   y: number;
   scale: number;
-  unitX?: number;
-  unitY?: number;
   ink: { x: number; y: number; width: number; height: number };
 };
-type Line = {
-  glyphs: PositionedGlyph[];
-  width: number;
-  geometryKey?: string;
-  origin?: { x: number; y: number };
-};
+type Line = { glyphs: PositionedGlyph[]; width: number; geometryKey?: string };
 const lines = new Map<string, Line>();
 let retainedGlyphs = 0;
 function segmentsFor(record: DocumentFont, text: string) {
@@ -202,8 +195,6 @@ export function shapeLine(
   const segments = segmentsFor(record, text);
   let x = 0,
     y = 0,
-    unitX = 0,
-    unitY = 0,
     spacing = false;
   const glyphs: PositionedGlyph[] = [];
   for (const segment of segments) {
@@ -234,8 +225,6 @@ export function shapeLine(
           x: gx,
           y: gy,
           scale,
-          unitX: unitX + position.xOffset,
-          unitY: unitY - position.yOffset,
           ink: {
             x: gx + box.minX * scale,
             y: gy - box.maxY * scale,
@@ -246,11 +235,8 @@ export function shapeLine(
       }
       x += position.xAdvance * scale;
       y -= position.yAdvance * scale;
-      unitX += position.xAdvance;
-      unitY -= position.yAdvance;
       if (position.xAdvance) {
         x += n.letterSpacing;
-        unitX += n.letterSpacing / scale;
         spacing = true;
       }
     }
@@ -366,7 +352,7 @@ export function compactLine(line: Line): Compact | null {
       current = "";
     }
     const outline = relativeOutline(glyph);
-    const path = `M${(glyph.x - (line.origin?.x ?? 0)) / scale + outline.x} ${-(glyph.y - (line.origin?.y ?? 0)) / scale + outline.y}${outline.rest}`;
+    const path = `M${glyph.x / scale + outline.x} ${-glyph.y / scale + outline.y}${outline.rest}`;
     bytes += path.length;
     if (bytes > 500_000) {
       compactLines.set(line, null);
@@ -397,62 +383,4 @@ export function compactLine(line: Line): Compact | null {
   }
   compactLines.set(line, result);
   return result;
-}
-
-type CompactRun = { compact: Compact; x: number; y: number };
-const canvasLines = new WeakMap<Line, CompactRun[] | null>();
-const suffixes = new Map<string, true>();
-let suffixCharacters = 0;
-export function compactRuns(line: Line): CompactRun[] | null {
-  if (canvasLines.has(line)) return canvasLines.get(line)!;
-  const whole = () => {
-    const value = compactLine(line);
-    const runs = value ? [{ compact: value, x: 0, y: 0 }] : null;
-    canvasLines.set(line, runs);
-    return runs;
-  };
-  if (
-    !line.geometryKey ||
-    line.glyphs.length <= 32 ||
-    geometries.has(line.geometryKey) ||
-    line.glyphs.some(
-      (g) =>
-        g.unitX === undefined ||
-        g.unitY === undefined ||
-        g.scale !== line.glyphs[0].scale,
-    ) ||
-    line.glyphs.reduce((n, g) => n + g.path.length, 0) > 250_000
-  )
-    return whole();
-  const tail = line.glyphs.slice(-32),
-    first = tail[0];
-  const key = `suffix:${tail.map((g) => `${g.id}:${g.unitX! - first.unitX!}:${g.unitY! - first.unitY!}`).join(";")}`;
-  if (!suffixes.has(key)) {
-    while (suffixes.size && suffixCharacters + key.length > 1_000_000) {
-      const old = suffixes.keys().next().value!;
-      suffixCharacters -= old.length;
-      suffixes.delete(old);
-    }
-    if (key.length <= 1_000_000) {
-      suffixes.set(key, true);
-      suffixCharacters += key.length;
-    }
-    return whole();
-  }
-  // Share only a repeated trailing run. Unique lines keep one paint reference;
-  // repeated endings need at most two, without expanding their common contours.
-  const runs: CompactRun[] = [];
-  for (const [i, glyphs] of [line.glyphs.slice(0, -32), tail].entries()) {
-    const origin = { x: glyphs[0].x, y: glyphs[0].y };
-    const compact = compactLine({
-      glyphs,
-      origin,
-      width: 0,
-      geometryKey: i ? key : `prefix:${line.geometryKey}`,
-    });
-    if (!compact) return whole();
-    runs.push({ compact, ...origin });
-  }
-  canvasLines.set(line, runs);
-  return runs;
 }

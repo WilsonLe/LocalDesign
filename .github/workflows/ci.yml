@@ -1,46 +1,43 @@
-name: Matched cold source comparison (diagnostic)
+name: Ubuntu ARM full validation (diagnostic)
 on:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   check:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Matched baseline and candidate, retaining every first sample
+      - run: lscpu
+      - run: npm run check
+      - name: Three additional fresh cold runs after the ordinary full suite
         run: |
-          python3 - <<'PYCODE'
-          import subprocess, pathlib, json, os, sys
-          output=pathlib.Path('/tmp/localdesign-source-comparison'); output.mkdir()
-          candidate=os.environ['GITHUB_SHA']
+          python3 - <<'PY'
+          import subprocess, pathlib, json
+          out=pathlib.Path('/tmp/localdesign-arm-validation'); out.mkdir()
           results=[]
-          for label,sha in [('baseline','9cccd2d2746192daf783e51a116df85098cd935d'),('candidate',candidate)]:
-              subprocess.run(['git','switch','--detach',sha],check=True)
-              with (output/f'{label}-build.log').open('w') as f:
-                  subprocess.run(['npm','run','build'],stdout=f,stderr=subprocess.STDOUT,check=True)
-              for i in range(3):
-                  log=output/f'{label}-{i}.log'
-                  with log.open('w') as f:
-                      run=subprocess.run(['npx','playwright','test','tests/browser/cold-navigation.spec.ts','--grep','first visits','--output',str(output/f'{label}-{i}')],stdout=f,stderr=subprocess.STDOUT)
-                  text=log.read_text(); line=next(l for l in text.splitlines() if l.startswith('COLD_NAVIGATION '))
-                  result={'phase':label,'run':i,'sha':sha,'exitCode':run.returncode,'metrics':json.loads(line.removeprefix('COLD_NAVIGATION '))}
-                  results.append(result); print(json.dumps(result),flush=True)
-                  (output/'results.json').write_text(json.dumps(results,indent=2))
-          sys.exit(1 if any(r['exitCode'] for r in results) else 0)
-          PYCODE
+          for i in range(3):
+              log=out/f'cold-{i}.log'
+              with log.open('w') as f:
+                  run=subprocess.run(['npx','playwright','test','tests/browser/cold-navigation.spec.ts','--grep','first visits','--output',str(out/f'cold-{i}')],stdout=f,stderr=subprocess.STDOUT)
+              line=next(l for l in log.read_text().splitlines() if l.startswith('COLD_NAVIGATION '))
+              result={'run':i,'exitCode':run.returncode,'metrics':json.loads(line.removeprefix('COLD_NAVIGATION '))}
+              results.append(result);print(json.dumps(result),flush=True)
+          (out/'results.json').write_text(json.dumps(results,indent=2))
+          raise SystemExit(1 if any(r['exitCode'] for r in results) else 0)
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: cold-source-comparison
-          path: /tmp/localdesign-source-comparison/
+          name: arm-validation
+          path: |
+            test-results/
+            /tmp/localdesign-arm-validation/
           retention-days: 7
