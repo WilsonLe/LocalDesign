@@ -1,8 +1,12 @@
 # LocalDesign
 
+> **LocalDesign has moved to [WilsonLe/LocalApps](https://github.com/WilsonLe/LocalApps).**
+> [Open LocalDesign in LocalApps](https://wilsonle.github.io/LocalApps/LocalDesign/). For code, issues, and contributions, use [the LocalApps repository](https://github.com/WilsonLe/LocalApps/tree/main/LocalDesign).
+> This standalone repository is retained for history. To export a backup from the previous release, use the [original LocalDesign page](https://wilsonle.github.io/LocalDesign/).
+
 A browser-local design editor for people and external agents, using LocalCut’s shadcn/Base UI components, neutral theme and monochrome line-art branding. Draw on a canvas, organize layers, edit typography and layout, and export an editable `.localdesign` file, SVG, PNG, JPEG or PDF. No account, backend, model provider or runtime credentials.
 
-**Try it:** https://wilsonle.github.io/LocalDesign/
+**Try it:** https://wilsonle.github.io/LocalApps/LocalDesign/
 
 **Plan:** [issue #1](https://github.com/WilsonLe/LocalDesign/issues/1)
 
